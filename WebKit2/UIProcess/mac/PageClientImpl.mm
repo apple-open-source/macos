@@ -33,7 +33,6 @@
 #import "DataReference.h"
 #import "DictionaryPopupInfo.h"
 #import "DownloadProxy.h"
-#import "FindIndicator.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NativeWebWheelEvent.h"
 #import "NavigationState.h"
@@ -58,8 +57,10 @@
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/Image.h>
 #import <WebCore/KeyboardEvent.h>
+#import <WebCore/LookupSPI.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/SharedBuffer.h>
+#import <WebCore/TextIndicator.h>
 #import <WebCore/TextUndoInsertionMarkupMac.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/text/CString.h>
@@ -78,6 +79,8 @@
 - (BOOL)_hostsLayersInWindowServer;
 @end
 #endif
+
+SOFT_LINK_CONSTANT_MAY_FAIL(Lookup, LUTermOptionDisableSearchTermIndicator, NSString *)
 
 using namespace WebCore;
 using namespace WebKit;
@@ -193,9 +196,20 @@ NSView *PageClientImpl::activeView() const
 #endif
 }
 
+NSWindow *PageClientImpl::activeWindow() const
+{
+#if WK_API_ENABLED
+    if (m_wkView._thumbnailView)
+        return m_wkView._thumbnailView.window;
+#endif
+    if (m_wkView._targetWindowForMovePreparation)
+        return m_wkView._targetWindowForMovePreparation;
+    return m_wkView.window;
+}
+
 bool PageClientImpl::isViewWindowActive()
 {
-    NSWindow *activeViewWindow = activeView().window;
+    NSWindow *activeViewWindow = activeWindow();
     return activeViewWindow.isKeyWindow || [NSApp keyWindow] == activeViewWindow;
 }
 
@@ -212,7 +226,7 @@ void PageClientImpl::makeFirstResponder()
 bool PageClientImpl::isViewVisible()
 {
     NSView *activeView = this->activeView();
-    NSWindow *activeViewWindow = activeView.window;
+    NSWindow *activeViewWindow = activeWindow();
 
     if (!activeViewWindow)
         return false;
@@ -240,12 +254,12 @@ bool PageClientImpl::isViewVisible()
 
 bool PageClientImpl::isViewVisibleOrOccluded()
 {
-    return activeView().window.isVisible;
+    return activeWindow().isVisible;
 }
 
 bool PageClientImpl::isViewInWindow()
 {
-    return activeView().window;
+    return activeWindow();
 }
 
 bool PageClientImpl::isVisuallyIdle()
@@ -256,7 +270,7 @@ bool PageClientImpl::isVisuallyIdle()
 LayerHostingMode PageClientImpl::viewLayerHostingMode()
 {
 #if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
-    if ([activeView().window _hostsLayersInWindowServer])
+    if ([activeWindow() _hostsLayersInWindowServer])
         return LayerHostingMode::OutOfProcess;
 #endif
     return LayerHostingMode::InProcess;
@@ -467,9 +481,14 @@ PassRefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page,
 }
 #endif
 
-void PageClientImpl::setFindIndicator(PassRefPtr<FindIndicator> findIndicator, bool fadeOut, bool animate)
+void PageClientImpl::setTextIndicator(PassRefPtr<TextIndicator> textIndicator, bool fadeOut)
 {
-    [m_wkView _setFindIndicator:findIndicator fadeOut:fadeOut animate:animate];
+    [m_wkView _setTextIndicator:textIndicator fadeOut:fadeOut];
+}
+
+void PageClientImpl::setTextIndicatorAnimationProgress(float progress)
+{
+    [m_wkView _setTextIndicatorAnimationProgress:progress];
 }
 
 void PageClientImpl::accessibilityWebProcessTokenReceived(const IPC::DataReference& data)
@@ -529,22 +548,33 @@ void PageClientImpl::setPluginComplexTextInputState(uint64_t pluginComplexTextIn
     [m_wkView _setPluginComplexTextInputState:pluginComplexTextInputState pluginComplexTextInputIdentifier:pluginComplexTextInputIdentifier];
 }
 
-void PageClientImpl::didPerformDictionaryLookup(const AttributedString& text, const DictionaryPopupInfo& dictionaryPopupInfo)
+void PageClientImpl::didPerformDictionaryLookup(const DictionaryPopupInfo& dictionaryPopupInfo)
 {
-    RetainPtr<NSAttributedString> attributedString = text.string;
+    if (!getLULookupDefinitionModuleClass())
+        return;
+
     NSPoint textBaselineOrigin = dictionaryPopupInfo.origin;
 
     // Convert to screen coordinates.
     textBaselineOrigin = [m_wkView convertPoint:textBaselineOrigin toView:nil];
     textBaselineOrigin = [m_wkView.window convertRectToScreen:NSMakeRect(textBaselineOrigin.x, textBaselineOrigin.y, 0, 0)].origin;
 
-    WKShowWordDefinitionWindow(attributedString.get(), textBaselineOrigin, (NSDictionary *)dictionaryPopupInfo.options.get());
+    RetainPtr<NSMutableDictionary> mutableOptions = adoptNS([(NSDictionary *)dictionaryPopupInfo.options.get() mutableCopy]);
+
+    if (canLoadLUTermOptionDisableSearchTermIndicator() && dictionaryPopupInfo.textIndicator.contentImage) {
+        // Run the animations serially because attaching another subwindow breaks the bounce animation.
+        // We could consider making the bounce NSAnimationNonblockingThreaded instead, which seems
+        // to work, but need to consider all of the implications.
+        [m_wkView _setTextIndicator:TextIndicator::create(dictionaryPopupInfo.textIndicator) fadeOut:NO];
+        [mutableOptions setObject:@YES forKey:getLUTermOptionDisableSearchTermIndicator()];
+        [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.string.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
+    } else
+        [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.string.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
 }
 
-void PageClientImpl::dismissDictionaryLookupPanel()
+void PageClientImpl::dismissContentRelativeChildWindows()
 {
-    // FIXME: We don't know which panel we are dismissing, it may not even be in the current page (see <rdar://problem/13875766>).
-    WKHideWordDefinitionWindow();
+    [m_wkView _dismissContentRelativeChildWindows];
 }
 
 void PageClientImpl::showCorrectionPanel(AlternativeTextType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
@@ -580,13 +610,6 @@ void PageClientImpl::recordAutocorrectionResponse(AutocorrectionResponseType res
 
 void PageClientImpl::recommendedScrollbarStyleDidChange(int32_t newStyle)
 {
-    NSArray *trackingAreas = [m_wkView trackingAreas];
-    NSUInteger count = [trackingAreas count];
-    ASSERT(count == 1);
-    
-    for (NSUInteger i = 0; i < count; ++i)
-        [m_wkView removeTrackingArea:[trackingAreas objectAtIndex:i]];
-
     // Now re-create a tracking area with the appropriate options given the new scrollbar style
     NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingMouseEnteredAndExited | NSTrackingInVisibleRect;
     if (newStyle == NSScrollerStyleLegacy)
@@ -594,12 +617,8 @@ void PageClientImpl::recommendedScrollbarStyleDidChange(int32_t newStyle)
     else
         options |= NSTrackingActiveInKeyWindow;
 
-    NSTrackingArea *trackingArea = [[NSTrackingArea alloc] initWithRect:[m_wkView frame]
-                                                                options:options
-                                                                  owner:m_wkView
-                                                               userInfo:nil];
-    [m_wkView addTrackingArea:trackingArea];
-    [trackingArea release];
+    RetainPtr<NSTrackingArea> trackingArea = adoptNS([[NSTrackingArea alloc] initWithRect:[m_wkView frame] options:options owner:m_wkView userInfo:nil]);
+    [m_wkView _setPrimaryTrackingArea:trackingArea.get()];
 }
 
 void PageClientImpl::intrinsicContentSizeDidChange(const IntSize& intrinsicContentSize)
@@ -684,6 +703,8 @@ void PageClientImpl::beganExitFullScreen(const IntRect& initialFrame, const IntR
 
 void PageClientImpl::navigationGestureDidBegin()
 {
+    dismissContentRelativeChildWindows();
+
 #if WK_API_ENABLED
     if (m_webView)
         NavigationState::fromWebPage(*m_webView->_page).navigationGestureDidBegin();
@@ -749,6 +770,19 @@ CGRect PageClientImpl::boundsOfLayerInLayerBackedWindowCoordinates(CALayer *laye
 
     return [windowContentLayer convertRect:layer.bounds fromLayer:layer];
 }
+
+void PageClientImpl::didPerformActionMenuHitTest(const ActionMenuHitTestResult& result, bool forImmediateAction, API::Object* userData)
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    [m_wkView _didPerformActionMenuHitTest:result forImmediateAction:forImmediateAction userData:userData];
+#endif
+}
+
+void PageClientImpl::showPlatformContextMenu(NSMenu *menu, IntPoint location)
+{
+    [menu popUpMenuPositioningItem:nil atLocation:location inView:m_wkView];
+}
+
 
 } // namespace WebKit
 

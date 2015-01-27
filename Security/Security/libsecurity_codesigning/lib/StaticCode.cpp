@@ -417,11 +417,16 @@ CFDataRef SecStaticCode::signature()
 void SecStaticCode::validateDirectory()
 {
 	// echo previous outcome, if any
-	if (!validated())
+	// track revocation separately, as it may not have been checked
+	// during the initial validation
+	if (!validated() || ((mValidationFlags & kSecCSEnforceRevocationChecks) && !revocationChecked()))
 		try {
 			// perform validation (or die trying)
 			CODESIGN_EVAL_STATIC_DIRECTORY(this);
 			mValidationExpired = verifySignature();
+			if (mValidationFlags & kSecCSEnforceRevocationChecks)
+				mRevocationChecked = true;
+
 			for (CodeDirectory::SpecialSlot slot = codeDirectory()->maxSpecialSlot(); slot >= 1; --slot)
 				if (mCache[slot])	// if we already loaded that resource...
 					validateComponent(slot, errorForSlot(slot)); // ... then check it now

@@ -379,6 +379,18 @@ static void setup_environment_scopes() {
     ApplyScopeListForIDC(cur_scope, kScopeIDEnvironment);
 }
 
+#define XPCSCOPESTRWANT "api,account,accountChange,circle,circleChange,circleCreat,flush,fresh,keygen,signing,talkwithkvs"
+#define XPCSCOPESTRDONTWANT "-event,http,item,keytrace,lockassertions,otr_keysetup,securityd,server,serverxpc,session,sync,titc,transport,trust,updates,xpc"
+static void setup_xpcdefault_scopes() {
+    
+    CFDictionaryRef noticeLogging = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                        CFSTR(ASL_STRING_NOTICE), CFSTR(XPCSCOPESTRDONTWANT), NULL);
+    
+    ApplyScopeDictionaryForID(noticeLogging, kScopeIDXPC);
+    
+    CFReleaseNull(noticeLogging);
+}
+
 void __security_debug_init(void) {
     static dispatch_once_t sdOnceToken;
 
@@ -386,9 +398,9 @@ void __security_debug_init(void) {
         setup_environment_scopes();
         setup_config_settings();
         setup_defaults_settings();
+        //setup_xpcdefault_scopes();
     });
 }
-
 
 // MARK: Log handler recording (e.g. grabbing security logging and sending it to test results).
 static void clean_aslclient(void *client)

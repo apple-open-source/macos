@@ -114,8 +114,12 @@ extern "C" {
         kAudioTAppleHDANode                 = 25,
         kAudioTAppleHDAFunctionGroup        = 26,
         kAudioTAppleHDAWidget               = 27,
-        kAudioTAppleHDAEngineOutputDP       = 28,
-        // reserve 29-34 for future AppleHDA codes
+        kAudioTAppleHDAEngineOutput         = 28,
+        kAudioTAppleHDAEngineOutputDP       = kAudioTAppleHDAEngineOutput,                      // duplicate this one
+        kAudioTAppleHDAPathSet              = 29,
+        kAudioTAppleHDAEngineInput          = 30,
+        
+        // reserve 31-34 for future AppleHDA codes
         
         kAudioTAppleUSBAudioDevice          = 35,
         kAudioTAppleUSBAudioDictionary      = 36,
@@ -124,7 +128,10 @@ extern "C" {
         kAudioTAppleUSBAudioPlugin          = 39
         
     };
-    
+
+#pragma mark Audio Kernel tracepoints
+#pragma mark --
+	
     // Tracepoint macros.
 #define AUDIO_TRACE(AudioClass, code)	( ( ( DBG_IOKIT & 0xFF ) << 24) | ( ( DBG_IOAUDIO & 0xFF ) << 16 ) | ( ( AudioClass & 0x3F ) << 10 ) | ( ( code & 0xFF ) << 2 ) )
     
@@ -152,7 +159,10 @@ extern "C" {
 #define AUDIO_APPLEHDANODE_TRACE(code)              AUDIO_TRACE( kAudioTAppleHDANode, code )
 #define AUDIO_APPLEHDAFUNCTIONGROUP_TRACE(code)		AUDIO_TRACE( kAudioTAppleHDAFunctionGroup, code )
 #define AUDIO_APPLEHDAWIDGET_TRACE(code)            AUDIO_TRACE( kAudioTAppleHDAWidget, code )
-#define AUDIO_APPLEHDAENGINEOUTPUTDP_TRACE(code)    AUDIO_TRACE( kAudioTAppleHDAEngineOutputDP, code )
+#define AUDIO_APPLEHDAENGINEOUTPUT_TRACE(code)      AUDIO_TRACE( kAudioTAppleHDAEngineOutput, code )
+#define AUDIO_APPLEHDAENGINEOUTPUTDP_TRACE(code)      AUDIO_TRACE( kAudioTAppleHDAEngineOutputDP, code )
+#define AUDIO_APPLEHDAPATHSET_TRACE(code)           AUDIO_TRACE( kAudioTAppleHDAPathSet, code )
+#define AUDIO_APPLEHDAENGINEINPUT_TRACE(code)       AUDIO_TRACE( kAudioTAppleHDAEngineInput, code )
     
 #define AUDIO_APPLEUSBAUDIODEVICE_TRACE(code)       AUDIO_TRACE( kAudioTAppleUSBAudioDevice, code )
 #define AUDIO_APPLEUSBAUDIODICTIONARY_TRACE(code)   AUDIO_TRACE( kAudioTAppleUSBAudioDictionary, code )

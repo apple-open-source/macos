@@ -39,7 +39,6 @@
 #include "PluginProcessConnectionMessages.h"
 #include "PluginProxyMessages.h"
 #include "WebProcessConnectionMessages.h"
-#include <WebCore/AudioHardwareListener.h>
 #include <unistd.h>
 #include <wtf/RunLoop.h>
 
@@ -92,8 +91,6 @@ void WebProcessConnection::removePluginControllerProxy(PluginControllerProxy* pl
         std::unique_ptr<PluginControllerProxy> pluginControllerUniquePtr = m_pluginControllers.take(pluginInstanceID);
         ASSERT(pluginControllerUniquePtr.get() == pluginController);
     }
-
-    pluginDidBecomeHidden(pluginInstanceID);
 
     // Invalidate all objects related to this plug-in.
     if (plugin)
@@ -323,28 +320,6 @@ void WebProcessConnection::createPluginAsynchronously(const PluginCreationParame
     }
 
     m_connection->sendSync(Messages::PluginProxy::DidCreatePlugin(wantsWheelEvents, remoteLayerClientID), Messages::PluginProxy::DidCreatePlugin::Reply(), creationParameters.pluginInstanceID);
-}
-    
-void WebProcessConnection::pluginDidBecomeVisible(unsigned pluginInstanceID)
-{
-    bool oldState = m_visiblePluginInstanceIDs.isEmpty();
-    
-    m_visiblePluginInstanceIDs.add(pluginInstanceID);
-
-    ASSERT(m_visiblePluginInstanceIDs.size() <= m_pluginControllers.size());
-    
-    if (oldState != m_visiblePluginInstanceIDs.isEmpty())
-        PluginProcess::shared().pluginsForWebProcessDidBecomeVisible();
-}
-
-void WebProcessConnection::pluginDidBecomeHidden(unsigned pluginInstanceID)
-{
-    bool oldState = m_visiblePluginInstanceIDs.isEmpty();
-    
-    m_visiblePluginInstanceIDs.remove(pluginInstanceID);
-    
-    if (oldState != m_visiblePluginInstanceIDs.isEmpty())
-        PluginProcess::shared().pluginsForWebProcessDidBecomeHidden();
 }
     
 void WebProcessConnection::audioHardwareDidBecomeActive()

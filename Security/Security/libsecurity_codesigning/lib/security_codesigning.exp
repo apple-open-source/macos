@@ -133,6 +133,7 @@ _SecTaskCreateWithAuditToken
 _SecTaskCreateFromSelf
 _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
+_SecTaskEntitlementsValidated
 _SecTaskValidateForRequirement
 
 # Assessments

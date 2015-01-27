@@ -44,6 +44,7 @@ class MessageDecoder;
 
 namespace WebCore {
 class DisplayRefreshMonitor;
+class Frame;
 class FrameView;
 class GraphicsLayer;
 class GraphicsLayerFactory;
@@ -113,12 +114,14 @@ public:
 
     virtual void dispatchAfterEnsuringUpdatedScrollPosition(std::function<void ()>);
 
-    virtual void viewStateDidChange(WebCore::ViewState::Flags, bool /*wantsDidUpdateViewState*/) { }
+    virtual void viewStateDidChange(WebCore::ViewState::Flags, bool /* wantsDidUpdateViewState */, const Vector<uint64_t>& /* callbackIDs */) { }
     virtual void setLayerHostingMode(LayerHostingMode) { }
 
     virtual bool markLayersVolatileImmediatelyIfPossible() { return true; }
 
     virtual bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) { return false; }
+
+    virtual void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) { }
 
 protected:
     DrawingArea(DrawingAreaType, WebPage&);

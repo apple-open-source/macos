@@ -127,6 +127,7 @@ class IntSize;
 class ProtectionSpace;
 class RunLoopObserver;
 class SharedBuffer;
+class TextIndicator;
 struct FileChooserSettings;
 struct TextAlternativeWithRange;
 struct TextCheckingResult;
@@ -167,6 +168,7 @@ class WebPageGroup;
 class WebProcessProxy;
 class WebUserContentControllerProxy;
 class WebWheelEvent;
+struct ActionMenuHitTestResult;
 struct AttributedString;
 struct ColorSpaceData;
 struct DictionaryPopupInfo;
@@ -361,7 +363,8 @@ public:
     bool delegatesScrolling() const { return m_delegatesScrolling; }
 
     enum class ViewStateChangeDispatchMode { Deferrable, Immediate };
-    void viewStateDidChange(WebCore::ViewState::Flags mayHaveChanged, bool wantsReply = false, ViewStateChangeDispatchMode = ViewStateChangeDispatchMode::Deferrable);
+    void viewStateDidChange(WebCore::ViewState::Flags mayHaveChanged, bool wantsSynchronousReply = false, ViewStateChangeDispatchMode = ViewStateChangeDispatchMode::Deferrable);
+    void installViewStateChangeCompletionHandler(void(^completionHandler)());
     bool isInWindow() const { return m_viewState & WebCore::ViewState::IsInWindow; }
     void waitForDidUpdateViewState();
     void didUpdateViewState() { m_waitingForDidUpdateViewState = false; }
@@ -655,7 +658,9 @@ public:
     void hideFindUI();
     void countStringMatches(const String&, FindOptions, unsigned maxMatchCount);
     void didCountStringMatches(const String&, uint32_t matchCount);
-    void setFindIndicator(const WebCore::FloatRect& selectionRectInWindowCoordinates, const Vector<WebCore::FloatRect>& textRectsInSelectionRectCoordinates, float contentImageScaleFactor, const ShareableBitmap::Handle& contentImageHandle, bool fadeOut, bool animate);
+    void setTextIndicator(const WebCore::TextIndicatorData&, bool fadeOut);
+    void setTextIndicatorAnimationProgress(float);
+    void clearTextIndicator();
     void didFindString(const String&, uint32_t matchCount, int32_t matchIndex);
     void didFailToFindString(const String&);
     void didFindStringMatches(const String&, const Vector<Vector<WebCore::IntRect>>& matchRects, int32_t firstIndexAfterSelection);
@@ -684,6 +689,7 @@ public:
 #if PLATFORM(COCOA)
     // Dictionary.
     void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
+    void performDictionaryLookupOfCurrentSelection();
 #endif
 
     void receivedPolicyDecision(WebCore::PolicyAction, WebFrameProxy*, uint64_t listenerID, uint64_t navigationID);
@@ -911,6 +917,20 @@ public:
     bool isShowingNavigationGestureSnapshot() const { return m_isShowingNavigationGestureSnapshot; }
     void removeNavigationGestureSnapshot();
 
+#if PLATFORM(MAC)
+    WebHitTestResult* lastMouseMoveHitTestResult() const { return m_lastMouseMoveHitTestResult.get(); }
+    void performActionMenuHitTestAtLocation(WebCore::FloatPoint, bool forImmediateAction);
+    void selectLastActionMenuRange();
+    void focusAndSelectLastActionMenuHitTestResult();
+#endif
+
+#if USE(UNIFIED_TEXT_CHECKING)
+    void checkTextOfParagraph(const String& text, uint64_t checkingTypes, Vector<WebCore::TextCheckingResult>& results);
+#endif
+    void getGuessesForWord(const String& word, const String& context, Vector<String>& guesses);
+
+    void setShouldDispatchFakeMouseMoveEvents(bool);
+
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, uint64_t pageID, const WebPageConfiguration&);
     void platformInitialize();
@@ -1133,19 +1153,15 @@ private:
     void searchTheWeb(const String&);
 
     // Dictionary.
-    void didPerformDictionaryLookup(const AttributedString&, const DictionaryPopupInfo&);
+    void didPerformDictionaryLookup(const DictionaryPopupInfo&);
 #endif
 
     // Spelling and grammar.
-#if USE(UNIFIED_TEXT_CHECKING)
-    void checkTextOfParagraph(const String& text, uint64_t checkingTypes, Vector<WebCore::TextCheckingResult>& results);
-#endif
     void checkSpellingOfString(const String& text, int32_t& misspellingLocation, int32_t& misspellingLength);
     void checkGrammarOfString(const String& text, Vector<WebCore::GrammarDetail>&, int32_t& badGrammarLocation, int32_t& badGrammarLength);
     void spellingUIIsShowing(bool&);
     void updateSpellingUIWithMisspelledWord(const String& misspelledWord);
     void updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const WebCore::GrammarDetail&);
-    void getGuessesForWord(const String& word, const String& context, Vector<String>& guesses);
     void learnWord(const String& word);
     void ignoreWord(const String& word);
     void requestCheckingOfString(uint64_t requestID, const WebCore::TextCheckingRequestData&);
@@ -1287,6 +1303,8 @@ private:
     void viewDidLeaveWindow();
     void viewDidEnterWindow();
 
+    void didPerformActionMenuHitTest(const ActionMenuHitTestResult&, bool forImmediateAction, IPC::MessageDecoder&);
+
     PageClient& m_pageClient;
     std::unique_ptr<API::LoaderClient> m_loaderClient;
     std::unique_ptr<API::PolicyClient> m_policyClient;
@@ -1355,6 +1373,8 @@ private:
     RefPtr<WebContextMenuProxy> m_activeContextMenu;
     ContextMenuContextData m_activeContextMenuContextData;
 #endif
+    RefPtr<WebHitTestResult> m_lastMouseMoveHitTestResult;
+
     RefPtr<WebOpenPanelResultListenerProxy> m_openPanelResultListener;
     GeolocationPermissionRequestManagerProxy m_geolocationPermissionRequestManager;
     NotificationPermissionRequestManagerProxy m_notificationPermissionRequestManager;
@@ -1536,7 +1556,8 @@ private:
 
     WebPreferencesStore::ValueMap m_configurationPreferenceValues;
     WebCore::ViewState::Flags m_potentiallyChangedViewStateFlags;
-    bool m_viewStateChangeWantsReply;
+    bool m_viewStateChangeWantsSynchronousReply;
+    Vector<uint64_t> m_nextViewStateChangeCallbacks;
 };
 
 } // namespace WebKit

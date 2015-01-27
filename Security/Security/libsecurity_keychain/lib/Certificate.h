@@ -124,6 +124,7 @@ protected:
 
 	void addSubjectKeyIdentifier();
 	void populateAttributes();
+	bool verifyEncoding(CSSM_DATA_PTR data);
 
 private:
 	bool mHaveTypeAndEncoding;
@@ -140,6 +141,7 @@ private:
     CSSM_DATA_PTR mV1SubjectNameCStructValue;
     CSSM_DATA_PTR mV1IssuerNameCStructValue;
 	CFDataRef mSha1Hash;
+	bool mEncodingVerified;
 };
 
 } // end namespace KeychainCore

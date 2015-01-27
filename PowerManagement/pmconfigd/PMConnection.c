@@ -74,6 +74,12 @@
 // Number of seconds before auto power off timer we let system go to sleep
 #define kAutoPowerOffSleepAhead     (0)
 
+#define IS_EMERGENCY_SLEEP(reason) \
+                ((CFEqual((reason), CFSTR(kIOPMLowPowerSleepKey)) ||  \
+                CFEqual((reason), CFSTR(kIOPMThermalEmergencySleepKey)) || \
+                ((getSystemThermalState() != kIOPMThermalLevelNormal) && \
+                 (getSystemThermalState() != kIOPMThermalLevelUnknown)))?true:false)
+
 /* Bookkeeping data types */
 
 enum {
@@ -308,10 +314,6 @@ SleepServiceStruct              gSleepService;
 uint32_t                        gDebugFlags = 0;
 
 uint32_t                        gCurrentSilentRunningState = kSilentRunningOff;
-
-#if !TARGET_OS_EMBEDDED
-static bool                     gForceDWL = false;
-#endif
 
 bool                            gMachineStateRevertible = true;
 
@@ -925,8 +927,6 @@ kern_return_t _io_pm_set_dw_linger_interval
     if (oldInterval)
        *oldInterval = kPMDarkWakeLingerDuration;
     kPMDarkWakeLingerDuration = newInterval;
-    // Force fake sleep even on unsupported platforms
-    gForceDWL = true;
 #endif
 
     *return_code = kIOReturnSuccess;
@@ -1756,6 +1756,63 @@ static void handleCanSleepMsg(void *messageData, CFStringRef sleepReason)
 
 }
 
+#if !TARGET_OS_EMBEDDED
+static bool dwLinger(CFStringRef sleepReason)
+{
+
+    // Dark Wake Linger: After going from FullWake to DarkWake during a
+    // demand sleep, linger in darkwake for a certain amount of seconds
+    //
+    // Power Nap machines will linger on every FullWake --> DarkWake
+    // transition except emergency sleeps.
+    // Non-Power Nap machines will linger on every FullWake --> DarkWake
+    // transition except emergency sleeps, and clamshell close sleeps
+
+
+    bool isBTCapable = IOPMFeatureIsAvailable(CFSTR(kIOPMDarkWakeBackgroundTaskKey), NULL);
+
+    bool isEmergencySleep = IS_EMERGENCY_SLEEP(sleepReason);
+    bool isClamshellSleep = CFEqual(sleepReason, CFSTR(kIOPMClamshellSleepKey))?true:false;
+
+    if ((getSessionUserActivity() == false) ||
+        isEmergencySleep ||
+        (kPMDarkWakeLingerDuration == 0) ) {
+        // Don't linger if:
+        //      user wasn't active in last full wake, or
+        //      this is an emrgency sleep, or
+        //      user has set linger duration to 0
+        return false;
+    }
+
+    if((isBTCapable || (!isBTCapable && !isClamshellSleep)))
+    {
+
+        CFMutableDictionaryRef assertionDescription = NULL;
+        assertionDescription = _IOPMAssertionDescriptionCreate(
+                                                               kIOPMAssertInternalPreventSleep,
+                                                               CFSTR("com.apple.powermanagement.darkwakelinger"),
+                                                               NULL, CFSTR("Proxy assertion to linger in darkwake"),
+                                                               NULL, kPMDarkWakeLingerDuration,
+                                                               kIOPMAssertionTimeoutActionRelease);
+
+        if (assertionDescription)
+        {
+            //This assertion should be applied even on battery power
+            CFDictionarySetValue(assertionDescription,
+                                 kIOPMAssertionAppliesToLimitedPowerKey,
+                                 (CFBooleanRef)kCFBooleanTrue);
+            InternalCreateAssertion(assertionDescription, NULL);
+
+            CFRelease(assertionDescription);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
+
 /*****************************************************************************/
 /* PMConnectionPowerCallBack */
 /*****************************************************************************/
@@ -1801,11 +1858,12 @@ static void PMConnectionPowerCallBack(
     else if (kIOMessageSystemCapabilityChange != inMessageType)
         return;
 
-    capArgs = (const struct IOPMSystemCapabilityChangeParameters *)messageData;
+    capArgs = (typeof(capArgs)) messageData;
 
     AutoWakeCapabilitiesNotification(capArgs->fromCapabilities, capArgs->toCapabilities);
     ClockSleepWakeNotification(capArgs->fromCapabilities, capArgs->toCapabilities,
                                capArgs->changeFlags);
+    PMSettingsCapabilityChangeNotification(capArgs);
 
     if (IS_DARK_CAPABILITIES(capArgs->fromCapabilities)
         && !IS_DARK_CAPABILITIES(capArgs->toCapabilities))
@@ -1833,6 +1891,9 @@ static void PMConnectionPowerCallBack(
 
         }
         cancelPowerNapStates();
+        if (IS_EMERGENCY_SLEEP(sleepReason))
+            disableTCPKeepAlive();
+
 #endif
 
         // Clear gPowerState and set it to kSleepState
@@ -1881,46 +1942,7 @@ static void PMConnectionPowerCallBack(
         gPowerState &= ~kNotificationDisplayWakeState;
 
 
-        // Dark Wake Linger: After going from FullWake to DarkWake during a
-        // demand sleep, linger in darkwake for a certain amount of seconds
-        //
-        // Power Nap machines will linger on every FullWake --> DarkWake
-        // transition except emergency sleeps.
-        // Non-Power Nap machines will linger on every FullWake --> DarkWake
-        // transition except emergency sleeps, and clamshell close sleeps
-        bool isBTCapable = (IOPMFeatureIsAvailable(CFSTR(kIOPMDarkWakeBackgroundTaskKey), NULL) ||
-                            gForceDWL)?true:false;
-
-        bool isEmergencySleep = (CFEqual(sleepReason, CFSTR(kIOPMLowPowerSleepKey)) ||
-                                 CFEqual(sleepReason, CFSTR(kIOPMThermalEmergencySleepKey)))?true:false;
-        bool isClamshellSleep = CFEqual(sleepReason, CFSTR(kIOPMClamshellSleepKey))?true:false;
-
-        if(((isBTCapable && !isEmergencySleep) ||
-            (!isBTCapable && !isEmergencySleep && !isClamshellSleep)) &&
-           (kPMDarkWakeLingerDuration != 0))
-        {
-
-            CFMutableDictionaryRef assertionDescription = NULL;
-            assertionDescription = _IOPMAssertionDescriptionCreate(
-                                        kIOPMAssertInternalPreventSleep,
-                                        CFSTR("com.apple.powermanagement.darkwakelinger"),
-                                        NULL, CFSTR("Proxy assertion to linger in darkwake"),
-                                        NULL, kPMDarkWakeLingerDuration,
-                                        kIOPMAssertionTimeoutActionRelease);
-
-            if (assertionDescription)
-            {
-                //This assertion should be applied even on battery power
-                CFDictionarySetValue(assertionDescription,
-                                     kIOPMAssertionAppliesToLimitedPowerKey,
-                                     (CFBooleanRef)kCFBooleanTrue);
-                InternalCreateAssertion(assertionDescription, NULL);
-
-                CFRelease(assertionDescription);
-
-                linger = true;
-            }
-        }
+        linger = dwLinger(sleepReason);
 
         /*
          * This notification is issued before every sleep. Log to asl only if
@@ -1946,8 +1968,10 @@ static void PMConnectionPowerCallBack(
             sendNoRespNotification(deliverCapabilityBits);
         }
 #if TCPKEEPALIVE
-        startTCPKeepAliveExpTimer();
+        if ((getSessionUserActivity() == true) && (_getPowerSource() == kBatteryPowered))
+            startTCPKeepAliveExpTimer();
 #endif
+        resetSessionUserActivity();
 
 #endif
     } else if (SYSTEM_DID_WAKE(capArgs))
@@ -2628,6 +2652,26 @@ static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
         // Make sure that wake request is at least 1 min from now
         earliestWake = (CFAbsoluteTimeGetCurrent()+60);
     }
+
+#if TCPKEEPALIVE
+    CFAbsoluteTime ts_tcpka_turnoff = getTcpkaTurnOffTime();
+    if (VALID_DATE(ts_tcpka_turnoff)) {
+        m = describeWakeRequest(m, getpid(), "TCPKATurnOff", ts_tcpka_turnoff, NULL);
+        if (ts_tcpka_turnoff <= earliestWake) {
+            earliestWake = ts_tcpka_turnoff;
+            type = kChooseMaintenance;
+            chosenReq = reqCnt;
+            if (earliestWake < (CFAbsoluteTimeGetCurrent()+60)) {
+                // Make sure that wake request is at least 1 min from now
+                earliestWake = (CFAbsoluteTimeGetCurrent()+60);
+            }
+        }
+        reqCnt++;
+
+    }
+#endif
+
+    /* Check for user wake requests in the end to give highest priority, in case of conflict */
     userWake = getEarliestRequestAutoWake();
     if (VALID_DATE(userWake)) {
         m = describeWakeRequest(m, getpid(), "UserWake", userWake, NULL);
@@ -2643,6 +2687,15 @@ static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
         userWakeReq = true;
         reqCnt++;
     }
+
+#ifndef TARGET_OS_EMBEDDED
+    uint32_t thermalLevel = getSystemThermalLevel();
+    if ((thermalLevel == kIOPMThermalLevelWarning) || (thermalLevel == kIOPMThermalLevelTrap))
+        // Ignore darkwake requests and user wake requests when thermal state is warning/trap
+        earliestWake = kCFAbsoluteTimeIntervalSince1904;
+        userWakeReq = ssWakeReq = false;
+    }
+#endif
 
     if (ts_apo != 0) {
         // Report existence of user wake request or SS request to IOPPF(thru rootDomain)

@@ -25,6 +25,7 @@
 #include <sys/sysctl.h>
 #include <notify.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
+#include <libkern/OSThermalNotification.h>
 
 #include "PrivateLib.h"
 #include "SystemLoad.h"
@@ -66,6 +67,10 @@ static bool   displaySleepEnabled       = FALSE;
 
 static int    gNotifyToken              = 0;
 
+static uint32_t thermalState            = kIOPMThermalWarningLevelNormal;
+static uint64_t thermalPressureLevel    = kOSThermalPressureLevelNominal;
+static int      tpl_supported           = 0;
+
 
 /*! UserActiveStruct records the many data sources that affect
  *  our concept of user-is-active; and the user's activity level.
@@ -104,6 +109,11 @@ typedef struct {
      */
     bool    rootDomain;
 
+    /*! sessionUserActivity tracks if user was ever active since last full wake.
+     * This is reset when system enters dark wake state.
+     */
+    bool    sessionUserActivity;
+
     /*! sleepFromUserWakeTime is a timestamp tracking the last time the system
      *  was in full S0 user wake, and it went to sleep.
      *  We will not update this timestamp on maintenance wakes.
@@ -127,6 +137,7 @@ static void userActive_prime(void) {
     bzero(&userActive, sizeof(UserActiveStruct));
 
     userActive.postedLevels = 0xFFFF; // bogus value
+    userActiveHandleRootDomainActivity();
 }
 
 bool userActiveRootDomain(void)
@@ -146,6 +157,20 @@ void userActiveHandlePowerAssertionsChanged()
     updateUserActivityLevels();
 }
 
+__private_extern__ void resetSessionUserActivity()
+{
+    userActive.sessionUserActivity = false;
+}
+
+__private_extern__ uint32_t getSystemThermalState()
+{
+    return thermalState;
+}
+
+__private_extern__ bool getSessionUserActivity()
+{
+    return userActive.sessionUserActivity;
+}
 
 void userActiveHandleRootDomainActivity(void)
 {
@@ -159,9 +184,15 @@ void userActiveHandleRootDomainActivity(void)
         cancel_NotificationDisplayWake();
         cancelPowerNapStates();
 #if TCPKEEPALIVE
-        cancelTCPKeepAliveExpTimer();
+        enableTCPKeepAlive();
 #endif
-        userActive.rootDomain = true;
+        userActive.sessionUserActivity = userActive.rootDomain = true;
+
+        // Consider this equivalent to an user active assertion.
+        // This is because, when the system is woken up by a key press
+        // without any more HID activity, hidActive won't change to true
+        SystemLoadUserActiveAssertions(true);
+        updateUserActivityLevels( );
     }
 
     if (userIsActive) {
@@ -195,6 +226,24 @@ void updateUserActivityLevels(void)
     if (userActive.postedLevels != levels) {
         notify_set_state(token, levels);
         notify_post("com.apple.system.powermanagement.useractivity2");
+
+        if (((userActive.postedLevels & kIOPMUserNotificationActive) == 0) &&
+            (levels & kIOPMUserNotificationActive)) {
+            /*
+             * kIOPMUserNotificationActive is being set. Make sure this notification 
+             * is visible before proceeding. This notification has to reach the clients
+             * before display gets turned on(rdar://problem/18344363).
+             */
+            int attempts = 0;
+            uint64_t newstate = 0;
+            while (attempts++ < 10) {
+                notify_get_state(token, &newstate);
+                if (newstate == levels)
+                    break;
+                usleep(1000); // 10ms delay
+            }
+
+        }
         userActive.postedLevels = levels;
     }
 }
@@ -272,11 +321,31 @@ static void shareTheSystemLoad(bool shouldNotify)
         batteryLevel = kIOSystemLoadAdvisoryLevelBad;
     }
     
-    if (plimitBelowThreshold) {
-        powerLevel = kIOSystemLoadAdvisoryLevelOK;
+    if (!tpl_supported) {
+        // Check plimits and GFI only if pressure levels are not
+        // published for the platform.
+        // Pressure levels, if published, takes hysterisis of
+        // plimits into account and reflects more accurate state.
+        if (plimitBelowThreshold) {
+            powerLevel = kIOSystemLoadAdvisoryLevelOK;
+        }
+        if (coresConstrained || forcedIdle || thermalWarningLevel) {
+            powerLevel = kIOSystemLoadAdvisoryLevelBad;
+        }
     }
-    if (coresConstrained || forcedIdle || thermalWarningLevel) {
-        powerLevel = kIOSystemLoadAdvisoryLevelBad;
+    else {
+        if (thermalPressureLevel == kOSThermalPressureLevelNominal) {
+            powerLevel = kIOSystemLoadAdvisoryLevelGreat;
+        }
+        else if ((thermalPressureLevel == kOSThermalPressureLevelModerate) ||
+            (thermalPressureLevel == kOSThermalPressureLevelHeavy))
+        {
+            powerLevel = kIOSystemLoadAdvisoryLevelOK;
+        }
+        else {
+            // trapping or sleeping
+            powerLevel = kIOSystemLoadAdvisoryLevelBad;
+        }
     }
 
     // TODO: Use seconds since last UI activity as an indicator of
@@ -446,6 +515,7 @@ __private_extern__ void SystemLoad_prime(void)
     io_iterator_t               hid_iter = 0;
     kern_return_t               kr;
     CFRunLoopSourceRef          rlser = 0;
+    int                         token;
 
     userActive_prime();
 
@@ -500,7 +570,13 @@ __private_extern__ void SystemLoad_prime(void)
                 "Failed to match HIDSystem(0x%x)\n", kr);
     }
     
-
+    notify_register_dispatch( kOSThermalNotificationPressureLevelName, 
+                              &token, dispatch_get_main_queue(),
+                              ^(int token) {
+                                    notify_get_state(token, &thermalPressureLevel);
+                                    tpl_supported = 1;
+                                    shareTheSystemLoad(kYesNotify);
+                              });
 
 }
 
@@ -519,6 +595,11 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
     }
 
     displayIsOff = _displayIsOff;
+    if (displayIsOff) {
+        // Force set user active assertions to false
+        userActive.assertionsActive = false;
+        dispatch_suspend(userActive.timer);
+    }
     
     shareTheSystemLoad(kYesNotify);
     updateUserPresentActive();
@@ -645,7 +726,6 @@ __private_extern__ void SystemLoadCPUPowerHasChanged(CFDictionaryRef newCPU)
     static int      maxCPUCount = 0;
     CFNumberRef     runnableTimeNum = NULL;
     int             runnableTime = 100; // defaults to OK value
-    uint32_t        getlevel = 0;
     IOReturn        ret;
 
     if (0 == maxCPUCount) {
@@ -661,9 +741,10 @@ __private_extern__ void SystemLoadCPUPowerHasChanged(CFDictionaryRef newCPU)
     cpuCount = maxCPUCount;
 
     /**/    
-    ret = IOPMGetThermalWarningLevel(&getlevel);
+    ret = IOPMGetThermalWarningLevel(&thermalState);
     if ( (kIOReturnSuccess == ret)
-        && (kIOPMThermalWarningLevelNormal != getlevel))
+        && (kIOPMThermalWarningLevelNormal != thermalState)
+        && (kIOPMThermalLevelUnknown != thermalState))
     {
         thermalWarningLevel = true;
     } else {

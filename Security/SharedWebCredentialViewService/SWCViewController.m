@@ -88,7 +88,7 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
         
         self.textLabel.textColor = [UIColor blackColor];
         self.textLabel.textAlignment = NSTextAlignmentLeft;
-        self.textLabel.AdjustsFontSizeToFitWidth = YES;
+        self.textLabel.adjustsFontSizeToFitWidth = YES;
         self.textLabel.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
         
         NSString *title = [dict objectForKey:SWC_ACCOUNT_KEY];
@@ -96,7 +96,7 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
         
         self.detailTextLabel.textColor = [UIColor darkGrayColor];
         self.detailTextLabel.textAlignment = NSTextAlignmentLeft;
-        self.detailTextLabel.AdjustsFontSizeToFitWidth = YES;
+        self.detailTextLabel.adjustsFontSizeToFitWidth = YES;
         self.detailTextLabel.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
         
         NSString *subtitle = [dict objectForKey:SWC_SERVER_KEY];

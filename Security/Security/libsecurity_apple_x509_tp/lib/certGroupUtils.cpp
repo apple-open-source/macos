@@ -634,7 +634,7 @@ CSSM_BOOL tpCompareDomainSuffix(
 
 /*
  * Following a CSSMOID_ECDSA_WithSpecified algorithm is an encoded
- * ECDSA_SigAlgParams containing the digest agorithm OID. Decode and return
+ * ECDSA_SigAlgParams containing the digest algorithm OID. Decode and return
  * a unified ECDSA/digest alg (e.g. CSSM_ALGID_SHA512WithECDSA).
  * Returns nonzero on error.
  */

@@ -893,11 +893,12 @@ IOReturn IOHIDLibUserClient::getElements (uint32_t elementType, void *elementBuf
     
     if ( !array )
         return kIOReturnError;
-        
+
+    count = array->getCount();
+
     if ( elementBuffer )
         bzero(elementBuffer, *elementBufferSize);
         
-    count = array->getCount();
     bi = 0;
     
     for ( i=0; i<count; i++ )
@@ -905,10 +906,24 @@ IOReturn IOHIDLibUserClient::getElements (uint32_t elementType, void *elementBuf
         element = OSDynamicCast(IOHIDElementPrivate, array->getObject(i));
         
         if (!element) continue;
-        
-        // Passing elementBuffer=0 means we are just attempting to get the count;
-        elementStruct = elementBuffer ? &(((IOHIDElementStruct *)elementBuffer)[bi]) : 0;
-        
+       
+        elementStruct = 0;
+
+        do 
+        {
+            if ( !elementBuffer ) 
+                break;
+
+            if ( bi == 0xFFFFFFFF )
+                break;
+
+            if ( (bi + 1) > (0xFFFFFFFF / sizeof(IOHIDElementStruct)) )
+                break;
+
+            if ( (bi + 1) * sizeof(IOHIDElementStruct) <= *elementBufferSize )
+                elementStruct = &(((IOHIDElementStruct *)elementBuffer)[bi]);
+        } while(0);
+	
         if ( element->fillElementStruct(elementStruct) )
             bi++;
     }
@@ -932,8 +947,9 @@ IOReturn IOHIDLibUserClient::getElements(uint32_t elementType, IOMemoryDescripto
     {
         void *        elementData;
         uint32_t    elementLength;
+        uint32_t    allocationSize;
         
-        elementLength = mem->getLength();
+        allocationSize = elementLength = mem->getLength();
         if ( elementLength )
         {
             elementData = IOMalloc( elementLength );
@@ -949,7 +965,7 @@ IOReturn IOHIDLibUserClient::getElements(uint32_t elementType, IOMemoryDescripto
 
                 mem->writeBytes( 0, elementData, elementLength );
 
-                IOFree( elementData, elementLength );
+                IOFree( elementData, allocationSize );
             }
             else
                 ret = kIOReturnNoMemory;

@@ -119,6 +119,21 @@ __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
 int
 _pthread_workqueue_override_reset(void);
 
+// Apply a QoS override on a given thread (can be non-workqueue as well) with a resource/queue token
+__OSX_AVAILABLE_STARTING(__MAC_10_10_2, __IPHONE_NA)
+int
+_pthread_workqueue_asynchronous_override_add(mach_port_t thread, pthread_priority_t priority, void *resource);
+
+// Reset overrides for the given resource for the current thread
+__OSX_AVAILABLE_STARTING(__MAC_10_10_2, __IPHONE_NA)
+int
+_pthread_workqueue_asynchronous_override_reset_self(void *resource);
+
+// Reset overrides for all resources for the current thread
+__OSX_AVAILABLE_STARTING(__MAC_10_10_2, __IPHONE_NA)
+int
+_pthread_workqueue_asynchronous_override_reset_all_self(void);
+
 __END_DECLS
 
 #endif // __PTHREAD_WORKQUEUE_H__

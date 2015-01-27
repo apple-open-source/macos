@@ -228,6 +228,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
     CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     
     if(CFDictionaryContainsKey(updates, kSOSKVSAccountChangedKey)){
+        secnotice("accountChange", "SOSTransportDispatchMessages received kSOSKVSAccountChangedKey");
         // While changing accounts we may modify the key params array. To avoid stepping on ourselves we
         // copy the list for iteration.
         CFArrayRef originalKeyParams = CFArrayCreateCopy(kCFAllocatorDefault, SOSGetTransportKeyParameters());

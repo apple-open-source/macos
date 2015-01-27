@@ -482,31 +482,27 @@ IOHIDSecurePromptClient::getTargetAndMethodForIndex(IOService ** targetP,
     static const IOExternalMethod methodTemplate[] = {
         // 0: kIOHIDSecurePromptClient_setGatheringMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::setGatheringMethod,	kIOUCScalarIScalarO, 1, 0 },
-        // 1: kIOHIDSecurePromptClient_setLayoutMethod
-        { NULL, (IOMethod)&IOHIDSecurePromptClient::setLayoutMethod,	kIOUCScalarIScalarO, 1, 0 },
-        // 2: kIOHIDSecurePromptClient_confirmKeyMethod
+        // 1: kIOHIDSecurePromptClient_confirmKeyMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::confirmKeyMethod, 	kIOUCScalarIScalarO, 1, 1 },
-        // 3: kIOHIDSecurePromptClient_getGatheringMethod
+        // 2: kIOHIDSecurePromptClient_getGatheringMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::getGatheringMethod, kIOUCScalarIScalarO, 1, 0 },
-        // 4: kIOHIDSecurePromptClient_deleteKeysMethod
+        // 3: kIOHIDSecurePromptClient_deleteKeysMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::deleteKeysMethod, 	kIOUCScalarIScalarO, 2, 1 },
-        // 5: kIOHIDSecurePromptClient_getLayoutMethod
-        { NULL, (IOMethod)&IOHIDSecurePromptClient::getLayoutMethod, 	kIOUCScalarIScalarO, 1, 0 },
-        // 6: kIOHIDSecurePromptClient_getIdentifierMethod
+        // 4: kIOHIDSecurePromptClient_getIdentifierMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::getIdentifierMethod, kIOUCScalarIScalarO, 0, 1 },
-        // 7: kIOHIDSecurePromptClient_compareClientMethod
+        // 5: kIOHIDSecurePromptClient_compareClientMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::compareClientMethod, kIOUCScalarIScalarO, 1, 0 },
-        // 8: kIOHIDSecurePromptClient_setUUIDMethod
+        // 6: kIOHIDSecurePromptClient_setUUIDMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::setUUIDMethod, 		kIOUCStructIStructO, sizeof(uuid_t), 0 },
-        // 9: kIOHIDSecurePromptClient_getUUIDMethod
+        // 7: kIOHIDSecurePromptClient_getUUIDMethod
         { NULL, (IOMethod)&IOHIDSecurePromptClient::getUUIDMethod, 		kIOUCStructIStructO, 0, sizeof(uuid_t) },
-        // 10: kIOHIDSecurePromptClient_getInsertionPoint
+        // 8: kIOHIDSecurePromptClient_getInsertionPoint
         { NULL, (IOMethod)&IOHIDSecurePromptClient::getInsertionPointMethod,  kIOUCScalarIScalarO, 0, 1 },
-        // 11: kIOHIDSecurePromptClient_setInsertionPoint
+        // 9: kIOHIDSecurePromptClient_setInsertionPoint
         { NULL, (IOMethod)&IOHIDSecurePromptClient::setInsertionPointMethod,  kIOUCScalarIScalarO, 1, 0 },
-        // 12: kIOHIDSecurePromptClient_injectString
+        // 10: kIOHIDSecurePromptClient_injectString
         { NULL, (IOMethod)&IOHIDSecurePromptClient::injectStringMethod, kIOUCStructIStructO, kIOUCVariableStructureSize, 0 },       
-        // 13: redacted
+        // 11: redacted
         { NULL, NULL, 0, 0, 0 },
     };
     
@@ -576,57 +572,6 @@ IOHIDSecurePromptClient::setGathering(UInt32 state)
     
 uninitialized_data:
     return kIOReturnNotOpen;
-}
-
-/******************************************************************************/
-IOReturn
-IOHIDSecurePromptClient::setLayoutMethod(void * p1, void * p2, void * p3, void * p4, void * p5 __unused, void * p6 __unused)
-{
-    require(valid(), uninitialized_data);
-    return _reserved->gate->runAction(OSMemberFunctionCast(IOCommandGate::Action, 
-                                                               this,
-                                                               &IOHIDSecurePromptClient::setLayoutGated),
-                                          p1, p2, p3, p4);
-uninitialized_data:
-    return kIOReturnInternalError;
-}
-
-/******************************************************************************/
-IOReturn
-IOHIDSecurePromptClient::setLayoutGated(void * p1, void * p2 __unused, void * p3 __unused, void * p4 __unused)
-{
-    UInt32 layout = (uintptr_t)p1;
-    return setLayout(layout);
-}
-
-/******************************************************************************/
-IOReturn
-IOHIDSecurePromptClient::setLayout(UInt32 layout)
-{
-    require(valid(), uninitialized_data);
-    require(_reserved->uuidState != kUUIDStateIsGhost, uninitialized_data);
-
-    if (_reserved->uuidState == kUUIDStateIsClean)
-        _reserved->uuidState = kUUIDStateIsDirty;
-    
-// vtn3 TODO: validate layout entry
-
-    _reserved->layout = layout;
-
-    // clear out any queued keystrokes
-    if (_reserved->messageQueue) {
-        __EraseDataArray(_reserved->messageQueue);
-        _reserved->messageQueue->release();
-    }
-    _reserved->messageQueue = OSArray::withCapacity(4);
-    
-    // vtn3 TODO: release local modifier flags
-    // vtn3 TODO: remap value queue
-    
-    return kIOReturnSuccess;
-
-uninitialized_data:
-    return kIOReturnInternalError;
 }
 
 /******************************************************************************/
@@ -1256,23 +1201,6 @@ IOHIDSecurePromptClient::syncGated(void * p1 __unused, void * p2 __unused, void 
 #endif
     }
     return kIOReturnSuccess;
-}
-
-/******************************************************************************/
-IOReturn
-IOHIDSecurePromptClient::getLayoutMethod(void * p1, void * p2 __unused, void * p3 __unused, void * p4 __unused, void * p5 __unused, void * p6 __unused)
-{
-    require(valid(), uninitialized_data);
-    require(p1, uninitialized_data);
-    
-    *(UInt64*)p1 = _reserved->layout;
-    
-    return kIOReturnSuccess;
-    
-uninitialized_data:
-    *(UInt64*)p1 = 0;
-    
-    return kIOReturnInternalError;
 }
 
 /******************************************************************************/

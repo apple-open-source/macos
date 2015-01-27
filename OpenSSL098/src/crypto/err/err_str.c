@@ -121,9 +121,9 @@
 
 #ifndef OPENSSL_NO_ERR
 #if __APPLE__
-#define CONST_DATA const // we want to mark these items const on OSX
+#define CONST_DATA const // we want to mark these items const on OSX                                        
 #else
-#define CONST_DATA       // but not on Windows
+#define CONST_DATA       // but not on Windows                                                              
 #endif
 CONST_DATA static ERR_STRING_DATA ERR_str_libraries[]=
 	{

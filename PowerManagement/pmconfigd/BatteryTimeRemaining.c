@@ -134,7 +134,7 @@ static void             checkTimeRemainingValid(IOPMBattery **batts);
 static CFDictionaryRef packageKernelPowerSource(IOPMBattery *b);
 
 static void             _discontinuityOccurred(void);
-static IOReturn         _readAndPublishACAdapter(bool, CFDictionaryRef);
+static void             _readAndPublishACAdapter(bool, CFDictionaryRef);
 static void             publish_IOPSBatteryGetWarningLevel(IOPMBattery *b,
                                                            int combinedTime);
 static bool             publish_IOPSGetTimeRemainingEstimate(int timeRemaining,
@@ -1333,140 +1333,38 @@ CFDictionaryRef packageKernelPowerSource(IOPMBattery *b)
 }
 
 // _readAndPublicACAdapter
-// These keys describe the bit-layout of the 64-bit AC info structure.
-
-/* Legacy format */
-
-#define kACCRCBit               56  // size 8
-#define kACIDBit                44  // size 12
-#define kACPowerBit             36  // size 8
-#define kACRevisionBit          32  // size 4
-#define kACSerialBit            8   // size 24
-#define kACFamilyBit            0   // size 8
-
-/* New format (intro'd in Jan 2012) */
-
-//#define kACCRCBit             56   // 8 bits, same as in legacy
-#define kACCurrentIdBit         48   // 8 bits
-//#define kACCommEnableBit      45   // 1 bit; doesn't contain meaningful information
-#define kACSourceIdBit          44   // 3 bits
-//#define kACPowerBit           36   // 8 bits, same as in legacy
-#define kACVoltageIDBit         33   // 3 bits
-//#define kACSerialBit          8    // 25 bits
-//#define kACFamilyBit          0    // 8 bits, same as in legacy
-
-#define k3BitMask       0x7
-
-
-typedef struct {
-    uint32_t        valCommEn;
-    uint32_t        valVoltageID;
-    uint32_t        valID;
-    uint32_t        valPower;
-    uint32_t        valRevision;
-    uint32_t        valSerial;
-    uint32_t        valFamily;
-    uint32_t        valCurrent;
-    uint32_t        valSource;
-} AdapterAttributes;
-
-static void stuffInt32(CFMutableDictionaryRef d, CFStringRef k, uint32_t n)
+static void _readAndPublishACAdapter(bool adapterExists, CFDictionaryRef batteryACDict)
 {
-    CFNumberRef stuffNum = NULL;
-    if ((stuffNum = CFNumberCreate(0, kCFNumberSInt32Type, &n)))
-    {
-        CFDictionarySetValue(d, k, stuffNum);
-        CFRelease(stuffNum);
-    }
-}
-
-static IOReturn _readAndPublishACAdapter(bool adapterExists, CFDictionaryRef batteryACDict)
-{
-    static bool                     adapterInfoPublished = false;
     static CFDictionaryRef          oldACDict = NULL;
     CFStringRef                     key = NULL;
-    CFMutableDictionaryRef          acDict = NULL;
-    IOReturn                        ret = kIOReturnSuccess;
     Boolean                         success = FALSE;
-#if !TARGET_OS_EMBEDDED
-    int                             j = 0;
-#endif
-    AdapterAttributes               info;
-
-    bzero(&info, sizeof(info));
+    CFDictionaryRef          acDict = NULL;
 
     // Make sure we re-read the adapter on wake from sleep
     if (control.readACAdapterAgain) {
-        adapterInfoPublished = false;
         control.readACAdapterAgain = false;
-    }
 
-    // Always republish AC info if it comes from the battery
-    if (adapterExists && batteryACDict && oldACDict && !CFEqual(oldACDict, batteryACDict))
-    {
-        adapterInfoPublished = false;
-    }
-
-    // don't re-publish AC info until the adapter changes
-    if (adapterExists && adapterInfoPublished)
-    {
-        return kIOReturnSuccess;
-    }
-
-    if (adapterExists && !batteryACDict)
-    {
-        uint64_t acBits;
-
-        ret = _getACAdapterInfo(&acBits);
-        if (kIOReturnSuccess != ret) {
-            return ret;
+        if (oldACDict) {
+            CFRelease(oldACDict);
+            oldACDict = NULL;
         }
 
-        // Decode SMC key
-        info.valID              = (acBits >> kACIDBit) & 0xFFF;
-        info.valFamily          = (acBits >> kACFamilyBit) & 0xFF;
-        info.valPower           = (acBits >> kACPowerBit) & 0xFF;
-        if ( (info.valSource    = (acBits >> kACSourceIdBit) & k3BitMask))
-        {
-            // New format
-            info.valSerial      = (acBits >> kACSerialBit) & 0x1FFFFFF;
-            info.valCurrent     = ((acBits >> kACCurrentIdBit) & 0xFF) * 25;
-            info.valVoltageID   = (acBits >> kACVoltageIDBit) & k3BitMask;
-        } else {
-            // Legacy format
-            info.valSerial      = (acBits >> kACSerialBit) & 0xFFFFFF;
-            info.valRevision    = (acBits >> kACRevisionBit) & 0xF;
+    }
+
+
+    if (adapterExists) {
+        if (!batteryACDict) {
+            acDict = _copyACAdapterInfo(oldACDict);
+            if (acDict == NULL) {
+                goto exit;
+            }
+
+            batteryACDict = acDict;
         }
-
-        // Publish values in dictionary
-        acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-
-        if (!acDict) {
-            ret = kIOReturnNoMemory;
+        if (isA_CFDictionary(oldACDict) && CFEqual(batteryACDict, oldACDict)) {
             goto exit;
         }
 
-        if (info.valSource) {
-            // New format
-            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), info.valCurrent);
-            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterSourceKey), info.valSource);
-
-        }
-        else {
-            // Legacy format
-            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterRevisionKey), info.valRevision);
-        }
-
-        if (0 != info.valPower) {
-            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterWattsKey), info.valPower);
-        }
-
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterIDKey), info.valID);
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterSerialNumberKey), info.valSerial);
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterFamilyKey), info.valFamily);
-
-        batteryACDict = acDict;
     }
 
     // Write dictionary into dynamic store
@@ -1475,31 +1373,25 @@ static IOReturn _readAndPublishACAdapter(bool adapterExists, CFDictionaryRef bat
                             CFSTR("%@%@"),
                             kSCDynamicStoreDomainState,
                             CFSTR(kIOPSDynamicStorePowerAdapterKey));
-    if (!key) {
-        ret = kIOReturnError;
-        goto exit;
-    }
-
     if (oldACDict) {
         CFRelease(oldACDict);
         oldACDict = NULL;
     }
 
+    if (!key) {
+        goto exit;
+    }
+
     if (!adapterExists) {
         success = PMStoreRemoveValue(key);
-        adapterInfoPublished = false;
     } else {
         success = PMStoreSetValue(key, batteryACDict);
-        adapterInfoPublished = true;
         oldACDict = batteryACDict;
         CFRetain(oldACDict);
     }
 
     if (success) {
         notify_post("com.apple.system.powermanagement.poweradapter");
-        ret = kIOReturnSuccess;
-    } else {
-        ret = kIOReturnLockedRead;
     }
 
 exit:
@@ -1507,7 +1399,7 @@ exit:
         CFRelease(acDict);
     if (key)
         CFRelease(key);
-    return ret;
+    return ;
 }
 
 /**** User-space power source code lives below here ********************************/

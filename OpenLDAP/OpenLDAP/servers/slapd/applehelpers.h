@@ -11,6 +11,7 @@
 #define kDisabledTooManyFailedLogins   4
 #define kDisabledNewPasswordRequired   5
 
+Attribute *odusers_copy_passwordRequiredDate(void);
 Attribute  *odusers_copy_attr(char *dn, char*attribute);
 Entry *odusers_copy_entry(Operation *op);
 int odusers_remove_authdata(char *slotid);

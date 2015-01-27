@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2007,2011-2014 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -36,6 +36,8 @@
 #include <vector>
 #include <CommonCrypto/CommonDigestSPI.h>
 #include <SecBase.h>
+#include <libDER/libDER.h>
+#include <libDER/DER_Decode.h>
 
 using namespace KeychainCore;
 
@@ -56,7 +58,8 @@ Certificate::Certificate(const CSSM_DATA &data, CSSM_CERT_TYPE type, CSSM_CERT_E
 	mV1SubjectPublicKeyCStructValue(NULL),
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
-	mSha1Hash(NULL)
+	mSha1Hash(NULL),
+	mEncodingVerified(false)
 {
 	if (data.Length == 0 || data.Data == NULL)
 		MacOSError::throwMe(errSecParam);
@@ -72,7 +75,8 @@ Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey,
 	mV1SubjectPublicKeyCStructValue(NULL),
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
-	mSha1Hash(NULL)
+	mSha1Hash(NULL),
+	mEncodingVerified(false)
 {
 }
 
@@ -107,7 +111,8 @@ Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey)
 	mV1SubjectPublicKeyCStructValue(NULL),
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
-	mSha1Hash(NULL)
+	mSha1Hash(NULL),
+	mEncodingVerified(false)
 {
 	// @@@ In this case we don't know the type...
 }
@@ -123,7 +128,8 @@ Certificate::Certificate(Certificate &certificate) :
 	mV1SubjectPublicKeyCStructValue(NULL),
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
-	mSha1Hash(NULL)
+	mSha1Hash(NULL),
+	mEncodingVerified(false)
 {
 }
 
@@ -707,22 +713,124 @@ Certificate::populateAttributes()
 	mPopulated = true;
 }
 
+bool
+Certificate::verifyEncoding(CSSM_DATA_PTR data)
+{
+	bool verified = false;
+	CSSM_SIZE verifiedLength = 0;
+	{
+		StLock<Mutex>_(mMutex);
+		if (!data || !data->Data || !data->Length) {
+			mEncodingVerified = false;
+			return false;
+		}
+		verified = mEncodingVerified;
+		if (verified) {
+			return true;
+		}
+
+		// Note: the Certificate class supports X509v1 through X509v3 certs,
+		// with CSSM_CERT_ENCODING_BER or CSSM_CERT_ENCODING_DER encoding.
+		// Any other types/encodings would need additional verification code here.
+
+		if (mHaveTypeAndEncoding) {
+			if (mType < CSSM_CERT_X_509v1 || mType > CSSM_CERT_X_509v3) {
+				secdebug("Certificate", "verifyEncoding: certificate has custom type (%d)", (int)mType);
+			}
+			if (mEncoding < CSSM_CERT_ENCODING_BER || mEncoding > CSSM_CERT_ENCODING_DER) {
+				secdebug("Certificate", "verifyEncoding: certificate has custom encoding (%d)", (int)mEncoding);
+			}
+		}
+
+		// attempt to decode the top-level ASN.1 sequence
+		const DERItem der = { (DERByte *)data->Data, (DERSize)data->Length };
+		DERDecodedInfo derInfo;
+		// sanity check the first byte to avoid decoding a non-DER blob
+		if ((DERByte)0x30 != *(der.data)) {
+			return false;
+		}
+		DERReturn drtn = DERDecodeItem(&der, &derInfo);
+		if (drtn == DR_Success) {
+			CSSM_SIZE tagLength = (CSSM_SIZE)((uintptr_t)derInfo.content.data - (uintptr_t)der.data);
+			CSSM_SIZE derLength = (CSSM_SIZE)derInfo.content.length + tagLength;
+			if (derLength != data->Length) {
+				secdebug("Certificate", "Certificate DER length is %d, but data length is %d",
+						(int)derLength, (int)data->Length);
+				// will adjust data size if DER length is positive, but smaller than actual length
+				if ((derLength > 0) && (derLength < data->Length)) {
+					verifiedLength = derLength;
+					secdebug("Certificate", "Will adjust certificate data length to %d",
+							(int)derLength);
+				}
+				else {
+					secdebug("Certificate", "Certificate encoding invalid (DER length is %d)",
+							(int)derLength);
+					return false;
+				}
+			}
+			verified = mEncodingVerified = true;
+		}
+		else {
+			// failure to decode provided data as DER sequence
+			secdebug("Certificate", "Certificate not in DER encoding (error %d)",
+					(int)drtn);
+			return false;
+		}
+	}
+
+	if (verifiedLength > 0) {
+		// setData acquires the mMutex lock, so we call it while not holding the lock
+		setData((UInt32)verifiedLength, data->Data);
+		secdebug("Certificate", "Adjusted certificate data length to %d",
+				(int)verifiedLength);
+	}
+
+	return verified;
+}
+
 const CssmData &
 Certificate::data()
 {
-	StLock<Mutex>_(mMutex);
-	CssmDataContainer *data = mData.get();
-	if (!data && mKeychain)
+	CssmDataContainer *data = NULL;
+	bool hasKeychain = false;
+	bool verified = false;
+	{
+		StLock<Mutex>_(mMutex);
+		data = mData.get();
+		hasKeychain = (mKeychain != NULL);
+		verified = mEncodingVerified;
+	}
+
+	// If data has been set but not yet verified, verify it now.
+	if (!verified && data) {
+		// verifyEncoding might modify mData, so refresh the data container
+		verified = verifyEncoding(data);
+		{
+			StLock<Mutex>_(mMutex);
+			data = mData.get();
+		}
+	}
+
+	// If data isn't set at this point, try to read it from the db record
+	if (!data && hasKeychain)
 	{
 	    // Make sure mUniqueId is set.
 		dbUniqueRecord();
 		CssmDataContainer _data;
-		mData = NULL;
-		/* new data allocated by CSPDL, implicitly freed by CssmDataContainer */
-		mUniqueId->get(NULL, &_data);
+		{
+			StLock<Mutex>_(mMutex);
+			mData = NULL;
+			/* new data allocated by CSPDL, implicitly freed by CssmDataContainer */
+			mUniqueId->get(NULL, &_data);
+		}
 		/* this saves a copy to be freed at destruction and to be passed to caller */
 		setData((UInt32)_data.length(), _data.data());
-		return *mData.get();
+		// verifyEncoding might modify mData, so refresh the data container
+		verified = verifyEncoding(&_data);
+		{
+			StLock<Mutex>_(mMutex);
+			data = mData.get();
+		}
 	}
 
 	// If the data hasn't been set we can't return it.

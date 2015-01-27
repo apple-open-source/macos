@@ -23,6 +23,7 @@
     void setupCursor(void);
     void stopCursor( void );
     IOReturn doSetup( bool full );
+    void setVBLTiming(void);
     void findConsole(void);
     IOReturn createSharedCursor( int shmemVersion,
                                         int maxWidth, int maxHeight );

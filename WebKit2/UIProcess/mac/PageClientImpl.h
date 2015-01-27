@@ -42,7 +42,6 @@ class AlternativeTextUIController;
 }
 
 namespace WebKit {
-class FindIndicatorWindow;
 
 class PageClientImpl final : public PageClient
 #if ENABLE(FULLSCREEN_API)
@@ -120,7 +119,8 @@ private:
     virtual PassRefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&);
 #endif
 
-    void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut, bool animate);
+    virtual void setTextIndicator(PassRefPtr<WebCore::TextIndicator>, bool fadeOut) override;
+    virtual void setTextIndicatorAnimationProgress(float) override;
 
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
     virtual void exitAcceleratedCompositingMode();
@@ -136,8 +136,8 @@ private:
 
     virtual void makeFirstResponder();
     
-    virtual void didPerformDictionaryLookup(const AttributedString&, const DictionaryPopupInfo&);
-    virtual void dismissDictionaryLookupPanel();
+    virtual void didPerformDictionaryLookup(const DictionaryPopupInfo&);
+    virtual void dismissContentRelativeChildWindows();
 
     virtual void showCorrectionPanel(WebCore::AlternativeTextType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
     virtual void dismissCorrectionPanel(WebCore::ReasonForDismissingAlternativeText);
@@ -180,11 +180,15 @@ private:
     virtual void willRecordNavigationSnapshot(WebBackForwardListItem&) override;
 
     NSView *activeView() const;
+    NSWindow *activeWindow() const;
 
     virtual void didFirstVisuallyNonEmptyLayoutForMainFrame() override;
     virtual void didFinishLoadForMainFrame() override;
     virtual void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override;
     virtual void removeNavigationGestureSnapshot() override;
+
+    virtual void didPerformActionMenuHitTest(const ActionMenuHitTestResult&, bool forImmediateAction, API::Object*) override;
+    virtual void showPlatformContextMenu(NSMenu *, WebCore::IntPoint) override;
 
     WKView *m_wkView;
     WKWebView *m_webView;

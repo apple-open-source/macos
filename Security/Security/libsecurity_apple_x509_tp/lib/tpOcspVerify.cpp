@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2004,2011-2012,2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,14 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * tpOcspVerify.cpp - top-level OCSP verification
  */
- 
+
 #include "tpOcspVerify.h"
 #include "tpdebugging.h"
 #include "ocspRequest.h"
@@ -42,7 +42,7 @@
 
 #pragma mark ---- private routines ----
 
-/* 
+/*
  * Get a smart CertID for specified cert and issuer
  */
 static CSSM_RETURN tpOcspGetCertId(
@@ -54,8 +54,9 @@ static CSSM_RETURN tpOcspGetCertId(
 	CSSM_DATA_PTR issuerSubject = NULL;
 	CSSM_DATA_PTR issuerPubKeyData = NULL;
 	CSSM_KEY_PTR issuerPubKey;
+	CSSM_DATA issuerPubKeyBytes;
 	CSSM_DATA_PTR subjectSerial = NULL;
-	
+
 	crtn = subject.fetchField(&CSSMOID_X509V1SerialNumber, &subjectSerial);
 	if(crtn) {
 		return crtn;
@@ -70,25 +71,26 @@ static CSSM_RETURN tpOcspGetCertId(
 	}
 	assert(issuerPubKeyData->Length == sizeof(CSSM_KEY));
 	issuerPubKey = (CSSM_KEY_PTR)issuerPubKeyData->Data;
-	certID = new OCSPClientCertID(*issuerSubject, issuerPubKey->KeyData, *subjectSerial);
-	
+	ocspdGetPublicKeyBytes(NULL, issuerPubKey, issuerPubKeyBytes);
+	certID = new OCSPClientCertID(*issuerSubject, issuerPubKeyBytes, *subjectSerial);
+
 	subject.freeField(&CSSMOID_X509V1SerialNumber, subjectSerial);
 	issuer.freeField(&CSSMOID_X509V1IssuerNameStd, issuerSubject);
 	issuer.freeField(&CSSMOID_CSSMKeyStruct, issuerPubKeyData);
 	return CSSM_OK;
 }
 
-/* 
+/*
  * Examine cert, looking for AuthorityInfoAccess, with id-ad-ocsp URIs. Create
- * an NULL_terminated array of CSSM_DATAs containing the URIs if found. 
+ * an NULL_terminated array of CSSM_DATAs containing the URIs if found.
  */
 static CSSM_DATA **tpOcspUrlsFromCert(
-	TPCertInfo &subject, 
+	TPCertInfo &subject,
 	SecNssCoder &coder)
 {
 	CSSM_DATA_PTR extField = NULL;
 	CSSM_RETURN crtn;
-	
+
 	crtn = subject.fetchField(&CSSMOID_AuthorityInfoAccess, &extField);
 	if(crtn) {
 		tpOcspDebug("tpOcspUrlsFromCert: no AIA extension");
@@ -103,8 +105,8 @@ static CSSM_DATA **tpOcspUrlsFromCert(
 		tpErrorLog("tpOcspUrlsFromCert: malformed CSSM_X509_EXTENSION");
 		return NULL;
 	}
-	
-	CE_AuthorityInfoAccess *aia = 
+
+	CE_AuthorityInfoAccess *aia =
 		(CE_AuthorityInfoAccess *)cssmExt->value.parsedValue;
 	CSSM_DATA **urls = NULL;
 	unsigned numUrls = 0;
@@ -118,7 +120,7 @@ static CSSM_DATA **tpOcspUrlsFromCert(
 			tpErrorLog("tpOcspUrlsFromCert: CSSMOID_AD_OCSP, but not type URI");
 			continue;
 		}
-		
+
 		/* got one */
 		if(urls == NULL) {
 			urls = coder.mallocn<CSSM_DATA_PTR>(2);
@@ -148,7 +150,7 @@ static CSSM_DATA **tpOcspUrlsFromCert(
 	return urls;
 }
 
-/* 
+/*
  * Create an SecAsn1OCSPDRequest for one cert. This consists of:
  *
  * -- cooking up an OCSPRequest if net fetch is enabled or a local responder
@@ -170,7 +172,7 @@ static SecAsn1OCSPDRequest *tpGenOcspdReq(
 	OCSPClientCertID		*certID = NULL;
 	CSSM_RETURN				crtn;
 	bool					deleteCertID = false;
-	
+
 	/* gather options or their defaults */
 	CSSM_APPLE_TP_OCSP_OPT_FLAGS optFlags = 0;
 	const CSSM_APPLE_TP_OCSP_OPTIONS *ocspOpts = vfyCtx.ocspOpts;
@@ -183,16 +185,16 @@ static SecAsn1OCSPDRequest *tpGenOcspdReq(
 	}
 	bool genNonce = optFlags & CSSM_TP_OCSP_GEN_NONCE ? true : false;
 	bool requireRespNonce = optFlags & CSSM_TP_OCSP_REQUIRE_RESP_NONCE ? true : false;
-	
-	/* 
+
+	/*
 	 * One degenerate case in case we can't really do anything.
 	 * If no URI and no local responder, only proceed if cache is not disabled
 	 * and we're requiring full OCSP per cert.
 	 */
 	if( ( (optFlags & CSSM_TP_ACTION_OCSP_CACHE_READ_DISABLE) ||
 		  !(optFlags & CSSM_TP_ACTION_OCSP_REQUIRE_PER_CERT)
-		) && 
-	   (localResponder == NULL) &&  
+		) &&
+	   (localResponder == NULL) &&
 	   (urls == NULL)) {
 	   tpOcspDebug("tpGenOcspdReq: no route to OCSP; NULL return");
 	   return NULL;
@@ -213,7 +215,7 @@ static SecAsn1OCSPDRequest *tpGenOcspdReq(
 			}
 		}
 	}
-	
+
 	/* certID needed one way or the other */
 	if(certID == NULL) {
 		crtn = tpOcspGetCertId(subject, issuer, certID);
@@ -222,7 +224,7 @@ static SecAsn1OCSPDRequest *tpGenOcspdReq(
 		}
 		deleteCertID = true;
 	}
-	
+
 	/*
 	 * Create the SecAsn1OCSPDRequest. All fields optional.
 	 */
@@ -234,10 +236,10 @@ static SecAsn1OCSPDRequest *tpGenOcspdReq(
 		ocspdReq->cacheWriteDisable->Data[0] = 0xff;
 		ocspdReq->cacheWriteDisable->Length = 1;
 	}
-	/* 
-	 * Note we're enforcing a not-so-obvious policy here: if nonce match is 
-	 * required, disk cache reads by ocspd are disabled. In-core cache is 
-	 * still enabled and hits in that cache do NOT require nonce matches. 
+	/*
+	 * Note we're enforcing a not-so-obvious policy here: if nonce match is
+	 * required, disk cache reads by ocspd are disabled. In-core cache is
+	 * still enabled and hits in that cache do NOT require nonce matches.
 	 */
 	if((optFlags & CSSM_TP_ACTION_OCSP_CACHE_READ_DISABLE) || requireRespNonce) {
 		ocspdReq->cacheReadDisable = coder.mallocn<CSSM_DATA>();
@@ -261,7 +263,7 @@ static SecAsn1OCSPDRequest *tpGenOcspdReq(
 	if(!(optFlags & CSSM_TP_ACTION_OCSP_DISABLE_NET)) {
 		ocspdReq->urls = const_cast<CSSM_DATA **>(urls);
 	}
-	
+
 errOut:
 	delete ocspReq;
 	if(deleteCertID) {
@@ -274,9 +276,9 @@ static bool revocationTimeAfterVerificationTime(CFAbsoluteTime revokedTime, CSSM
 {
     // Return true if the revocation time is after the specified verification time (i.e. "good")
     // If verifyTime not specified, use now for the verifyTime
-    
+
     CFAbsoluteTime verifyTime = 0;
-    
+
     if (verifyTimeStr)
     {
         CFDateRef cfVerifyTime = NULL;  // made with CFDateCreate
@@ -288,7 +290,7 @@ static bool revocationTimeAfterVerificationTime(CFAbsoluteTime revokedTime, CSSM
                 CFRelease(cfVerifyTime);
             }
     }
-    
+
     if (verifyTime == 0)
         verifyTime = CFAbsoluteTimeGetCurrent();
 
@@ -308,13 +310,13 @@ static CSSM_RETURN tpApplySingleResp(
 {
 	SecAsn1OCSPCertStatusTag certStatus = singleResp.certStatus();
 	CSSM_RETURN crtn = CSSM_OK;
-    if ((certStatus == CS_Revoked) && 
+    if ((certStatus == CS_Revoked) &&
         revocationTimeAfterVerificationTime(singleResp.revokedTime(), verifyTime))
     {
         tpOcspDebug("tpApplySingleResp: CS_Revoked for cert %u, but revoked after verification time", dex);
         certStatus = CS_Good;
     }
-    
+
 	switch(certStatus) {
 		case CS_Good:
 			tpOcspDebug("tpApplySingleResp: CS_Good for cert %u", dex);
@@ -346,7 +348,7 @@ static CSSM_RETURN tpApplySingleResp(
 			tpOcspDebug("tpApplySingleResp: CS_Unknown for cert %u", dex);
 			break;
 		default:
-			tpOcspDebug("tpApplySingleResp: BAD certStatus (%d) for cert %u", 
+			tpOcspDebug("tpApplySingleResp: BAD certStatus (%d) for cert %u",
 					(int)certStatus, dex);
 			if(cert.addStatusCode(CSSMERR_APPLETP_OCSP_STATUS_UNRECOGNIZED)) {
 				crtn = CSSMERR_APPLETP_OCSP_STATUS_UNRECOGNIZED;
@@ -356,20 +358,20 @@ static CSSM_RETURN tpApplySingleResp(
 	return crtn;
 }
 
-/* 
+/*
  * An exceptional case: synchronously flush the OCSPD cache and send a new
- * resquest for just this one cert. 
+ * resquest for just this one cert.
  */
 static OCSPResponse *tpOcspFlushAndReFetch(
-	TPVerifyContext		&vfyCtx, 
-	SecNssCoder			&coder, 
+	TPVerifyContext		&vfyCtx,
+	SecNssCoder			&coder,
 	TPCertInfo			&subject,
-	TPCertInfo			&issuer, 
+	TPCertInfo			&issuer,
 	OCSPClientCertID	&certID)
 {
 	const CSSM_DATA *derCertID = certID.encode();
 	CSSM_RETURN crtn;
-	
+
 	crtn = ocspdCacheFlush(*derCertID);
 	if(crtn) {
 		#ifndef	NDEBUG
@@ -377,7 +379,7 @@ static OCSPResponse *tpOcspFlushAndReFetch(
 		#endif
 		return NULL;
 	}
-	
+
 	/* Cook up an OCSPDRequests, one request, just for this */
 	/* send it to ocsdp */
 	/* munge reply into an OCSPRsponse and return it */
@@ -395,14 +397,14 @@ public:
 		CSSM_DATA **u,
 		unsigned dex);
 	~PendingRequest()	{}
-	
+
 	TPCertInfo			&subject;
 	TPCertInfo			&issuer;
 	OCSPClientCertID	&certID;	// owned by caller
 	CSSM_DATA			**urls;		// owner-managed array of URLs obtained from subject's
-									// AuthorityInfoAccess.id-ad-ocsp. 
-	CSSM_DATA			nonce;		// owner-managed copy of this requests' nonce, if it 
-									//   has one 
+									// AuthorityInfoAccess.id-ad-ocsp.
+	CSSM_DATA			nonce;		// owner-managed copy of this requests' nonce, if it
+									//   has one
 	unsigned			dex;		// in inputCerts, for debug
 	bool				processed;
 };
@@ -413,7 +415,7 @@ PendingRequest::PendingRequest(
 		OCSPClientCertID &cid,
 		CSSM_DATA **u,
 		unsigned dx)
-		: subject(subj), issuer(iss), certID(cid), 
+		: subject(subj), issuer(iss), certID(cid),
 		  urls(u), dex(dx), processed(false)
 {
 	nonce.Data = NULL;
@@ -424,11 +426,11 @@ PendingRequest::PendingRequest(
 
 CSSM_RETURN tpVerifyCertGroupWithOCSP(
 	TPVerifyContext	&vfyCtx,
-	TPCertGroup 	&certGroup)		// to be verified 
+	TPCertGroup 	&certGroup)		// to be verified
 {
 	assert(vfyCtx.clHand != 0);
 	assert(vfyCtx.policy == kRevokeOcsp);
-	
+
 	CSSM_RETURN ourRtn = CSSM_OK;
 	OcspRespStatus respStat;
 	SecNssCoder coder;
@@ -446,7 +448,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		return CSSM_OK;
 	}
 	numCerts--;
-	
+
 	/* gather options or their defaults */
 	CSSM_APPLE_TP_OCSP_OPT_FLAGS optFlags = 0;
 	const CSSM_APPLE_TP_OCSP_OPTIONS *ocspOpts = vfyCtx.ocspOpts;
@@ -457,7 +459,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 	bool genNonce = false;			// in outgoing request
 	bool requireRespNonce = false;	// in incoming response
 	PRErrorCode prtn;
-	
+
 	if(ocspOpts != NULL) {
 		optFlags = vfyCtx.ocspOpts->Flags;
 		localResponder = ocspOpts->LocalResponder;
@@ -480,23 +482,23 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		tpErrorLog("tpVerifyCertGroupWithOCSP: requireRespNonce, !genNonce\n");
 		return CSSMERR_TP_INVALID_REQUEST_INPUTS;
 	}
-	
-	tpOcspDebug("tpVerifyCertGroupWithOCSP numCerts %u optFlags 0x%lx", 
+
+	tpOcspDebug("tpVerifyCertGroupWithOCSP numCerts %u optFlags 0x%lx",
 		numCerts, (unsigned long)optFlags);
-		
+
 	/*
 	 * create list of pendingRequests parallel to certGroup
 	 */
 	PendingRequest **pending = coder.mallocn<PendingRequest *>(numCerts);
 	memset(pending, 0, (numCerts * sizeof(PendingRequest *)));
-	
+
 	for(unsigned dex=0; dex<numCerts; dex++) {
 		OCSPClientCertID *certID = NULL;
 		TPCertInfo *subject = certGroup.certAtIndex(dex);
-		
+
 		if(subject->trustSettingsFound()) {
 			/* functionally equivalent to root - we're done */
-			tpOcspDebug("...tpVerifyCertGroupWithOCSP: terminate per user trust at %u", 
+			tpOcspDebug("...tpVerifyCertGroupWithOCSP: terminate per user trust at %u",
 				(unsigned)dex);
 			goto postOcspd;
 		}
@@ -507,35 +509,35 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 				"aborting\n");
 			goto errOut;
 		}
-		
-		/* 
+
+		/*
 		 * We use the URLs in the subject cert's AuthorityInfoAccess extension
 		 * for two things - mainly to get the URL(s) for actual OCSP transactions,
 		 * but also for CSSM_TP_ACTION_OCSP_REQUIRE_IF_RESP_PRESENT processing.
 		 * So, we do the per-cert processing to get them right now even if we
-		 * wind up using a local responder or getting verification from cache. 
+		 * wind up using a local responder or getting verification from cache.
 		 */
 		CSSM_DATA **urls = tpOcspUrlsFromCert(*subject, coder);
 		pending[dex] = new PendingRequest(*subject, *issuer, *certID, urls, dex);
 	}
 	/* subsequent errors to errOut: */
-	
-	/* 
-	 * Create empty SecAsn1OCSPDRequests big enough for all certs 
+
+	/*
+	 * Create empty SecAsn1OCSPDRequests big enough for all certs
 	 */
 	ocspdReqs.requests = coder.mallocn<SecAsn1OCSPDRequest *>(numCerts + 1);
 	memset(ocspdReqs.requests, 0, (numCerts + 1) * sizeof(SecAsn1OCSPDRequest *));
 	ocspdReqs.version.Data = &version;
 	ocspdReqs.version.Length = 1;
-	
-	/* 
+
+	/*
 	 * For each cert, either obtain a cached OCSPResponse, or create
-	 * a request to get one. 
+	 * a request to get one.
 	 *
 	 * NOTE: in-core cache reads (via tpOcspCacheLookup() do NOT involve a
 	 * nonce check, no matter what the app says. If nonce checking is required by the
 	 * app, responses don't get added to cache if the nonce doesn't match, but once
-	 * a response is validated and added to cache it's fair game for that task. 
+	 * a response is validated and added to cache it's fair game for that task.
 	 */
 	for(unsigned dex=0; dex<numCerts; dex++) {
 		PendingRequest *pendReq = pending[dex];
@@ -544,7 +546,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 			singleResp = tpOcspCacheLookup(pendReq->certID, localResponder);
 		}
 		if(singleResp) {
-			tpOcspDebug("...tpVerifyCertGroupWithOCSP: localCache hit (1) dex %u", 
+			tpOcspDebug("...tpVerifyCertGroupWithOCSP: localCache hit (1) dex %u",
 				(unsigned)dex);
 			crtn = tpApplySingleResp(*singleResp, pendReq->subject, dex, optFlags,
 				vfyCtx.verifyTime, pendReq->processed);
@@ -558,19 +560,19 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 				continue;
 			}
 			if(crtn) {
-				/* 
-				 * This indicates a bad cached response. Well that's kinda weird, let's 
+				/*
+				 * This indicates a bad cached response. Well that's kinda weird, let's
 				 * just flush this out and try a normal transaction.
 				 */
 				tpOcspCacheFlush(pendReq->certID);
 			}
 		}
-		
-		/* 
+
+		/*
 		 * Prepare a request for ocspd
 		 */
-		SecAsn1OCSPDRequest *ocspdReq = tpGenOcspdReq(vfyCtx, coder, 
-			pendReq->subject, pendReq->issuer, pendReq->certID, 
+		SecAsn1OCSPDRequest *ocspdReq = tpGenOcspdReq(vfyCtx, coder,
+			pendReq->subject, pendReq->issuer, pendReq->certID,
 			const_cast<const CSSM_DATA **>(pendReq->urls),
 			pendReq->nonce);
 		if(ocspdReq == NULL) {
@@ -584,7 +586,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		/* no candidates for OCSP: almost done */
 		goto postOcspd;
 	}
-	
+
 	/* ship requests off to ocspd, get ocspReplies back */
 	if(coder.encodeItem(&ocspdReqs, kSecAsn1OCSPDRequestsTemplate, derOcspdRequests)) {
 		tpErrorLog("tpVerifyCertGroupWithOCSP: error encoding ocspdReqs\n");
@@ -597,17 +599,17 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		#ifndef	NDEBUG
 		cssmPerror("ocspdFetch", crtn);
 		#endif
-		/* But this is not necessarily fatal...update per-cert status and check 
+		/* But this is not necessarily fatal...update per-cert status and check
 		 * caller requirements below */
 		goto postOcspd;
 	}
 	memset(&ocspdReplies, 0, sizeof(ocspdReplies));
-	prtn = coder.decodeItem(derOcspdReplies, kSecAsn1OCSPDRepliesTemplate, 
+	prtn = coder.decodeItem(derOcspdReplies, kSecAsn1OCSPDRepliesTemplate,
 		&ocspdReplies);
 	/* we're done with this, mallocd in ocspdFetch() */
 	vfyCtx.alloc.free(derOcspdReplies.Data);
 	if(prtn) {
-		/* 
+		/*
 		 * This can happen when an OCSP server provides bad data...we cannot
 		 * determine which cert is associated with this bad response;
 		 * just flag it with the first one and proceed to the loop that
@@ -625,12 +627,12 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		}
 		goto errOut;
 	}
-	
+
 	/* process each reply */
 	numReplies = ocspdArraySize((const void **)ocspdReplies.replies);
 	for(unsigned dex=0; dex<numReplies; dex++) {
 		SecAsn1OCSPDReply *reply = ocspdReplies.replies[dex];
-		
+
 		/* Cook up our version of an OCSPResponse from the encoded data */
 		OCSPResponse *ocspResp = NULL;
 		try {
@@ -641,15 +643,15 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 			/* what the heck, keep going */
 			continue;
 		}
-		
-		/* 
-		 * Find matching subject cert if possible (it's technically optional for 
+
+		/*
+		 * Find matching subject cert if possible (it's technically optional for
 		 * verification of the response in some cases, e.g., local responder).
 		 */
 		PendingRequest *pendReq = NULL;				// fully qualified
 		PendingRequest *reqWithIdMatch = NULL;		// CertID match only, not nonce
 		for(unsigned pdex=0; pdex<numCerts; pdex++) {
-		
+
 			/* first check ID match; that is required no matter what */
 			if((pending[pdex])->certID.compareToExist(reply->certID)) {
 				reqWithIdMatch = pending[pdex];
@@ -660,24 +662,24 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 			if(!genNonce) {
 				/* that's good enough */
 				pendReq = reqWithIdMatch;
-				tpOcspDebug("OCSP processs reply: CertID match, no nonce");
+				tpOcspDebug("OCSP process reply: CertID match, no nonce");
 				break;
 			}
 			if(tpCompareCssmData(&reqWithIdMatch->nonce, ocspResp->nonce())) {
-				tpOcspDebug("OCSP processs reply: nonce MATCH");
+				tpOcspDebug("OCSP process reply: nonce MATCH");
 				pendReq = reqWithIdMatch;
 				break;
 			}
-			
+
 			/*
-			 * In this case we keep going; if we never find a match, then we can 
+			 * In this case we keep going; if we never find a match, then we can
 			 * use reqWithIdMatch if !requireRespNonce.
 			 */
-			tpOcspDebug("OCSP processs reply: certID match, nonce MISMATCH");
+			tpOcspDebug("OCSP process reply: certID match, nonce MISMATCH");
 		}
 		if(pendReq == NULL) {
 			if(requireRespNonce) {
-				tpOcspDebug("OCSP processs reply: tossing out response due to "
+				tpOcspDebug("OCSP process reply: tossing out response due to "
 						"requireRespNonce");
 				delete ocspResp;
 				if(ourRtn == CSSM_OK) {
@@ -690,7 +692,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 				 * Nonce mismatch but caller thinks that's OK. Log it and proceed.
 				 */
 				assert(genNonce);
-				tpOcspDebug("OCSP processs reply: using bad nonce due to !requireRespNonce");
+				tpOcspDebug("OCSP process reply: using bad nonce due to !requireRespNonce");
 				pendReq = reqWithIdMatch;
 				pendReq->subject.addStatusCode(CSSMERR_APPLETP_OCSP_NONCE_MISMATCH);
 			}
@@ -699,7 +701,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		if(pendReq != NULL) {
 			issuer = &pendReq->issuer;
 		}
-		
+
 		/* verify response and either throw out or add to local cache */
 		respStat = tpVerifyOcspResp(vfyCtx, coder, issuer, *ocspResp, crtn);
 		switch(respStat) {
@@ -715,9 +717,9 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 				continue;
 			case ORS_Bad:
 				delete ocspResp;
-				/* 
-				 * An exceptional case: synchronously flush the OCSPD cache and send a 
-				 * new request for just this one cert. 
+				/*
+				 * An exceptional case: synchronously flush the OCSPD cache and send a
+				 * new request for just this one cert.
 				 * FIXME: does this really buy us anything? A DOS attacker who managed
 				 * to get this bogus response into our cache is likely to be able
 				 * to do it again and again.
@@ -746,21 +748,21 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 					goto errOut;
 				}
 				/* Voila! Recovery. Proceed. */
-				tpOcspDebug("tpVerifyCertGroupWithOCSP: refetch for cert %u SUCCEEDED", 
+				tpOcspDebug("tpVerifyCertGroupWithOCSP: refetch for cert %u SUCCEEDED",
 						dex);
 				break;
 		} /* switch response status */
-		
+
 		if(!cacheWriteDisable) {
 			tpOcspCacheAdd(reply->ocspResp, localResponder);
 		}
-		
+
 		/* attempt to apply to pendReq */
 		if(pendReq != NULL) {
-			OCSPSingleResponse *singleResp = 
+			OCSPSingleResponse *singleResp =
 				ocspResp->singleResponseFor(pendReq->certID);
 			if(singleResp) {
-				crtn = tpApplySingleResp(*singleResp, pendReq->subject, pendReq->dex, 
+				crtn = tpApplySingleResp(*singleResp, pendReq->subject, pendReq->dex,
 					optFlags, vfyCtx.verifyTime, pendReq->processed);
 				if(crtn && (ourRtn == CSSM_OK)) {
 					ourRtn = crtn;
@@ -768,8 +770,8 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 				delete singleResp;
 			}
 		}	/* a reply which matches a pending request */
-		
-		/* 
+
+		/*
 		 * Done with this - note local OCSP response cache doesn't store this
 		 * object; it stores an encoded copy.
 		 */
@@ -778,9 +780,9 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 
 postOcspd:
 
-	/* 
-	 * Now process each cert which hasn't had an OCSP response applied to it. 
-	 * This can happen if we get back replies which are not strictly in 1-1 sync with 
+	/*
+	 * Now process each cert which hasn't had an OCSP response applied to it.
+	 * This can happen if we get back replies which are not strictly in 1-1 sync with
 	 * our requests but which nevertheless contain valid info for more than one
 	 * cert each.
 	 */
@@ -788,7 +790,7 @@ postOcspd:
 		PendingRequest *pendReq = pending[dex];
 		if(pendReq == NULL) {
 			/* i.e. terminated due to user trust */
-			tpOcspDebug("...tpVerifyCertGroupWithOCSP: NULL pendReq dex %u", 
+			tpOcspDebug("...tpVerifyCertGroupWithOCSP: NULL pendReq dex %u",
 					(unsigned)dex);
 			break;
 		}
@@ -801,9 +803,9 @@ postOcspd:
 			singleResp = tpOcspCacheLookup(pendReq->certID, localResponder);
 		}
 		if(singleResp) {
-			tpOcspDebug("...tpVerifyCertGroupWithOCSP: localCache (2) hit dex %u", 
+			tpOcspDebug("...tpVerifyCertGroupWithOCSP: localCache (2) hit dex %u",
 					(unsigned)dex);
-			crtn = tpApplySingleResp(*singleResp, pendReq->subject, dex, optFlags, 
+			crtn = tpApplySingleResp(*singleResp, pendReq->subject, dex, optFlags,
 					vfyCtx.verifyTime, pendReq->processed);
 			if(crtn) {
 				if(ourRtn == CSSM_OK) {
@@ -856,7 +858,7 @@ postOcspd:
 			}
 		}
 	}
-errOut:	
+errOut:
 	for(unsigned dex=0; dex<numCerts; dex++) {
 		PendingRequest *pendReq = pending[dex];
 		if(pendReq == NULL) {

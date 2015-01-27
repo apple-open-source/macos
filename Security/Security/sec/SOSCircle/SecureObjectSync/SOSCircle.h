@@ -104,7 +104,7 @@ bool SOSCircleHasActiveValidPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, S
 bool SOSCircleResetToOffering(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
 bool SOSCircleResetToEmpty(SOSCircleRef circle, CFErrorRef *error);
 bool SOSCircleRequestAdmission(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
-bool SOSCircleRequestReadmission(SOSCircleRef circle, SecKeyRef user_pubkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
+bool SOSCircleRequestReadmission(SOSCircleRef circle, SecKeyRef user_pubkey, SOSPeerInfoRef requestor, CFErrorRef *error);
 
 bool SOSCircleAcceptRequest(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, SOSPeerInfoRef peerInfo, CFErrorRef *error);
 bool SOSCircleRejectRequest(SOSCircleRef circle, SOSFullPeerInfoRef device_approver, SOSPeerInfoRef peerInfo, CFErrorRef *error);

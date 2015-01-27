@@ -85,6 +85,7 @@ struct IOPCIDeviceExpansionData
     uint8_t  pauseFlags;
     uint8_t  needsProbe;
     uint8_t  dead;
+    uint8_t  pmHibernated;
 
 	IOLock * lock;
     struct IOPCIConfigEntry * configEntry;
@@ -159,6 +160,7 @@ struct IOPCIConfigShadow
 	//
     uint32_t                 flags;
     queue_chain_t            link;
+    queue_chain_t            linkFinish;
 	queue_head_t             dependents;
 	IOPCIDevice *			 tunnelRoot;
     IOPCIDevice *            device;

@@ -383,7 +383,7 @@ pthread_override_qos_class_start_np(pthread_t __pthread,  qos_class_t __qos_clas
 	}
 
 	if (res == 0) {
-		res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_START, rv->kthread, rv->priority, 0);
+		res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_START, rv->kthread, rv->priority, (uintptr_t)rv);
 
 		if (res != 0) {
 			mach_port_mod_refs(mach_task_self(), rv->kthread, MACH_PORT_RIGHT_SEND, -1);
@@ -415,7 +415,7 @@ pthread_override_qos_class_end_np(pthread_override_t override)
 	override->sig = PTHREAD_OVERRIDE_SIG_DEAD;
 
 	/* Always consumes (and deallocates) the pthread_override_t object given. */
-	res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_END, override->kthread, 0, 0);
+	res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_END, override->kthread, (uintptr_t)override, 0);
 	if (res == -1) { res = errno; }
 
 	/* EFAULT from the syscall means we underflowed. Crash here. */
@@ -446,7 +446,8 @@ pthread_override_qos_class_end_np(pthread_override_t override)
 int
 _pthread_override_qos_class_start_direct(mach_port_t thread, pthread_priority_t priority)
 {
-	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_START, thread, priority, 0);
+	// use pthread_self as the default per-thread memory allocation to track the override in the kernel
+	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_START, thread, priority, (uintptr_t)pthread_self());
 	if (res == -1) { res = errno; }
 	return res;
 }
@@ -454,7 +455,8 @@ _pthread_override_qos_class_start_direct(mach_port_t thread, pthread_priority_t 
 int
 _pthread_override_qos_class_end_direct(mach_port_t thread)
 {
-	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_END, thread, 0, 0);
+	// use pthread_self as the default per-thread memory allocation to track the override in the kernel
+	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_END, thread, (uintptr_t)pthread_self(), 0);
 	if (res == -1) { res = errno; }
 	return res;
 }
@@ -471,6 +473,36 @@ int
 _pthread_workqueue_override_reset(void)
 {
 	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_RESET, 0, 0, 0);
+	if (res == -1) { res = errno; }
+	return res;
+}
+
+int
+_pthread_workqueue_asynchronous_override_add(mach_port_t thread, pthread_priority_t priority, void *resource)
+{
+	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_ADD, thread, priority, (uintptr_t)resource);
+	if (res == -1) { res = errno; }
+	return res;
+}
+
+int
+_pthread_workqueue_asynchronous_override_reset_self(void *resource)
+{
+	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_RESET,
+							  0 /* !reset_all */,
+							  (uintptr_t)resource,
+							  0);
+	if (res == -1) { res = errno; }
+	return res;
+}
+
+int
+_pthread_workqueue_asynchronous_override_reset_all_self(void)
+{
+	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_RESET,
+							  1 /* reset_all */,
+							  0,
+							  0);
 	if (res == -1) { res = errno; }
 	return res;
 }

@@ -48,7 +48,6 @@
 #include "PluginProxy.h"
 #include "PluginView.h"
 #include "PrintInfo.h"
-#include "ServicesOverlayController.h"
 #include "SessionState.h"
 #include "SessionStateConversion.h"
 #include "SessionTracker.h"
@@ -66,6 +65,7 @@
 #include "WebContextMenuClient.h"
 #include "WebContextMessages.h"
 #include "WebCoreArgumentCoders.h"
+#include "WebDiagnosticLoggingClient.h"
 #include "WebDocumentLoader.h"
 #include "WebDragClient.h"
 #include "WebEditorClient.h"
@@ -85,6 +85,7 @@
 #include "WebPageCreationParameters.h"
 #include "WebPageGroupProxy.h"
 #include "WebPageMessages.h"
+#include "WebPageOverlay.h"
 #include "WebPageProxyMessages.h"
 #include "WebPlugInClient.h"
 #include "WebPopupMenu.h"
@@ -126,6 +127,7 @@
 #include <WebCore/MainFrame.h>
 #include <WebCore/MouseEvent.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageConfiguration.h>
 #include <WebCore/PageThrottler.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PluginDocument.h>
@@ -259,9 +261,6 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     , m_numberOfPrimarySnapshotDetectionAttempts(0)
     , m_determinePrimarySnapshottedPlugInTimer(RunLoop::main(), this, &WebPage::determinePrimarySnapshottedPlugInTimerFired)
 #endif
-#if ENABLE(SERVICE_CONTROLS)
-    , m_serviceControlsEnabled(false)
-#endif
     , m_layerHostingMode(parameters.layerHostingMode)
 #if PLATFORM(COCOA)
     , m_pdfPluginEnabled(false)
@@ -323,7 +322,7 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
 #if ENABLE(WEBGL)
     , m_systemWebGLPolicy(WebGLAllowCreation)
 #endif
-    , m_pageOverlayController(*this)
+    , m_shouldDispatchFakeMouseMoveEvents(true)
 {
     ASSERT(m_pageID);
     // FIXME: This is a non-ideal location for this Setting and
@@ -334,35 +333,35 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     Settings::setShouldManageAudioSessionCategory(true);
 #endif
 
-    Page::PageClients pageClients;
-    pageClients.chromeClient = new WebChromeClient(this);
+    PageConfiguration pageConfiguration;
+    pageConfiguration.chromeClient = new WebChromeClient(this);
 #if ENABLE(CONTEXT_MENUS)
-    pageClients.contextMenuClient = new WebContextMenuClient(this);
+    pageConfiguration.contextMenuClient = new WebContextMenuClient(this);
 #endif
-    pageClients.editorClient = new WebEditorClient(this);
+    pageConfiguration.editorClient = new WebEditorClient(this);
 #if ENABLE(DRAG_SUPPORT)
-    pageClients.dragClient = new WebDragClient(this);
+    pageConfiguration.dragClient = new WebDragClient(this);
 #endif
-    pageClients.backForwardClient = WebBackForwardListProxy::create(this);
+    pageConfiguration.backForwardClient = WebBackForwardListProxy::create(this);
 #if ENABLE(INSPECTOR)
     m_inspectorClient = new WebInspectorClient(this);
-    pageClients.inspectorClient = m_inspectorClient;
+    pageConfiguration.inspectorClient = m_inspectorClient;
 #endif
 #if USE(AUTOCORRECTION_PANEL)
-    pageClients.alternativeTextClient = new WebAlternativeTextClient(this);
+    pageConfiguration.alternativeTextClient = new WebAlternativeTextClient(this);
 #endif
-    pageClients.plugInClient = new WebPlugInClient(this);
-    pageClients.loaderClientForMainFrame = new WebFrameLoaderClient;
-    pageClients.progressTrackerClient = new WebProgressTrackerClient(*this);
+    pageConfiguration.plugInClient = new WebPlugInClient(this);
+    pageConfiguration.loaderClientForMainFrame = new WebFrameLoaderClient;
+    pageConfiguration.progressTrackerClient = new WebProgressTrackerClient(*this);
+    pageConfiguration.diagnosticLoggingClient = new WebDiagnosticLoggingClient(*this);
 
-    pageClients.userContentController = m_userContentController ? &m_userContentController->userContentController() : nullptr;
-    pageClients.visitedLinkStore = VisitedLinkTableController::getOrCreate(parameters.visitedLinkTableID);
+    pageConfiguration.userContentController = m_userContentController ? &m_userContentController->userContentController() : nullptr;
+    pageConfiguration.visitedLinkStore = VisitedLinkTableController::getOrCreate(parameters.visitedLinkTableID);
 
-    m_page = std::make_unique<Page>(pageClients);
+    m_page = std::make_unique<Page>(pageConfiguration);
 
     m_drawingArea = DrawingArea::create(*this, parameters);
     m_drawingArea->setPaintingEnabled(false);
-    m_pageOverlayController.initialize();
 
 #if ENABLE(ASYNC_SCROLLING)
     m_useAsyncScrolling = parameters.store.getBoolValueForKey(WebPreferencesKey::threadedScrollingEnabledKey());
@@ -481,7 +480,7 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
 void WebPage::reinitializeWebPage(const WebPageCreationParameters& parameters)
 {
     if (m_viewState != parameters.viewState)
-        setViewState(parameters.viewState);
+        setViewState(parameters.viewState, false, Vector<uint64_t>());
     if (m_layerHostingMode != parameters.layerHostingMode)
         setLayerHostingMode(static_cast<unsigned>(parameters.layerHostingMode));
 }
@@ -1201,8 +1200,6 @@ void WebPage::setSize(const WebCore::IntSize& viewSize)
     if (view->useFixedLayout())
         sendViewportAttributesChanged();
 #endif
-
-    m_pageOverlayController.didChangeViewSize();
 }
 
 #if USE(TILED_BACKING_STORE)
@@ -1428,8 +1425,6 @@ void WebPage::setDeviceScaleFactor(float scaleFactor)
 
     if (m_drawingArea->layerTreeHost())
         m_drawingArea->layerTreeHost()->deviceOrPageScaleFactorChanged();
-
-    m_pageOverlayController.didChangeDeviceScaleFactor();
 }
 
 float WebPage::deviceScaleFactor() const
@@ -1550,16 +1545,6 @@ void WebPage::postInjectedBundleMessage(const String& messageName, IPC::MessageD
         return;
 
     injectedBundle->didReceiveMessageToPage(this, messageName, messageBody.get());
-}
-
-void WebPage::installPageOverlay(PassRefPtr<PageOverlay> pageOverlay, PageOverlay::FadeMode fadeMode)
-{
-    m_pageOverlayController.installPageOverlay(pageOverlay, fadeMode);
-}
-
-void WebPage::uninstallPageOverlay(PageOverlay* pageOverlay, PageOverlay::FadeMode fadeMode)
-{
-    m_pageOverlayController.uninstallPageOverlay(pageOverlay, fadeMode);
 }
 
 #if !PLATFORM(IOS)
@@ -1888,7 +1873,7 @@ void WebPage::mouseEvent(const WebMouseEvent& mouseEvent)
         return;
     }
 #endif
-    bool handled = m_pageOverlayController.handleMouseEvent(mouseEvent);
+    bool handled = false;
 
 #if !PLATFORM(IOS)
     if (!handled && m_headerBanner)
@@ -1914,7 +1899,7 @@ void WebPage::mouseEvent(const WebMouseEvent& mouseEvent)
 
 void WebPage::mouseEventSyncForTesting(const WebMouseEvent& mouseEvent, bool& handled)
 {
-    handled = m_pageOverlayController.handleMouseEvent(mouseEvent);
+    handled = false;
 #if !PLATFORM(IOS)
     if (!handled && m_headerBanner)
         handled = m_headerBanner->mouseEvent(mouseEvent);
@@ -2266,7 +2251,7 @@ void WebPage::updateIsInWindow(bool isInitialState)
         layoutIfNeeded();
 }
 
-void WebPage::setViewState(ViewState::Flags viewState, bool wantsDidUpdateViewState)
+void WebPage::setViewState(ViewState::Flags viewState, bool wantsDidUpdateViewState, const Vector<uint64_t>& callbackIDs)
 {
     ViewState::Flags changed = m_viewState ^ viewState;
     m_viewState = viewState;
@@ -2275,7 +2260,7 @@ void WebPage::setViewState(ViewState::Flags viewState, bool wantsDidUpdateViewSt
     for (auto* pluginView : m_pluginViews)
         pluginView->viewStateDidChange(changed);
 
-    m_drawingArea->viewStateDidChange(changed, wantsDidUpdateViewState);
+    m_drawingArea->viewStateDidChange(changed, wantsDidUpdateViewState, callbackIDs);
 
     if (changed & ViewState::IsInWindow)
         updateIsInWindow();
@@ -2617,10 +2602,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     m_pdfPluginEnabled = store.getBoolValueForKey(WebPreferencesKey::pdfPluginEnabledKey());
 #endif
 
-#if ENABLE(SERVICE_CONTROLS)
-    m_serviceControlsEnabled = store.getBoolValueForKey(WebPreferencesKey::serviceControlsEnabledKey());
-#endif
-
     // FIXME: This should be generated from macro expansion for all preferences,
     // but we currently don't match the naming of WebCore exactly so we are
     // handrolling the boolean and integer preferences until that is fixed.
@@ -2835,6 +2816,10 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     RuntimeEnabledFeatures::sharedFeatures().setGamepadsEnabled(store.getBoolValueForKey(WebPreferencesKey::gamepadsEnabledKey()));
 #endif
 
+#if ENABLE(SERVICE_CONTROLS)
+    settings.setServiceControlsEnabled(store.getBoolValueForKey(WebPreferencesKey::serviceControlsEnabledKey()));
+#endif
+
     if (store.getBoolValueForKey(WebPreferencesKey::pageVisibilityBasedProcessSuppressionEnabledKey()))
         m_processSuppressionDisabledByWebPreference.stop();
     else
@@ -2844,8 +2829,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 
     if (m_drawingArea)
         m_drawingArea->updatePreferences(store);
-
-    m_pageOverlayController.didChangePreferences();
 }
 
 #if PLATFORM(COCOA)
@@ -4075,7 +4058,7 @@ void WebPage::recomputeShortCircuitHorizontalWheelEventsState()
     send(Messages::WebPageProxy::SetCanShortCircuitHorizontalWheelEvents(m_canShortCircuitHorizontalWheelEvents));
 }
 
-Frame* WebPage::mainFrame() const
+MainFrame* WebPage::mainFrame() const
 {
     return m_page ? &m_page->mainFrame() : nullptr;
 }
@@ -4320,7 +4303,7 @@ void WebPage::cancelComposition()
 
 void WebPage::didChangeSelection()
 {
-#if (PLATFORM(MAC) && USE(ASYNC_NSTEXTINPUTCLIENT))
+#if PLATFORM(MAC) && USE(ASYNC_NSTEXTINPUTCLIENT)
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     // Abandon the current inline input session if selection changed for any other reason but an input method direct action.
     // FIXME: Many changes that affect composition node do not go through didChangeSelection(). We need to do something when DOM manipulation affects the composition, because otherwise input method's idea about it will be different from Editor's.
@@ -4329,8 +4312,10 @@ void WebPage::didChangeSelection()
         frame.editor().cancelComposition();
         send(Messages::WebPageProxy::CompositionWasCanceled(editorState()));
     } else
-#endif
         send(Messages::WebPageProxy::EditorStateChanged(editorState()));
+#else
+    send(Messages::WebPageProxy::EditorStateChanged(editorState()), pageID(), IPC::DispatchMessageEvenWhenWaitingForSyncReply);
+#endif
 
 #if PLATFORM(IOS)
     m_drawingArea->scheduleCompositingLayerFlush();
@@ -4548,6 +4533,8 @@ void WebPage::determinePrimarySnapshottedPlugIn()
     }
 
     ++m_numberOfPrimarySnapshotDetectionAttempts;
+
+    layoutIfNeeded();
 
     MainFrame& mainFrame = corePage()->mainFrame();
     if (!mainFrame.view())
@@ -4775,21 +4762,9 @@ bool WebPage::synchronousMessagesShouldSpinRunLoop()
 #endif
     return false;
 }
-    
-#if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
-ServicesOverlayController& WebPage::servicesOverlayController()
-{
-    if (!m_servicesOverlayController)
-        m_servicesOverlayController = std::make_unique<ServicesOverlayController>(*this);
-
-    return *m_servicesOverlayController;
-}
-#endif
 
 void WebPage::didChangeScrollOffsetForFrame(Frame* frame)
 {
-    m_pageOverlayController.didScrollFrame(frame);
-
     if (!frame->isMainFrame())
         return;
 

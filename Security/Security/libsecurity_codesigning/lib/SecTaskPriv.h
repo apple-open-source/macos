@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2013-2014 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,14 @@ extern "C" {
     task satisfies the requirement.
 */
 OSStatus SecTaskValidateForRequirement(SecTaskRef task, CFStringRef requirement);
+
+/*!
+    @function SecTaskEntitlementsValidated
+    @abstract Check whether entitlements can be trusted or not.  If this returns
+    false the tasks entitlements must not be used for anything security sensetive.
+    @param task A previously created SecTask object
+*/
+Boolean SecTaskEntitlementsValidated(SecTaskRef task);
 
 #if defined(__cplusplus)
 }

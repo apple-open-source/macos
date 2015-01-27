@@ -41,7 +41,6 @@
 #include "DrawingAreaProxy.h"
 #include "DrawingAreaProxyMessages.h"
 #include "EventDispatcherMessages.h"
-#include "FindIndicator.h"
 #include "Logging.h"
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebMouseEvent.h"
@@ -96,6 +95,7 @@
 #include <WebCore/RenderEmbeddedObject.h>
 #include <WebCore/SerializedCryptoKeyWrap.h>
 #include <WebCore/TextCheckerClient.h>
+#include <WebCore/TextIndicator.h>
 #include <WebCore/WindowFeatures.h>
 #include <stdio.h>
 #include <wtf/NeverDestroyed.h>
@@ -283,6 +283,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
     , m_viewState(ViewState::NoFlags)
     , m_viewWasEverInWindow(false)
     , m_backForwardList(WebBackForwardList::create(*this))
+    , m_maintainsInactiveSelection(false)
     , m_loadStateAtProcessExit(FrameLoadState::State::Finished)
 #if PLATFORM(MAC) && !USE(ASYNC_NSTEXTINPUTCLIENT)
     , m_temporarilyClosedComposition(false)
@@ -369,7 +370,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
     , m_navigationID(0)
     , m_configurationPreferenceValues(configuration.preferenceValues)
     , m_potentiallyChangedViewStateFlags(ViewState::NoFlags)
-    , m_viewStateChangeWantsReply(false)
+    , m_viewStateChangeWantsSynchronousReply(false)
 {
     if (m_process->state() == WebProcessProxy::State::Running) {
         if (m_userContentController)
@@ -1127,10 +1128,26 @@ void WebPageProxy::updateViewState(ViewState::Flags flagsToUpdate)
         m_viewState |= ViewState::IsVisuallyIdle;
 }
 
-void WebPageProxy::viewStateDidChange(ViewState::Flags mayHaveChanged, bool wantsReply, ViewStateChangeDispatchMode dispatchMode)
+void WebPageProxy::installViewStateChangeCompletionHandler(void (^completionHandler)())
+{
+    if (!isValid()) {
+        completionHandler();
+        return;
+    }
+
+    auto copiedCompletionHandler = Block_copy(completionHandler);
+    RefPtr<VoidCallback> voidCallback = VoidCallback::create([copiedCompletionHandler] (CallbackBase::Error) {
+        copiedCompletionHandler();
+        Block_release(copiedCompletionHandler);
+    }, std::make_unique<ProcessThrottler::BackgroundActivityToken>(m_process->throttler()));
+    uint64_t callbackID = m_callbacks.put(voidCallback.release());
+    m_nextViewStateChangeCallbacks.append(callbackID);
+}
+
+void WebPageProxy::viewStateDidChange(ViewState::Flags mayHaveChanged, bool wantsSynchronousReply, ViewStateChangeDispatchMode dispatchMode)
 {
     m_potentiallyChangedViewStateFlags |= mayHaveChanged;
-    m_viewStateChangeWantsReply = m_viewStateChangeWantsReply || wantsReply;
+    m_viewStateChangeWantsSynchronousReply = m_viewStateChangeWantsSynchronousReply || wantsSynchronousReply;
 
 #if PLATFORM(COCOA)
     bool isNewlyInWindow = !isInWindow() && (mayHaveChanged & ViewState::IsInWindow) && m_pageClient.isViewInWindow();
@@ -1188,10 +1205,12 @@ void WebPageProxy::dispatchViewStateChange()
 
     // We always want to wait for the Web process to reply if we've been in-window before and are coming back in-window.
     if (m_viewWasEverInWindow && (changed & ViewState::IsInWindow) && isInWindow())
-        m_viewStateChangeWantsReply = true;
+        m_viewStateChangeWantsSynchronousReply = true;
 
-    if (changed || m_viewStateChangeWantsReply)
-        m_process->send(Messages::WebPage::SetViewState(m_viewState, m_viewStateChangeWantsReply), m_pageID);
+    if (changed || m_viewStateChangeWantsSynchronousReply)
+        m_process->send(Messages::WebPage::SetViewState(m_viewState, m_viewStateChangeWantsSynchronousReply, m_nextViewStateChangeCallbacks), m_pageID);
+
+    m_nextViewStateChangeCallbacks.clear();
 
     // This must happen after the SetViewState message is sent, to ensure the page visibility event can fire.
     updateActivityToken();
@@ -1214,11 +1233,11 @@ void WebPageProxy::dispatchViewStateChange()
 
     updateBackingStoreDiscardableState();
 
-    if (m_viewStateChangeWantsReply)
+    if (m_viewStateChangeWantsSynchronousReply)
         waitForDidUpdateViewState();
 
     m_potentiallyChangedViewStateFlags = ViewState::NoFlags;
-    m_viewStateChangeWantsReply = false;
+    m_viewStateChangeWantsSynchronousReply = false;
 }
 
 void WebPageProxy::updateActivityToken()
@@ -2601,8 +2620,7 @@ void WebPageProxy::didCommitLoadForFrame(uint64_t frameID, uint64_t navigationID
     // FIXME (bug 59111): didCommitLoadForFrame comes too late when restoring a page from b/f cache, making us disable secure event mode in password fields.
     // FIXME: A load going on in one frame shouldn't affect text editing in other frames on the page.
     m_pageClient.resetSecureInputState();
-    dismissCorrectionPanel(ReasonForDismissingAlternativeTextIgnored);
-    m_pageClient.dismissDictionaryLookupPanel();
+    m_pageClient.dismissContentRelativeChildWindows();
 #endif
 
     clearLoadDependentCallbacks();
@@ -3078,6 +3096,8 @@ void WebPageProxy::mouseDidMoveOverElement(const WebHitTestResult::Data& hitTest
     if (!decoder.decode(messageDecoder))
         return;
 
+    m_lastMouseMoveHitTestResult = WebHitTestResult::create(hitTestResultData);
+
     WebEvent::Modifiers modifiers = static_cast<WebEvent::Modifiers>(opaqueModifiers);
 
     m_uiClient->mouseDidMoveOverElement(this, hitTestResultData, modifiers, userData.get());
@@ -3260,7 +3280,7 @@ void WebPageProxy::pageDidScroll()
 {
     m_uiClient->pageDidScroll(this);
 #if PLATFORM(MAC)
-    dismissCorrectionPanel(ReasonForDismissingAlternativeTextIgnored);
+    m_pageClient.dismissContentRelativeChildWindows();
 #endif
 }
 
@@ -3546,10 +3566,19 @@ void WebPageProxy::didGetImageForFindMatch(const ShareableBitmap::Handle& conten
     m_findMatchesClient.didGetImageForMatchResult(this, WebImage::create(ShareableBitmap::create(contentImageHandle)).get(), matchIndex);
 }
 
-void WebPageProxy::setFindIndicator(const FloatRect& selectionRectInWindowCoordinates, const Vector<FloatRect>& textRectsInSelectionRectCoordinates, float contentImageScaleFactor, const ShareableBitmap::Handle& contentImageHandle, bool fadeOut, bool animate)
+void WebPageProxy::setTextIndicator(const TextIndicatorData& indicatorData, bool fadeOut)
 {
-    RefPtr<FindIndicator> findIndicator = FindIndicator::create(selectionRectInWindowCoordinates, textRectsInSelectionRectCoordinates, contentImageScaleFactor, contentImageHandle);
-    m_pageClient.setFindIndicator(findIndicator.release(), fadeOut, animate);
+    m_pageClient.setTextIndicator(TextIndicator::create(indicatorData), fadeOut);
+}
+
+void WebPageProxy::clearTextIndicator()
+{
+    m_pageClient.setTextIndicator(nullptr, false);
+}
+
+void WebPageProxy::setTextIndicatorAnimationProgress(float progress)
+{
+    m_pageClient.setTextIndicatorAnimationProgress(progress);
 }
 
 void WebPageProxy::didFindString(const String& string, uint32_t matchCount, int32_t matchIndex)
@@ -4461,8 +4490,7 @@ void WebPageProxy::resetStateAfterProcessExited()
 #endif
 
 #if PLATFORM(MAC)
-    dismissCorrectionPanel(ReasonForDismissingAlternativeTextIgnored);
-    m_pageClient.dismissDictionaryLookupPanel();
+    m_pageClient.dismissContentRelativeChildWindows();
 #endif
 
     PageLoadState::Transaction transaction = m_pageLoadState.transaction();
@@ -5191,6 +5219,36 @@ void WebPageProxy::willChangeCurrentHistoryItemForMainFrame()
 void WebPageProxy::removeNavigationGestureSnapshot()
 {
     m_pageClient.removeNavigationGestureSnapshot();
+}
+
+void WebPageProxy::performActionMenuHitTestAtLocation(FloatPoint point, bool forImmediateAction)
+{
+    m_process->send(Messages::WebPage::PerformActionMenuHitTestAtLocation(point, forImmediateAction), m_pageID);
+}
+
+void WebPageProxy::selectLastActionMenuRange()
+{
+    m_process->send(Messages::WebPage::SelectLastActionMenuRange(), m_pageID);
+}
+
+void WebPageProxy::focusAndSelectLastActionMenuHitTestResult()
+{
+    m_process->send(Messages::WebPage::FocusAndSelectLastActionMenuHitTestResult(), m_pageID);
+}
+
+void WebPageProxy::didPerformActionMenuHitTest(const ActionMenuHitTestResult& result, bool forImmediateAction, IPC::MessageDecoder& decoder)
+{
+    RefPtr<API::Object> userData;
+    WebContextUserMessageDecoder messageDecoder(userData, process());
+    if (!decoder.decode(messageDecoder))
+        return;
+
+    m_pageClient.didPerformActionMenuHitTest(result, forImmediateAction, userData.get());
+}
+
+void WebPageProxy::setShouldDispatchFakeMouseMoveEvents(bool shouldDispatchFakeMouseMoveEvents)
+{
+    m_process->send(Messages::WebPage::SetShouldDispatchFakeMouseMoveEvents(shouldDispatchFakeMouseMoveEvents), m_pageID);
 }
 
 } // namespace WebKit

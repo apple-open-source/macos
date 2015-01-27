@@ -1,3 +1,103 @@
+2014-12-16  Dana Burkart  <dburkart@apple.com>
+
+        Merged r177131. <rdar://problem/19198539>
+
+    2014-12-10  Beth Dakin  <bdakin@apple.com>
+
+            WK1: Add initial support for immediate actions
+            https://bugs.webkit.org/show_bug.cgi?id=139522
+
+            Reviewed by Dan Bernstein.
+
+            * WebKit.xcodeproj/project.pbxproj:
+
+2014-12-04  Dana Burkart  <dburkart@apple.com>
+
+        Merge r176766. <rdar://problem/19072083>
+
+    2014-12-03  Beth Dakin  <bdakin@apple.com> 
+      
+            <input> elements get whitespace action menu instead of editable text menu 
+            https://bugs.webkit.org/show_bug.cgi?id=139241 
+            -and corresponding- 
+            rdar://problem/19072083 
+     
+            Reviewed by Sam Weinig. 
+     
+            We should disallow shadow content in the hit test. This is the default and it is  
+            how context menus behave. We originally wanted to text inside shadow content so  
+            that we could find the text, but the new function I added to HitTestResult will  
+            allow that. 
+            * WebView/WebActionMenuController.mm: 
+            (-[WebActionMenuController performHitTestAtPoint:]): 
+      
+            Adjust to the fact that we don’t hit test shadow content any more. 
+            (-[WebActionMenuController focusAndSelectHitTestResult]): 
+      
+            Offer the text menus for text inside form controls. 
+            (-[WebActionMenuController _defaultMenuItems]):
+
+2014-12-03  Dana Burkart  <dburkart@apple.com>
+
+        Merge r176680. <rdar://problem/19067172>
+
+    2014-12-02  Tim Horton  <timothy_horton@apple.com>
+
+            Implement Lookup transition from selection for Legacy WebKit
+            https://bugs.webkit.org/show_bug.cgi?id=139180
+            <rdar://problem/19067172>
+
+            Reviewed by Beth Dakin.
+
+            * WebKit.xcodeproj/project.pbxproj:
+            Add mac/WebView/DictionaryPopupInfo.h.
+
+
+2014-10-28  Dana Burkart  <dburkart@apple.com>
+
+        Merge r174791. <rdar://problem/18753175>
+
+    2014-10-16  Tim Horton  <timothy_horton@apple.com>
+    
+            Implement selection services menu for Legacy WebKit
+            https://bugs.webkit.org/show_bug.cgi?id=137582
+            <rdar://problem/18604241>
+    
+            Reviewed by Brady Eidson.
+    
+            * WebKit.xcodeproj/project.pbxproj:
+    
+2014-10-28  Dana Burkart  <dburkart@apple.com>
+
+        Merge r174368. <rdar://problem/18753175>
+
+    2014-10-06  Brent Fulgham  <bfulgham@apple.com>
+    
+            [Win] Unreviewed 64-bit build fix after r174315.
+    
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Update exports for
+            64-bit symbol names.
+    
+2014-10-28  Dana Burkart  <dburkart@apple.com>
+
+        Merge r174321. <rdar://problem/18753175>
+
+    2014-10-04  Timothy Horton  <timothy_horton@apple.com>
+    
+            Try to fix the Windows build after r174315.
+    
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+    
+2014-10-28  Dana Burkart  <dburkart@apple.com>
+
+        Merge r174320. <rdar://problem/18753175>
+
+    2014-10-04  Timothy Horton  <timothy_horton@apple.com>
+    
+            Try to fix the Windows build after r174315.
+    
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+    
 2014-08-15  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r172019. <rdar://problem/18029617>

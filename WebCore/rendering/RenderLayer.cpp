@@ -94,6 +94,7 @@
 #include "RenderScrollbarPart.h"
 #include "RenderTableCell.h"
 #include "RenderTableRow.h"
+#include "RenderText.h"
 #include "RenderTheme.h"
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
@@ -2315,7 +2316,7 @@ void RenderLayer::scrollTo(int x, int y)
 
     InspectorInstrumentation::didScrollLayer(&frame);
     if (scrollsOverflow())
-        frame.loader().client().didChangeScrollOffset();
+        view.frameView().didChangeScrollOffset();
 
     view.frameView().resumeVisibleImageAnimationsIncludingSubframes();
 }
@@ -6201,33 +6202,66 @@ void RenderLayer::updateSelfPaintingLayer()
         parent()->dirtyAncestorChainHasSelfPaintingLayerDescendantStatus();
 }
 
-bool RenderLayer::hasNonEmptyChildRenderers() const
-{
-    // Some HTML can cause whitespace text nodes to have renderers, like:
-    // <div>
-    // <img src=...>
-    // </div>
-    // so test for 0x0 RenderTexts here
-    for (RenderObject* child = renderer().firstChild(); child; child = child->nextSibling()) {
-        if (!child->hasLayer()) {
-            if (child->isRenderInline() || !child->isBox())
-                return true;
-        
-            if (toRenderBox(child)->width() > 0 || toRenderBox(child)->height() > 0)
-                return true;
-        }
-    }
-    return false;
-}
-
+// FIXME: use RenderObject::hasBoxDecorations(). And why hasBorderRadius() and filter?
 static bool hasBoxDecorations(const RenderStyle& style)
 {
     return style.hasBorder() || style.hasBorderRadius() || style.hasOutline() || style.hasAppearance() || style.boxShadow() || style.hasFilter();
 }
 
+static bool hasBoxDecorationsOrBackground(const RenderElement& renderer)
+{
+    return hasBoxDecorations(renderer.style()) || renderer.hasBackground();
+}
+
+// Constrain the depth and breadth of the search for performance.
+static const int maxDescendentDepth = 3;
+static const int maxSiblingCount = 20;
+
+static bool hasPaintingNonLayerDescendants(const RenderElement& renderer, int depth)
+{
+    if (depth > maxDescendentDepth)
+        return true;
+    
+    int siblingCount = 0;
+    for (const auto& child : childrenOfType<RenderObject>(renderer)) {
+        if (++siblingCount > maxSiblingCount)
+            return true;
+        
+        if (child.isText()) {
+            bool isSelectable = renderer.style().userSelect() != SELECT_NONE;
+            if (isSelectable || !toRenderText(child).isAllCollapsibleWhitespace())
+                return true;
+        }
+        
+        if (!child.isRenderElement())
+            continue;
+        
+        const RenderElement& renderElementChild = toRenderElement(child);
+
+        if (renderElementChild.isRenderLayerModelObject() && toRenderLayerModelObject(renderElementChild).hasSelfPaintingLayer())
+            continue;
+
+        if (hasBoxDecorationsOrBackground(renderElementChild))
+            return true;
+        
+        if (renderElementChild.isRenderReplaced())
+            return true;
+
+        if (hasPaintingNonLayerDescendants(renderElementChild, depth + 1))
+            return true;
+    }
+
+    return false;
+}
+
+bool RenderLayer::hasNonEmptyChildRenderers() const
+{
+    return hasPaintingNonLayerDescendants(renderer(), 0);
+}
+
 bool RenderLayer::hasBoxDecorationsOrBackground() const
 {
-    return hasBoxDecorations(renderer().style()) || renderer().hasBackground();
+    return WebCore::hasBoxDecorationsOrBackground(renderer());
 }
 
 bool RenderLayer::hasVisibleBoxDecorations() const
@@ -6242,13 +6276,16 @@ bool RenderLayer::isVisuallyNonEmpty() const
 {
     ASSERT(!m_visibleDescendantStatusDirty);
 
-    if (hasVisibleContent() && hasNonEmptyChildRenderers())
+    if (!hasVisibleContent() || !renderer().style().opacity())
+        return false;
+
+    if (renderer().isRenderReplaced() || hasOverflowControls())
         return true;
 
-    if (renderer().isReplaced() || renderer().hasMask())
+    if (hasBoxDecorationsOrBackground())
         return true;
-
-    if (hasVisibleBoxDecorations())
+    
+    if (hasNonEmptyChildRenderers())
         return true;
 
     return false;
@@ -6384,6 +6421,21 @@ inline bool RenderLayer::needsCompositingLayersRebuiltForOverflow(const RenderSt
     return !isComposited() && oldStyle && (oldStyle->overflowX() != newStyle->overflowX()) && stackingContainer()->hasCompositingDescendant();
 }
 
+inline bool RenderLayer::needsCompositingLayersRebuiltForOpacity(const RenderStyle* oldStyle, const RenderStyle* newStyle) const
+{
+    if (!oldStyle || !newStyle)
+        return false;
+
+    if (!oldStyle->opacity() != !newStyle->opacity()) {
+        RenderLayerModelObject* repaintContainer = renderer().containerForRepaint();
+        if (RenderLayerBacking* ancestorBacking = repaintContainer ? repaintContainer->layer()->backing() : nullptr) {
+            if (newStyle->opacity() != ancestorBacking->graphicsLayer()->drawsContent())
+                return true;
+        }
+    }
+    return false;
+}
+
 void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle)
 {
     bool isNormalFlowOnly = shouldBeNormalFlowOnly();
@@ -6443,7 +6495,8 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
     const RenderStyle& newStyle = renderer().style();
     if (compositor().updateLayerCompositingState(*this)
         || needsCompositingLayersRebuiltForClip(oldStyle, &newStyle)
-        || needsCompositingLayersRebuiltForOverflow(oldStyle, &newStyle))
+        || needsCompositingLayersRebuiltForOverflow(oldStyle, &newStyle)
+        || needsCompositingLayersRebuiltForOpacity(oldStyle, &newStyle))
         compositor().setCompositingLayersNeedRebuild();
     else if (isComposited()) {
         // FIXME: updating geometry here is potentially harmful, because layout is not up-to-date.

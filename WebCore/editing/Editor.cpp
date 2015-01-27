@@ -61,6 +61,7 @@
 #include "InsertListCommand.h"
 #include "KeyboardEvent.h"
 #include "KillRing.h"
+#include "MainFrame.h"
 #include "ModifySelectionListLevel.h"
 #include "NodeList.h"
 #include "NodeTraversal.h"
@@ -102,9 +103,12 @@
 #include <wtf/text/WTFString.h>
 #endif
 
+#if PLATFORM(MAC)
+#include "ServicesOverlayController.h"
+#endif
+
 namespace WebCore {
 
-#if PLATFORM(IOS)
 class ClearTextCommand : public DeleteSelectionCommand {
 public:
     ClearTextCommand(Document& document);
@@ -138,7 +142,6 @@ void ClearTextCommand::CreateAndApply(const RefPtr<Frame> frame)
     clearCommand->setStartingSelection(oldSelection);
     applyCommand(clearCommand.release());
 }
-#endif
 
 using namespace HTMLNames;
 using namespace WTF;
@@ -442,12 +445,12 @@ void Editor::deleteSelectionWithSmartDelete(bool smartDelete)
     applyCommand(DeleteSelectionCommand::create(document(), smartDelete));
 }
 
-#if PLATFORM(IOS)
 void Editor::clearText()
 {
     ClearTextCommand::CreateAndApply(&m_frame);
 }
 
+#if PLATFORM(IOS)
 void Editor::insertDictationPhrases(PassOwnPtr<Vector<Vector<String> > > dictationPhrases, RetainPtr<id> metadata)
 {
     if (m_frame.selection().isNone())
@@ -3368,7 +3371,7 @@ void Editor::scanSelectionForTelephoneNumbers()
 
     FrameSelection& frameSelection = m_frame.selection();
     if (!frameSelection.isRange()) {
-        client()->selectedTelephoneNumberRangesChanged();
+        m_frame.mainFrame().servicesOverlayController().selectedTelephoneNumberRangesChanged();
         return;
     }
     RefPtr<Range> selectedRange = frameSelection.toNormalizedRange();
@@ -3396,7 +3399,7 @@ void Editor::scanSelectionForTelephoneNumbers()
     RefPtr<Range> extendedRange = extendedSelection.toNormalizedRange();
 
     if (!extendedRange) {
-        client()->selectedTelephoneNumberRangesChanged();
+        m_frame.mainFrame().servicesOverlayController().selectedTelephoneNumberRangesChanged();
         return;
     }
 
@@ -3408,7 +3411,7 @@ void Editor::scanSelectionForTelephoneNumbers()
             m_detectedTelephoneNumberRanges.append(range);
     }
 
-    client()->selectedTelephoneNumberRangesChanged();
+    m_frame.mainFrame().servicesOverlayController().selectedTelephoneNumberRangesChanged();
 }
 
 void Editor::scanRangeForTelephoneNumbers(Range& range, const StringView& stringView, Vector<RefPtr<Range>>& markedRanges)

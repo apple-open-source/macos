@@ -73,6 +73,7 @@
 		18B965951472FE30005A4D2E /* cdbuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383150A237F47005C63A2 /* cdbuilder.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		37DDE33C1947A4F3005CE18B /* dirscanner.h in Headers */ = {isa = PBXBuildFile; fileRef = 37DDE33B1947A4F3005CE18B /* dirscanner.h */; };
 		37DDE3421947A501005CE18B /* dirscanner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 37DDE3411947A501005CE18B /* dirscanner.cpp */; };
+		48674DE319EC9E610049EB7D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48674DE219EC9E610049EB7D /* Security.framework */; };
 		7A4FAF1B19C215DF00D297CB /* CrashReporterSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A4FAF1A19C215DF00D297CB /* CrashReporterSupport.framework */; };
 		7A9DA65C1948D1BA004635E6 /* opaquewhitelist.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7A9DA65A1948D1BA004635E6 /* opaquewhitelist.cpp */; };
 		7A9DA65D1948D1BA004635E6 /* opaquewhitelist.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A9DA65B1948D1BA004635E6 /* opaquewhitelist.h */; };
@@ -372,6 +373,7 @@
 		184461A2146E9AD100B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		37DDE33B1947A4F3005CE18B /* dirscanner.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dirscanner.h; sourceTree = "<group>"; };
 		37DDE3411947A501005CE18B /* dirscanner.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dirscanner.cpp; sourceTree = "<group>"; };
+		48674DE219EC9E610049EB7D /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = "../../../Volumes/Data/Users/murf/Projects/Security/build/Debug-iphoneos/Security.framework"; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_codesigning.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A4FAF1A19C215DF00D297CB /* CrashReporterSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CrashReporterSupport.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.Internal.sdk/System/Library/PrivateFrameworks/CrashReporterSupport.framework; sourceTree = DEVELOPER_DIR; };
 		7A9DA65A1948D1BA004635E6 /* opaquewhitelist.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opaquewhitelist.cpp; sourceTree = "<group>"; };
@@ -631,6 +633,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48674DE319EC9E610049EB7D /* Security.framework in Frameworks */,
 				7A4FAF1B19C215DF00D297CB /* CrashReporterSupport.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -934,6 +937,7 @@
 		C2CC30EF0B8519CF005FA59D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				48674DE219EC9E610049EB7D /* Security.framework */,
 				C200424915D425B7004AE0A1 /* libsecurity_codesigning.a */,
 				C200424A15D425B7004AE0A1 /* libsecurity_utilities.a */,
 				C2CC30A00B8519CC005FA59D /* CoreFoundation.framework */,
@@ -1682,7 +1686,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -1693,6 +1697,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"/Volumes/Data/Users/murf/Projects/Security/build/Debug-iphoneos",
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1725,7 +1730,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -1738,6 +1743,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"/Volumes/Data/Users/murf/Projects/Security/build/Debug-iphoneos",
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

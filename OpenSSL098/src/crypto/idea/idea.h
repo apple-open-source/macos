@@ -59,5 +59,4 @@
 #ifndef HEADER_IDEA_H
 #define HEADER_IDEA_H
 
-
 #endif

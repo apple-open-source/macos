@@ -237,7 +237,8 @@ __private_extern__ IOReturn ActivatePMSettings(
 #define kPMASLDomainAppNotify               "Notification"
 #define kPMASLDomainSWFailure               "Failure"
 
-#define kPMASLDomainDWTEmergency            "ThermalEvent"
+#define kPMASLDomainThermalEvent            "ThermalEvent"
+#define kPMASLDomainPerformanceEvent        "PerformanceEvent"
 #define kPMASLDomainSleepRevert             "SleepAborted"
 
 #define kPMASLDomainBattery                 "BatteryHealth"
@@ -499,6 +500,8 @@ __private_extern__ void                 logASLMessagePMConnectionResponse(CFStri
 
 __private_extern__ void                 logASLPMConnectionNotify(CFStringRef appNameString, int notificationBits);
 __private_extern__ void                 logASLDisplayStateChange();
+__private_extern__ void                 logASLThermalState(int thermalState);
+__private_extern__ void                 logASLPerforamceState(int perfState);
 __private_extern__ void                 logASLMessageAppStats(CFArrayRef appStats, char *domain);
 
 __private_extern__ void                 logASLMessagePMConnectionScheduledWakeEvents(CFStringRef requestedMaintenancesString);
@@ -546,7 +549,7 @@ __private_extern__ void                 _batteryChanged(IOPMBattery *);
 __private_extern__ bool                 _batteryHas(IOPMBattery *, CFStringRef);
 __private_extern__ int                  _batteryCount(void);
 __private_extern__ void                 _removeBattery(io_registry_entry_t);
-__private_extern__ IOReturn             _getACAdapterInfo(uint64_t *acBits);
+__private_extern__ CFDictionaryRef      _copyACAdapterInfo( );
 __private_extern__ PowerSources         _getPowerSource(void);
 __private_extern__ IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
                                                 boolean_t *hasLowCapRatio,

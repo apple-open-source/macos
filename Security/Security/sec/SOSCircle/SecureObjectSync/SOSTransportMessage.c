@@ -37,7 +37,7 @@ static void SOSTransportMessageDestroy(CFTypeRef aObj){
     if (transport->destroy)
         transport->destroy(transport);
     
-    CFReleaseSafe(transport->engine);
+    CFReleaseSafe(transport->account);
 }
 
 SOSAccountRef SOSTransportMessageGetAccount(SOSTransportMessageRef transport){

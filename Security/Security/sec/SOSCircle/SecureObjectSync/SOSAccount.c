@@ -77,6 +77,7 @@ bool SOSAccountUpdateGestalt(SOSAccountRef account, CFDictionaryRef new_gestalt)
         if (SOSFullPeerInfoUpdateGestalt(full_peer, new_gestalt, NULL)) {
             SOSAccountModifyCircle(account, SOSCircleGetName(circle),
                                    NULL, ^(SOSCircleRef circle_to_change) {
+                                       secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for gestalt change");
                                        return SOSCircleUpdatePeerInfo(circle_to_change, SOSFullPeerInfoGetPeerInfo(full_peer));
                                    });
         };
@@ -125,6 +126,7 @@ static void SOSAccountDestroy(CFTypeRef aObj) {
 }
 
 void SOSAccountSetToNew(SOSAccountRef a) {
+    secnotice("accountChange", "Setting Account to New");
     CFAllocatorRef allocator = CFGetAllocator(a);
     CFReleaseNull(a->circle_identities);
     CFReleaseNull(a->circles);
@@ -467,6 +469,7 @@ void SOSAccountAddSyncablePeerBlock(SOSAccountRef a, CFStringRef ds_name, SOSAcc
 bool sosAccountLeaveCircle(SOSAccountRef account, SOSCircleRef circle, CFErrorRef* error) {
     SOSFullPeerInfoRef fpi = SOSAccountGetMyFullPeerInCircle(account, circle, NULL);
     if(!fpi) return false;
+    if(!SOSFullPeerInfoValidate(fpi, NULL)) return false;
 	CFErrorRef localError = NULL;
 	SOSPeerInfoRef retire_peer = SOSFullPeerInfoPromoteToRetiredAndCopy(fpi, &localError);
     CFStringRef retire_id = SOSPeerInfoGetPeerID(retire_peer);
@@ -619,9 +622,11 @@ SOSCCStatus SOSAccountIsInCircles(SOSAccountRef account, CFErrorRef* error) {
 //
 
 static bool SOSAccountResetThisCircleToOffering(SOSAccountRef account, SOSCircleRef circle, SecKeyRef user_key, CFErrorRef *error) {
-    SOSFullPeerInfoRef myCirclePeer = SOSAccountGetMyFullPeerInCircle(account, circle, error);
+    SOSFullPeerInfoRef myCirclePeer = SOSAccountMakeMyFullPeerInCircleNamed(account, SOSCircleGetName(circle), error);
     if (!myCirclePeer)
         return false;
+    if(!SOSFullPeerInfoValidate(myCirclePeer, NULL)) return false;
+
     
     SOSAccountModifyCircle(account, SOSCircleGetName(circle), error, ^(SOSCircleRef circle) {
         bool result = false;
@@ -712,7 +717,7 @@ static bool SOSAccountJoinThisCircle(SOSAccountRef account, SecKeyRef user_key,
     __block bool result = false;
     __block SOSFullPeerInfoRef cloud_full_peer = NULL;
 
-    SOSFullPeerInfoRef myCirclePeer = SOSAccountGetMyFullPeerInCircle(account, circle, error);
+    SOSFullPeerInfoRef myCirclePeer = SOSAccountMakeMyFullPeerInCircleNamed(account, SOSCircleGetName(circle), error);
     
     require_action_quiet(myCirclePeer, fail,
                          SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Can't find/create peer for circle: %@"), circle));

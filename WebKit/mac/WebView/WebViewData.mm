@@ -31,10 +31,12 @@
 
 #import "WebKitLogging.h"
 #import "WebPreferenceKeysPrivate.h"
+#import "WebSelectionServiceController.h"
 #import "WebViewGroup.h"
 #import <WebCore/AlternativeTextUIController.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/HistoryItem.h>
+#import <WebCore/TextIndicatorWindow.h>
 #import <objc/objc-auto.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
@@ -143,6 +145,10 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
 #endif
     [inspector release];
     [currentNodeHighlight release];
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    [actionMenuController release];
+    [immediateActionController release];
+#endif
     [hostWindow release];
     [policyDelegateForwarder release];
     [UIDelegateForwarder release];

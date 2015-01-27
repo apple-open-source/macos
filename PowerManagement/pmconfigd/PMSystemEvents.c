@@ -28,17 +28,22 @@
 
 #include "PrivateLib.h"
 #include "PMSystemEvents.h"
+#include "PMSettings.h"
 
 #ifndef _PMSystemEvents_h_
 #define _PMSystemEvents_h_
 
 #include <notify.h>
 
+#define THERMAL_NOTIFICATION_DIR  "/private/var/run/thermal"
+#define THERMAL_NOTIFICATION_FILE "/private/var/run/thermal/.thermalpressure"
 
-#define kRootDomainThermalStatusKey "Power Status"
+#define kIOPMRootDomainPowerStatusKey       "Power Status"
 
 #define kMySCIdentity           CFSTR("IOKit Power")
 
+static int              thermalState = kIOPMThermalLevelUnknown;
+static int              perfState    = kIOPMPerformanceNormal;
 
 static CFStringRef createSCKeyForIOKitString(CFStringRef str)
 {
@@ -49,6 +54,8 @@ static CFStringRef createSCKeyForIOKitString(CFStringRef str)
         keyForString = CFSTR("ThermalWarning");
     } else if (CFEqual(str, CFSTR(kIOPMCPUPowerLimitsKey))) {
         keyForString = CFSTR("CPUPower");
+    } else if (CFEqual(str, CFSTR(kIOPMPerformanceWarningKey))) {
+        keyForString = CFSTR("PerformanceWarning");
     }
 
     if (!keyForString)
@@ -69,6 +76,9 @@ static const char * getNotifyKeyForIOKitString(CFStringRef str)
     } else if (CFEqual(str, CFSTR(kIOPMCPUPowerLimitsKey))) 
     {
         return kIOPMCPUPowerNotificationKey;
+    } else if (CFEqual(str, CFSTR(kIOPMPerformanceWarningKey))) 
+    {
+        return kIOPMPerformanceWarningNotificationKey;
     }
     return NULL;
 }
@@ -91,11 +101,14 @@ PMSystemEventsRootDomainInterest(void)
     SCDynamicStoreRef       store = NULL;
     CFIndex                 count = 0;
     CFIndex                 i;
+    int                     thermNewState = -1;
+    int                     perfNewState = -1;
+    int                     create_file = 0;
 
     // Read dictionary from IORegistry
     thermalStatus = IORegistryEntryCreateCFProperty(
                             getRootDomain(),
-                            CFSTR(kRootDomainThermalStatusKey),
+                            CFSTR(kIOPMRootDomainPowerStatusKey),
                             kCFAllocatorDefault,
                             kNilOptions);
 
@@ -126,6 +139,28 @@ PMSystemEventsRootDomainInterest(void)
             CFDictionarySetValue(setTheseDSKeys, writeToKey, vals[i]);
             CFRelease(writeToKey);
         }
+        if (CFStringCompare(keys[i], CFSTR(kIOPMThermalLevelWarningKey), 0) == kCFCompareEqualTo) {
+            if (isA_CFNumber(vals[i])) {
+                CFNumberGetValue(vals[i], kCFNumberIntType, &thermNewState);
+                if (thermNewState != thermalState) {
+                    int opVal = ((thermNewState == kIOPMThermalLevelWarning) || 
+                                 (thermNewState == kIOPMThermalLevelTrap)) ? 1 : 0;
+                    overrideSetting(kPMPreventWakeOnLan, opVal);
+                    activateSettingOverrides();
+                    if (thermNewState != kIOPMThermalLevelUnknown) {
+                        logASLThermalState(thermNewState);
+                    }
+                }
+            }
+        }
+        else if (CFStringCompare(keys[i], CFSTR(kIOPMPerformanceWarningKey), 0) == kCFCompareEqualTo) {
+            if (isA_CFNumber(vals[i])) {
+                CFNumberGetValue(vals[i], kCFNumberIntType, &perfNewState);
+                if (perfNewState != perfState) {
+                    logASLPerforamceState(perfNewState);
+                }
+            }
+        }
     }
 
     store = SCDynamicStoreCreate(0, kMySCIdentity, NULL, NULL);
@@ -136,9 +171,45 @@ PMSystemEventsRootDomainInterest(void)
 
     for (i=0; i<count; i++)
     {
+        if (CFStringCompare(keys[i], CFSTR(kIOPMThermalLevelWarningKey), 0) == kCFCompareEqualTo) {
+            if (thermNewState != thermalState) {
+                thermalState = thermNewState;
+
+                if ((thermalState == kIOPMThermalLevelWarning) || (thermalState == kIOPMThermalLevelTrap)) {
+                    create_file = 1;
+                }
+            }
+            else {
+                // Avoid notify_post call when thermal warning level hasn't changed
+                continue;
+            }
+        }
+        else if (CFStringCompare(keys[i], CFSTR(kIOPMPerformanceWarningKey), 0) == kCFCompareEqualTo) {
+            if (perfNewState != perfState) {
+                perfState = perfNewState;
+                if (perfState == kIOPMPerformanceWarning) {
+                    create_file = 1;
+                }
+            }
+            else {
+                // Avoid notify_post call when performance  warning level hasn't changed
+                continue;
+            }
+        }
+
         const char *notify3Key = getNotifyKeyForIOKitString(keys[i]);
         if (notify3Key) 
             notify_post(notify3Key);
+    }
+    if (create_file) {
+        int fd;
+        int rc;
+        rc = mkdir(THERMAL_NOTIFICATION_DIR, 0777);
+        rc = chmod(THERMAL_NOTIFICATION_DIR, 0777);
+        
+        fd = open(THERMAL_NOTIFICATION_FILE, O_CREAT|O_RDWR);
+        fchmod(fd, 0777);
+        close(fd);
     }
 
 exit:    

@@ -290,3 +290,11 @@ CFDictionaryRef SecTaskCopyValuesForEntitlements(SecTaskRef task, CFArrayRef ent
 
 	return values;
 }
+
+Boolean SecTaskEntitlementsValidated(SecTaskRef task) {
+    // TODO: Cache the result
+    uint32_t csflags = 0;
+    const uint32_t mask = CS_VALID | CS_KILL | CS_ENTITLEMENTS_VALIDATED;
+    int rc = csops_task(task, CS_OPS_STATUS, &csflags, sizeof(csflags));
+    return rc != -1 && ((csflags & mask) == mask);
+}

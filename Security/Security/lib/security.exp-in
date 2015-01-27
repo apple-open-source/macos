@@ -1536,6 +1536,12 @@ _SecInferLabelFromX509Name
 _SecItemAdd
 _SecItemCopyDisplayNames
 _SecItemCopyMatching
+#if TARGET_OS_MAC
+_SecItemAdd_ios
+_SecItemCopyMatching_ios
+_SecItemDelete_ios
+_SecItemUpdate_ios
+#endif
 _SecItemDelete
 _SecItemUpdate
 __SecItemGetPersistentReference

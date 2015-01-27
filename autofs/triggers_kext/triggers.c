@@ -416,10 +416,23 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 				    RESOLVER_NOCHANGE, 0));
 			}
 			break;
+				
+		case OP_GETXATTR:
+			/*
+			 * getxattr() should not trigger mounts unless this is a
+			 * "force mount" node, to prevent a mount
+			 * storm when a trigger is accosted by "ls -l",
+			 * Finder etc.
+			 */
+			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
+				return (vfs_resolver_result(ti->ti_seq,
+				    RESOLVER_NOCHANGE, 0));
+			}
+			break;
 
 		case OP_LISTXATTR:
 			/*
-			 * Don't trigger on this, either.
+			 * Don't trigger on this, either (see above).
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
 				return (vfs_resolver_result(ti->ti_seq,

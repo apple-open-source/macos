@@ -40,28 +40,10 @@
 #import "WKView.h"
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/IntRect.h>
+#import <WebCore/NSSharingServicePickerSPI.h>
+#import <WebCore/NSSharingServiceSPI.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/RetainPtr.h>
-
-#if ENABLE(SERVICE_CONTROLS)
-#import <AppKit/NSSharingService.h>
-
-#if __has_include(<AppKit/NSSharingService_Private.h>)
-#import <AppKit/NSSharingService_Private.h>
-#else
-typedef enum {
-    NSSharingServicePickerStyleMenu = 0,
-    NSSharingServicePickerStyleRollover = 1,
-    NSSharingServicePickerStyleTextSelection = 2
-} NSSharingServicePickerStyle;
-#endif
-
-@interface NSSharingServicePicker (Details)
-@property NSSharingServicePickerStyle style;
-- (NSMenu *)menu;
-@end
-
-#endif // ENABLE(SERVICE_CONTROLS)
 
 using namespace WebCore;
 
@@ -265,6 +247,7 @@ using namespace WebCore;
         return;
     }
 
+    // FIXME: We should adopt replaceSelectionWithAttributedString instead of bouncing through the (fake) pasteboard.
     _menuProxy->page().replaceSelectionWithPasteboardData(types, dataReference);
 }
 

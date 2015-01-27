@@ -4,11 +4,11 @@ cc -g -o /tmp/fbshared fbshared.c -framework ApplicationServices -framework IOKi
 #define IOCONNECT_MAPMEMORY_10_6    1
 #define IOFB_ARBITRARY_SIZE_CURSOR
 #define IOFB_ARBITRARY_FRAMES_CURSOR    1
+#include <IOKit/graphics/IOFramebufferShared.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <mach/mach_time.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
-#include <IOKit/graphics/IOFramebufferShared.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -138,14 +138,16 @@ int main(int argc, char * argv[])
 	    if (!shmem[index])
 		continue;
     
-	    uint64_t time  = (((uint64_t) shmem[index]->vblTime.hi) << 32 | shmem[index]->vblTime.lo);
-	    uint64_t delta = (((uint64_t) shmem[index]->vblDelta.hi) << 32 | shmem[index]->vblDelta.lo);
-	    double usecs = delta * timebase.numer / timebase.denom / 1e6;
+	    uint64_t time      = (((uint64_t) shmem[index]->vblTime.hi) << 32 | shmem[index]->vblTime.lo);
+	    uint64_t delta     = (((uint64_t) shmem[index]->vblDelta.hi) << 32 | shmem[index]->vblDelta.lo);
+	    uint64_t deltaReal = (((uint64_t) shmem[index]->vblDeltaReal.hi) << 32 | shmem[index]->vblDeltaReal.lo);
+	    double usecs     = delta * timebase.numer / timebase.denom / 1e6;
+	    double usecsReal = deltaReal * timebase.numer / timebase.denom / 1e6;
 
 		if (!delta) continue;
     
-	    printf("[%d] time of last VBL 0x%qx, delta %qd (%f us), count %qd, measured delta %qd(%f%%), drift %qd(%qd%%)\n", 
-		    index, time, delta, usecs, shmem[index]->vblCount,
+	    printf("[%d] time of last VBL 0x%qx, delta %qd (%f us), unthrottled delta %qd (%f us), count %qd, measured delta %qd(%f%%), drift %qd(%qd%%)\n", 
+		    index, time, delta, usecs, deltaReal, usecsReal, shmem[index]->vblCount,
 		    shmem[index]->vblDeltaMeasured, ((shmem[index]->vblDeltaMeasured * 100.0) / delta),
 		    shmem[index]->vblDrift, ((shmem[index]->vblDrift * 100) / delta));
 	}

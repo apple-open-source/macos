@@ -49,14 +49,14 @@ bool SOSAccountDestroyCirclePeerInfo(SOSAccountRef account, SOSCircleRef circle,
 }
 
 SOSPeerInfoRef SOSAccountGetMyPeerInCircle(SOSAccountRef account, SOSCircleRef circle, CFErrorRef* error) {
-    SOSFullPeerInfoRef fpi =  SOSAccountGetMyFullPeerInCircleNamed(account, SOSCircleGetName(circle), error);
+    SOSFullPeerInfoRef fpi =  SOSAccountGetMyFullPeerInCircleNamedIfPresent(account, SOSCircleGetName(circle), error);
     
     return fpi ? SOSFullPeerInfoGetPeerInfo(fpi) : NULL;
 }
 
 SOSPeerInfoRef SOSAccountGetMyPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error)
 {
-    SOSFullPeerInfoRef fpi =  SOSAccountGetMyFullPeerInCircleNamed(account, name, error);
+    SOSFullPeerInfoRef fpi =  SOSAccountGetMyFullPeerInCircleNamedIfPresent(account, name, error);
     
     return fpi ? SOSFullPeerInfoGetPeerInfo(fpi) : NULL;
 }

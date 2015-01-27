@@ -150,6 +150,7 @@ public:
 	void resetValidity();						// clear validation caches (if something may have changed)
 	
 	bool validated() const	{ return mValidated; }
+	bool revocationChecked() const { return mRevocationChecked; }
 	bool valid() const
 		{ assert(validated()); return mValidated && (mValidationResult == errSecSuccess); }
 	bool validatedExecutable() const	{ return mExecutableValidated; }
@@ -211,6 +212,7 @@ private:
 	
 	// master validation state
 	bool mValidated;					// core validation was attempted
+	bool mRevocationChecked;			// the signature was checked for revocation
 	OSStatus mValidationResult;			// outcome of core validation
 	bool mValidationExpired;			// outcome had expired certificates
 	

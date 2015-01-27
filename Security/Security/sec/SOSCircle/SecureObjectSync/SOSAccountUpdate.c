@@ -268,8 +268,10 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         // SOSAccountDestroyCirclePeerInfo(account, oldCircle, NULL);
     }
     
-    SOSFullPeerInfoRef me_full = SOSAccountGetMyFullPeerInCircle(account, oldCircle, NULL);
-    SOSPeerInfoRef     me = SOSFullPeerInfoGetPeerInfo(me_full);
+    // Changed to just get the fullpeerinfo if present.  We don't want to make up FPIs here.
+    SOSPeerInfoRef     me = NULL;
+    SOSFullPeerInfoRef me_full = SOSAccountGetMyFullPeerInCircleNamedIfPresent(account, SOSCircleGetName(oldCircle), NULL);
+    if(me_full) me = SOSFullPeerInfoGetPeerInfo(me_full);
     
     SOSTransportCircleRef transport = (SOSTransportCircleRef)CFDictionaryGetValue(account->circle_transports, SOSCircleGetName(prospective_circle));
 
@@ -354,16 +356,18 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         
         if (me && SOSCircleHasPeer(oldCircle, me, NULL)) {
             if (sosAccountLeaveCircle(account, newCircle, error)) {
-                account->departure_code = leave_reason;
                 circleToPush = newCircle;
-                circle_action = accept;
-                me = NULL;
-                me_full = NULL;
+            } else {
+                secnotice("signing", "Can't leave circle %@, but dumping identities", oldCircle);
+                success = false;
             }
-        }
-        else {
+            account->departure_code = leave_reason;
+            circle_action = accept;
+            me = NULL;
+            me_full = NULL;
+        } else {
             // We are not in this circle, but we need to update account with it, since we got it from cloud
-            secnotice("updatecircle", "We are not in this circle, but we need to update account with it");
+            secnotice("signing", "We are not in this circle, but we need to update account with it");
             circle_action = accept;
         }
     }
@@ -408,7 +412,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
                 me = NULL;
                 me_full = NULL;
             } else {
-                SOSCircleRequestReadmission(newCircle, account->user_public, me_full, NULL);
+                SOSCircleRequestReadmission(newCircle, account->user_public, me, NULL);
                 writeUpdate = true;
             }
         }
@@ -419,7 +423,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         
         secnotice("signing", "%@, Accepting circle: %@", concStr, newCircle);
         
-        if (me_full && account->user_public_trusted
+        if (me && account->user_public_trusted
             && SOSCircleHasApplicant(oldCircle, me, NULL)
             && SOSCircleCountPeers(newCircle) > 0
             && !SOSCircleHasPeer(newCircle, me, NULL) && !SOSCircleHasApplicant(newCircle, me, NULL)) {
@@ -427,7 +431,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
             // We were applying and we weren't accepted.
             // Our application is declared lost, let us reapply.
             
-            if (SOSCircleRequestReadmission(newCircle, account->user_public, me_full, NULL))
+            if (SOSCircleRequestReadmission(newCircle, account->user_public, me, NULL))
                 writeUpdate = true;
         }
         
@@ -461,7 +465,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
     
     
     if (circleToPush != NULL) {
-        secnotice("circleUpdate", "Pushing:[%s] %@", local_remote, circleToPush);
+        secnotice("signing", "Pushing:[%s] %@", local_remote, circleToPush);
         CFDataRef circle_data = SOSCircleCopyEncodedData(circleToPush, kCFAllocatorDefault, error);
         if (circle_data) {
             success &= SOSTransportCirclePostCircle(transport, SOSCircleGetName(circleToPush), circle_data, error);

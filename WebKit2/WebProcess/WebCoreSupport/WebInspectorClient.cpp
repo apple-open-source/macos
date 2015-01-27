@@ -31,7 +31,9 @@
 #include "WebInspector.h"
 #include "WebPage.h"
 #include <WebCore/InspectorController.h>
+#include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageOverlayController.h>
 
 #if PLATFORM(IOS)
 #include <WebCore/InspectorOverlay.h>
@@ -75,9 +77,9 @@ void WebInspectorClient::highlight()
 {
 #if !PLATFORM(IOS)
     if (!m_highlightOverlay) {
-        RefPtr<PageOverlay> highlightOverlay = PageOverlay::create(this);
+        RefPtr<PageOverlay> highlightOverlay = PageOverlay::create(*this);
         m_highlightOverlay = highlightOverlay.get();
-        m_page->installPageOverlay(highlightOverlay.release(), PageOverlay::FadeMode::Fade);
+        m_page->mainFrame()->pageOverlayController().installPageOverlay(highlightOverlay.release(), PageOverlay::FadeMode::Fade);
         m_highlightOverlay->setNeedsDisplay();
     } else {
         m_highlightOverlay->stopFadeOutAnimation();
@@ -93,8 +95,8 @@ void WebInspectorClient::highlight()
 void WebInspectorClient::hideHighlight()
 {
 #if !PLATFORM(IOS)
-    if (m_highlightOverlay)
-        m_page->uninstallPageOverlay(m_highlightOverlay, PageOverlay::FadeMode::Fade);
+    if (m_highlightOverlay && m_page->mainFrame())
+        m_page->mainFrame()->pageOverlayController().uninstallPageOverlay(m_highlightOverlay, PageOverlay::FadeMode::Fade);
 #else
     m_page->hideInspectorHighlight();
 #endif
@@ -148,30 +150,30 @@ bool WebInspectorClient::supportsFrameInstrumentation()
     return false;
 }
 
-void WebInspectorClient::pageOverlayDestroyed(PageOverlay*)
+void WebInspectorClient::pageOverlayDestroyed(PageOverlay&)
 {
 }
 
-void WebInspectorClient::willMoveToWebPage(PageOverlay*, WebPage* webPage)
+void WebInspectorClient::willMoveToPage(PageOverlay&, Page* page)
 {
-    if (webPage)
+    if (page)
         return;
 
     // The page overlay is moving away from the web page, reset it.
     ASSERT(m_highlightOverlay);
-    m_highlightOverlay = 0;
+    m_highlightOverlay = nullptr;
 }
 
-void WebInspectorClient::didMoveToWebPage(PageOverlay*, WebPage*)
+void WebInspectorClient::didMoveToPage(PageOverlay&, Page*)
 {
 }
 
-void WebInspectorClient::drawRect(PageOverlay*, WebCore::GraphicsContext& context, const WebCore::IntRect& /*dirtyRect*/)
+void WebInspectorClient::drawRect(PageOverlay&, WebCore::GraphicsContext& context, const WebCore::IntRect& /*dirtyRect*/)
 {
     m_page->corePage()->inspectorController().drawHighlight(context);
 }
 
-bool WebInspectorClient::mouseEvent(PageOverlay*, const WebMouseEvent&)
+bool WebInspectorClient::mouseEvent(PageOverlay&, const PlatformMouseEvent&)
 {
     return false;
 }

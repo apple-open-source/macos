@@ -289,10 +289,38 @@ void IOPCIBridge::initialize(void)
     }
 }
 
+//*********************************************************************************
+
 IOWorkLoop * IOPCIBridge::getConfiguratorWorkLoop(void) const
 {
     return (gIOPCIConfigWorkLoop);
 }
+
+//*********************************************************************************
+
+IOReturn IOPCIBridge::systemPowerChange(void * target, void * refCon,
+										UInt32 messageType, IOService * service,
+										void * messageArgument, vm_size_t argSize)
+{
+    switch (messageType)
+    {
+        case kIOMessageSystemCapabilityChange:
+		{
+			IOPMSystemCapabilityChangeParameters * params = (typeof params) messageArgument;
+	
+			if ((params->changeFlags & kIOPMSystemCapabilityDidChange) &&
+				((params->fromCapabilities & kIOPMSystemCapabilityCPU) == 0) &&
+				(params->toCapabilities & kIOPMSystemCapabilityCPU))
+			{
+				finishMachineState(0);
+			}
+		}
+	}
+
+	return (kIOReturnSuccess);
+}
+
+//*********************************************************************************
 
 IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result, void * arg)
 {
@@ -373,6 +401,7 @@ IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result, 
             panic("host!IOACPIPlatformDevice");
 		AppleVTD::install(gIOPCIConfigWorkLoop, gIOPCIFlags, acpiDevice, acpiDevice->getACPITableData("DMAR", 0));
 #endif
+	    getPMRootDomain()->registerInterest(gIOPriorityPowerStateInterest, &systemPowerChange, 0, 0);
     }
 
 	if (kConfigOpScan != op)
@@ -472,6 +501,8 @@ IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result, 
 
     return (ret);
 }
+
+//*********************************************************************************
 
 void IOPCIBridge::deferredProbe(IOPCIDevice * device)
 {
@@ -1109,6 +1140,8 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 	if (shadow->restoreCount == gIOPCIWakeCount) return (kIOReturnNoResources);
 	shadow->restoreCount = gIOPCIWakeCount;
 
+	shadow->device->reserved->pmHibernated = false;
+
     if (shadow->handler)
     {
 		time = mach_absolute_time();
@@ -1153,7 +1186,7 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
         }
         if (data != device->savedConfig[kIOPCIConfigVendorID >> 2])
         {
-            DLOG("%s: pci restore invalid deviceid 0x%08lx\n", device->getName(), data);
+            DLOG("%s: pci restore invalid deviceid 0x%08x\n", device->getName(), data);
 			device->reserved->dead = true;
 #if !ACPI_SUPPORT
             if (data && (data != 0xFFFFFFFF)) panic("%s: pci restore invalid deviceid 0x%08lx\n", device->getName(), data);
@@ -1394,6 +1427,52 @@ IOReturn IOPCIBridge::restoreTunnelState(IOPCIDevice * rootDevice, IOOptionBits 
     return (kIOReturnSuccess);
 }
 
+IOReturn IOPCIBridge::finishMachineState(IOOptionBits options)
+{
+    IOPCIConfigShadow * shadow;
+    IOPCIConfigShadow * next;
+    uint8_t             prevState;
+    queue_head_t        q;
+
+    DLOG("IOPCIBridge::finishMachineState(%d)\n", options);
+
+    queue_init(&q);
+    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
+    next = (IOPCIConfigShadow *) queue_first(&gIOAllPCIDeviceRestoreQ);
+    while (!queue_end(&gIOAllPCIDeviceRestoreQ, (queue_entry_t) next))
+    {
+        shadow = next;
+        next   = (IOPCIConfigShadow *) queue_next(&shadow->link);
+
+        if (shadow->device->reserved->pmHibernated)
+        {
+            shadow->device->reserved->pmHibernated = false;
+            queue_enter(&q, shadow, IOPCIConfigShadow *, linkFinish);
+        }
+    }
+    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+
+    next = (IOPCIConfigShadow *) queue_first(&q);
+    while (!queue_end(&q, (queue_entry_t) next))
+    {
+        shadow = next;
+        next   = (IOPCIConfigShadow *) queue_next(&shadow->linkFinish);
+
+        shadow->linkFinish.next = shadow->linkFinish.prev = NULL;
+        if ((prevState = shadow->device->reserved->pciPMState) <= kIOPCIDeviceDozeState)
+        {
+            DLOG("%s: reset PCIPM\n", shadow->device->getName());
+#if ACPI_SUPPORT
+            shadow->device->reserved->lastPSMethod = shadow->device->reserved->psMethods[kIOPCIDeviceOnState];
+#endif
+            shadow->device->reserved->pciPMState   = kIOPCIDeviceOnState;
+            shadow->device->setPCIPowerState(prevState, 0);
+        }
+    }
+
+    return (kIOReturnSuccess);
+}
+
 IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * device)
 {
 	IOReturn            ret;
@@ -1409,6 +1488,8 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 	{
 		shadow = next;
 		next   = (IOPCIConfigShadow *) queue_next(&shadow->link);
+
+        if (kMachineRestoreDehibernate & options) shadow->device->reserved->pmHibernated = true;
 
 		if (shadow->tunnelRoot || shadow->tunnelID) panic("tunnel");
 

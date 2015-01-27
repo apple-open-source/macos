@@ -2,6 +2,90 @@
  OpenSSL CHANGES
  _______________
 
+ Changes between 0.9.8zb and 0.9.8zc [15 Oct 2014]
+
+  *) Session Ticket Memory Leak.
+
+     When an OpenSSL SSL/TLS/DTLS server receives a session ticket the
+     integrity of that ticket is first verified. In the event of a session
+     ticket integrity check failing, OpenSSL will fail to free memory
+     causing a memory leak. By sending a large number of invalid session
+     tickets an attacker could exploit this issue in a Denial Of Service
+     attack.
+     (CVE-2014-3567)
+     [Steve Henson]
+
+  *) Build option no-ssl3 is incomplete.
+
+     When OpenSSL is configured with "no-ssl3" as a build option, servers
+     could accept and complete a SSL 3.0 handshake, and clients could be
+     configured to send them.
+     (CVE-2014-3568)
+     [Akamai and the OpenSSL team]
+
+  *) Add support for TLS_FALLBACK_SCSV.
+     Client applications doing fallback retries should call
+     SSL_set_mode(s, SSL_MODE_SEND_FALLBACK_SCSV).
+     (CVE-2014-3566)
+     [Adam Langley, Bodo Moeller]
+
+  *) Add additional DigestInfo checks.
+ 
+     Reencode DigestInto in DER and check against the original when
+     verifying RSA signature: this will reject any improperly encoded
+     DigestInfo structures.
+
+     Note: this is a precautionary measure and no attacks are currently known.
+
+     [Steve Henson]
+
+ Changes between 0.9.8za and 0.9.8zb [6 Aug 2014]
+
+  *) OpenSSL DTLS clients enabling anonymous (EC)DH ciphersuites are subject
+     to a denial of service attack. A malicious server can crash the client
+     with a null pointer dereference (read) by specifying an anonymous (EC)DH
+     ciphersuite and sending carefully crafted handshake messages.
+
+     Thanks to Felix Gröbert (Google) for discovering and researching this
+     issue.
+     (CVE-2014-3510)
+     [Emilia Käsper]
+
+  *) By sending carefully crafted DTLS packets an attacker could cause openssl
+     to leak memory. This can be exploited through a Denial of Service attack.
+     Thanks to Adam Langley for discovering and researching this issue.
+     (CVE-2014-3507)
+     [Adam Langley]
+
+  *) An attacker can force openssl to consume large amounts of memory whilst
+     processing DTLS handshake messages. This can be exploited through a
+     Denial of Service attack.
+     Thanks to Adam Langley for discovering and researching this issue.
+     (CVE-2014-3506)
+     [Adam Langley]
+
+  *) An attacker can force an error condition which causes openssl to crash
+     whilst processing DTLS packets due to memory being freed twice. This
+     can be exploited through a Denial of Service attack.
+     Thanks to Adam Langley and Wan-Teh Chang for discovering and researching
+     this issue.
+     (CVE-2014-3505)
+     [Adam Langley]
+
+  *) A flaw in OBJ_obj2txt may cause pretty printing functions such as
+     X509_name_oneline, X509_name_print_ex et al. to leak some information
+     from the stack. Applications may be affected if they echo pretty printing
+     output to the attacker.
+
+     Thanks to Ivan Fratric (Google) for discovering this issue.
+     (CVE-2014-3508)
+     [Emilia Käsper, and Steve Henson]
+
+  *) Fix ec_GFp_simple_points_make_affine (thus, EC_POINTs_mul etc.)
+     for corner cases. (Certain input points at infinity could lead to
+     bogus results, with non-infinity inputs mapped to infinity too.)
+     [Bodo Moeller]
+
  Changes between 0.9.8y and 0.9.8za [5 Jun 2014]
 
   *) Fix for SSL/TLS MITM flaw. An attacker using a carefully crafted

@@ -10,7 +10,7 @@ $OPTIONS="";
 $ssl_version="";
 $banner="\t\@echo Building OpenSSL";
 
-if ($ENV{"DEBUG_BUILD"}) { $debug = 1; } # APPLE-SPECIFIC hack to force debug build
+if ($ENV{"DEBUG_BUILD"}) { $debug = 1; } # APPLE-SPECIFIC hack to force debug build                   
 
 my $no_static_engine = 0;
 my $engines = "";

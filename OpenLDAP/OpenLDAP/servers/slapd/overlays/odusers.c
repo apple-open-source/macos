@@ -1052,6 +1052,18 @@ static int odusers_modify_globalpolicy(Operation *op, SlapReply *rs) {
 			/* translate apple-user-passwordpolicy to apple-accountpolicy */
 			if (strncmp(m->sml_desc->ad_cname.bv_val, "apple-user-passwordpolicy", m->sml_desc->ad_cname.bv_len) == 0) {
 				CFDictionaryRef accountPolicyDict = NULL;
+				Attribute *passwordRequiredDateAttr = odusers_copy_passwordRequiredDate();
+				
+				if(passwordRequiredDateAttr && passwordRequiredDateAttr->a_numvals && passwordRequiredDateAttr->a_nvals[0].bv_len) {
+					time_t tmptime = 0;
+					struct tm tmptm = {0};
+					strptime(passwordRequiredDateAttr->a_nvals[0].bv_val, "%Y%m%d%H%M%SZ", &tmptm);
+					tmptime = timegm(&tmptm);
+					CFNumberRef cftmptime = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &tmptime);
+					CFDictionarySetValue(globaldict, CFSTR("passwordRequiredDate"), cftmptime);
+					CFRelease(cftmptime);
+				}
+				
 				accountPolicyDict = APPolicySetWithLegacyPolicies(globaldict);
 				if (accountPolicyDict) {
 					Debug(LDAP_DEBUG_ANY, "%s: APPolicySetWithLegacyPolicies - global", __func__, 0, 0);	
@@ -1084,35 +1096,7 @@ static int odusers_modify_globalpolicy(Operation *op, SlapReply *rs) {
 					
 					CFRelease(accountPolicyDict);
 				}							
-			}
-			
-			CFNumberRef newPasswordRequired = CFDictionaryGetValue(globaldict, CFSTR("newPasswordRequired"));
-			if(newPasswordRequired) {
-				const char *text = NULL;
-				time_t tmptime;
-				struct tm tmptm;
-				tmptime = time(NULL);
-				gmtime_r(&tmptime, &tmptm);
-
-				if(!passwordRequiredDateAD && (slap_str2ad("passwordRequiredDate", &passwordRequiredDateAD, &text) != 0)) {
-					Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of uid attribute", __PRETTY_FUNCTION__, 0, 0);
-					goto out;
-				}
-				m = ch_calloc(1, sizeof(Modifications));
-				m->sml_op = LDAP_MOD_REPLACE;
-				m->sml_flags = 0;
-				m->sml_type = passwordRequiredDateAD->ad_cname;
-				m->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
-				m->sml_values[0].bv_val = ch_calloc(1, 256);
-				m->sml_values[0].bv_len = strftime(m->sml_values[0].bv_val, 256, "%Y%m%d%H%M%SZ", &tmptm);
-				m->sml_values[1].bv_val = NULL;
-				m->sml_values[1].bv_len = 0;
-				m->sml_nvalues = NULL;
-				m->sml_numvals = 1;
-				m->sml_desc = passwordRequiredDateAD;
-				m->sml_next = fakeop->orm_modlist;
-				fakeop->orm_modlist = m;
-			}
+			}			
 			CFRelease(globaldict);
 		}
 	}

@@ -855,7 +855,7 @@ void TimeZoneTest::TestShortZoneIDs()
         {"UTC", 0, FALSE},    // Olson etcetera 0
         {"ECT", 60, TRUE},    // ICU Link - Europe/Paris
         {"MET", 60, TRUE},    // Olson europe 1:00 C-Eur
-        {"CAT", 120, FALSE},  // ICU Link - Africa/Harare
+        {"CAT", 120, FALSE},  // ICU Link - Africa/Maputo
         {"ART", 120, TRUE},   // ICU Link - Africa/Cairo
         {"EET", 120, TRUE},   // Olson europe 2:00 EU
         {"EAT", 180, FALSE},  // ICU Link - Africa/Addis_Ababa
@@ -954,7 +954,7 @@ void TimeZoneTest::TestShortZoneIDs()
         "AST", "America/Anchorage",
         "BET", "America/Sao_Paulo",
         "BST", "Asia/Dhaka", // # spelling changed in 2000h; was Asia/Dacca
-        "CAT", "Africa/Harare",
+        "CAT", "Africa/Maputo",
         "CNT", "America/St_Johns",
         "CST", "America/Chicago",
         "CTT", "Asia/Shanghai",
@@ -1975,24 +1975,39 @@ void TimeZoneTest::TestCanonicalID() {
         const char *alias;
         const char *zone;
     } excluded1[] = {
+        {"Africa/Addis_Ababa", "Africa/Nairobi"},
+        {"Africa/Asmera", "Africa/Nairobi"},
         {"Africa/Bamako", "Africa/Abidjan"},
+        {"Africa/Bangui", "Africa/Lagos"},
         {"Africa/Banjul", "Africa/Abidjan"},
-        {"Africa/Brazzaville", "Africa/Bangui"},
+        {"Africa/Blantyre", "Africa/Maputo"},
+        {"Africa/Brazzaville", "Africa/Lagos"},
+        {"Africa/Bujumbura", "Africa/Maputo"},
         {"Africa/Conakry", "Africa/Abidjan"},
         {"Africa/Dakar", "Africa/Abidjan"},
-        {"Africa/Douala", "Africa/Bangui"},
+        {"Africa/Dar_es_Salaam", "Africa/Nairobi"},
+        {"Africa/Djibouti", "Africa/Nairobi"},
+        {"Africa/Douala", "Africa/Lagos"},
         {"Africa/Freetown", "Africa/Abidjan"},
+        {"Africa/Gaborone", "Africa/Maputo"},
+        {"Africa/Harare", "Africa/Maputo"},
+        {"Africa/Kampala", "Africa/Nairobi"},
         {"Africa/Khartoum", "Africa/Juba"},
-        {"Africa/Kinshasa", "Africa/Bangui"},
-        {"Africa/Lagos", "Africa/Bangui"},
-        {"Africa/Libreville", "Africa/Bangui"},
+        {"Africa/Kigali", "Africa/Maputo"},
+        {"Africa/Kinshasa", "Africa/Lagos"},
+        {"Africa/Libreville", "Africa/Lagos"},
         {"Africa/Lome", "Africa/Abidjan"},
-        {"Africa/Luanda", "Africa/Bangui"},
-        {"Africa/Malabo", "Africa/Bangui"},
-        {"Africa/Niamey", "Africa/Bangui"},
+        {"Africa/Luanda", "Africa/Lagos"},
+        {"Africa/Lubumbashi", "Africa/Maputo"},
+        {"Africa/Lusaka", "Africa/Maputo"},
+        {"Africa/Maseru", "Africa/Johannesburg"},
+        {"Africa/Malabo", "Africa/Lagos"},
+        {"Africa/Mbabane", "Africa/Johannesburg"},
+        {"Africa/Mogadishu", "Africa/Nairobi"},
+        {"Africa/Niamey", "Africa/Lagos"},
         {"Africa/Nouakchott", "Africa/Abidjan"},
         {"Africa/Ouagadougou", "Africa/Abidjan"},
-        {"Africa/Porto-Novo", "Africa/Bangui"},
+        {"Africa/Porto-Novo", "Africa/Lagos"},
         {"Africa/Sao_Tome", "Africa/Abidjan"},
         {"America/Curacao", "America/Aruba"},
         {"America/Dominica", "America/Anguilla"},
@@ -2013,6 +2028,8 @@ void TimeZoneTest::TestCanonicalID() {
         {"America/Virgin", "America/Anguilla"},
         {"Antarctica/South_Pole", "Antarctica/McMurdo"},
         {"Arctic/Longyearbyen", "Europe/Oslo"},
+        {"Asia/Phnom_Penh", "Asia/Bangkok"},
+        {"Asia/Vientiane", "Asia/Bangkok"},
         {"Atlantic/Jan_Mayen", "Europe/Oslo"},
         {"Atlantic/St_Helena", "Africa/Abidjan"},
         {"Europe/Bratislava", "Europe/Prague"},
@@ -2029,6 +2046,9 @@ void TimeZoneTest::TestCanonicalID() {
         {"Europe/Vaduz", "Europe/Zurich"},
         {"Europe/Vatican", "Europe/Rome"},
         {"Europe/Zagreb", "Europe/Belgrade"},
+        {"Indian/Antananarivo", "Africa/Nairobi"},
+        {"Indian/Comoro", "Africa/Nairobi"},
+        {"Indian/Mayotte", "Africa/Nairobi"},
         {"Pacific/Auckland", "Antarctica/McMurdo"},
         {"Pacific/Johnston", "Pacific/Honolulu"},
         {0, 0}

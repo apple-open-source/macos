@@ -274,6 +274,16 @@ typedef struct _IOHIDAtmosphericPressureEventData {
     uint32_t        sequence;
 } IOHIDAtmosphericPressureEventData;
 
+#if IRONSIDE_AVAILABLE // {
+typedef struct _IOHIDForceEventData {
+    IOHIDEVENT_BASE;
+    uint32_t        behavior;
+    IOFixed         progress;
+    uint32_t        stage;
+    IOFixed         stageProgress;
+} IOHIDForceEventData;
+#endif // } IRONSIDE_AVAILABLE
+
 /*!
     @typedef    IOHIDSystemQueueElement
     @abstract   Memory structure defining the layout of each event queue element
@@ -303,6 +313,15 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
 
 #define IOHIDEventFieldEventType(field) ((field >> 16) & 0xffff)
 #define IOHIDEventFieldOffset(field) (field & 0xffff)
+
+#if !IRONSIDE_AVAILABLE // {
+#   define IOHIDEventGetSizeOfForce(type, size)
+#else // } IRONSIDE_AVAILABLE {
+#   define IOHIDEventGetSizeOfForce(type, size)\
+        case kIOHIDEventTypeForce:      \
+            size = sizeof(IOHIDForceEventData);\
+            break;
+#endif // } IRONSIDE_AVAILABLE
 
 #define IOHIDEventGetSize(type,size)    \
 {                                       \
@@ -379,6 +398,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
         default:                        \
             size = 0;                   \
             break;                      \
+        IOHIDEventGetSizeOfForce(type, size)\
     }                                   \
 }
 #define IOHIDEventGetQueueElementSize(type,size)\
@@ -401,6 +421,31 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
 //==============================================================================
 // IOHIDEventGetValue MACRO
 //==============================================================================
+#if !IRONSIDE_AVAILABLE // {
+#   define IOHIDEventGetEventDataForce(eventData, fieldEvType, fieldOffset, value, isFixed)
+#else // } IRONSIDE_AVAILABLE {
+#   define IOHIDEventGetEventDataForce(eventData, fieldEvType, fieldOffset, value, isFixed)\
+        case kIOHIDEventTypeForce:        \
+            {                                           \
+                IOHIDForceEventData * forceEvent = (IOHIDForceEventData *)eventData; \
+                switch ( fieldOffset ) { \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceBehavior): \
+                        value = forceEvent->behavior;   \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceTransitionProgress): \
+                        value = IOHIDEventValueFloat(forceEvent->progress,isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceStage): \
+                        value = forceEvent->stage;      \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceStagePressure): \
+                        value = IOHIDEventValueFloat(forceEvent->stageProgress,isFixed); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;
+#endif // } IRONSIDE_AVAILABLE
+
 
 #define GET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value, isFixed)\
 {                                                       \
@@ -941,6 +986,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        IOHIDEventGetEventDataForce(eventData, fieldEvType, fieldOffset, value, isFixed)\
     };                                                  \
 }
 
@@ -1001,6 +1047,31 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
 //==============================================================================
 // IOHIDEventSetValue MACRO
 //==============================================================================
+#if !IRONSIDE_AVAILABLE // {
+#   define IOHIDEventSetEventDataForce(eventData, fieldEvType, fieldOffset, value, isFixed)
+#else // } IRONSIDE_AVAILABLE {
+#   define IOHIDEventSetEventDataForce(eventData, fieldEvType, fieldOffset, value, isFixed)\
+        case kIOHIDEventTypeForce:                      \
+            {                                           \
+                IOHIDForceEventData * forceEvent = (IOHIDForceEventData *)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceBehavior): \
+                        forceEvent->behavior = value;   \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceTransitionProgress): \
+                        forceEvent->progress = IOHIDEventValueFixed(value,isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceStage): \
+                        forceEvent->stage = value;      \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldForceStagePressure): \
+                        forceEvent->stageProgress = IOHIDEventValueFixed(value,isFixed); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;
+#endif // } IRONSIDE_AVAILABLE
+
 
 #define SET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value, isFixed) \
 {   switch ( fieldEvType ) {                            \
@@ -1579,6 +1650,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        IOHIDEventSetEventDataForce(eventData, fieldEvType, fieldOffset, value, isFixed)\
     };                                                  \
 }
 

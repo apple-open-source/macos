@@ -80,7 +80,6 @@
  * -out arg	- output file - default stdout
  * -des		- encrypt output if PEM format with DES in cbc mode
  * -des3	- encrypt output if PEM format
- * -idea	- encrypt output if PEM format
  * -seed	- encrypt output if PEM format
  * -aes128	- encrypt output if PEM format
  * -aes192	- encrypt output if PEM format

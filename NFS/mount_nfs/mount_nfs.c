@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -505,7 +505,7 @@ main(int argc, char *argv[])
 	argv += optind;
 
 	set_krb5_sec_flavor_for_principal();
-	
+
 	/* soft, read-only mount implies ... */
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_SOFT) &&
 	    NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_SOFT) &&
@@ -551,7 +551,7 @@ main(int argc, char *argv[])
 			errx(1, "realpath %s", mntonname);
 		}
 	}
-	
+
 	error = parse_fs_locations(mntfromarg, &nfsl);
 	if (error || !nfsl) {
 		if (!error)
@@ -705,7 +705,7 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 	/* build xdr buffer */
 	error = 0;
 	xb_init_buffer(&xb, NULL, 0);
-	xb_add_32(error, &xb, NFS_ARGSVERSION_XDR);   
+	xb_add_32(error, &xb, NFS_ARGSVERSION_XDR);
 	argslength_offset = xb_offset(&xb);
 	xb_add_32(error, &xb, 0); // args length
 	xb_add_32(error, &xb, NFS_XDRARGS_VERSION_0);
@@ -798,7 +798,7 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		}
 		/* pathname */
 		p = nfsl->nl_path;
-		while (*p && (*p == '/'))   
+		while (*p && (*p == '/'))
 			p++;
 		numcomps = 0;
 		while (*p) {
@@ -810,7 +810,7 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		}
 		xb_add_32(error, &xb, numcomps); /* pathname component count */
 		p = nfsl->nl_path;
-		while (*p && (*p == '/'))   
+		while (*p && (*p == '/'))
 			p++;
 		numcomps = 0;
 		while (*p) {
@@ -953,7 +953,7 @@ set_krb5_sec_flavor_for_principal(void)
 {
 	if (options.principal == NULL && options.realm == NULL && options.sprinc == NULL)
 		return;
-	
+
 	if (options.sec.count == 0) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SECURITY);
 		options.sec.count = 1;
@@ -1441,24 +1441,24 @@ warn_badoptions(char *opts)
 		if (strncmp(opt, "no", 2) == 0)	// negative option
 			opt += 2;
 		p = strchr(opt, '=');		// value option
-                if (p)
-                         *p = '\0';
+		if (p)
+			*p = '\0';
 
 		known = &mopts[0];
 		for (k = known; k->m_option != NULL; ++k)
-                        if (strcasecmp(opt, k->m_option) == 0)
-                                break;
+			if (strcasecmp(opt, k->m_option) == 0)
+				break;
 		if (k->m_option != NULL)	// known option
 			continue;
 
 		known = &mopts_switches[0];
 		for (k = known; k->m_option != NULL; ++k)
-                        if (strcasecmp(opt, k->m_option) == 0)
-                                break;
+			if (strcasecmp(opt, k->m_option) == 0)
+				break;
 		if (k->m_option != NULL)	// known option
 			continue;
 
-		warnx("warning: option \"%s\" not known", saveopt);	
+		warnx("warning: option \"%s\" not known", saveopt);
 	}
 
 	free(myopts);
@@ -1558,15 +1558,81 @@ sysctl_set(const char *name, int val)
 	return (sysctlbyname(name, NULL, 0, &val, sizeof(val)));
 }
 
+
 /*
- * Identify a laptop via the hardware model
- * identifier, e.g. "MacBookAir1,1"
+ * Includes needed for IOKit
+ */
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/ps/IOPowerSources.h>
+
+/*
+ * If a machine has an internal battery we consider it a mobile machine
+ *
+ * Shamelessly stolen from Buddy, OS Installer, and Migration with slight modification to turn it into C
+ * and to check for an internal battery.
+ * N.B. Needs to be compiled with -framework CoreFoundation -framework IOKit
+ *
+ * We have an internal battery if it is present and
+ * kIOPSTypeKey == kIOPSInternalBatteryType
+ */
+static bool
+machineHasInternalBattery()
+{
+	bool battery = false;
+	CFTypeRef psInfo = IOPSCopyPowerSourcesInfo();
+
+	if (!psInfo) {
+		return false;
+	}
+
+	CFArrayRef psArray = IOPSCopyPowerSourcesList(psInfo);
+	if (psArray == NULL) {
+		CFRelease(psInfo);
+		return false;
+	}
+	CFIndex count = CFArrayGetCount(psArray);
+	int i;
+
+	for (i = 0; i < count; ++i)
+	{
+		CFTypeRef value = CFArrayGetValueAtIndex(psArray, i);
+		if (value) {
+			CFDictionaryRef psDetailed = IOPSGetPowerSourceDescription (psInfo, value);
+			CFBooleanRef presentState = CFDictionaryGetValue(psDetailed, CFSTR(kIOPSIsPresentKey));
+			if (presentState && (CFGetTypeID(presentState) == CFBooleanGetTypeID()) && CFBooleanGetValue(presentState)) {
+				CFStringRef psType = CFDictionaryGetValue(psDetailed, CFSTR(kIOPSTypeKey));
+				if (psType && (CFGetTypeID(psType) == CFStringGetTypeID())) {
+					if (CFStringCompare(psType, CFSTR(kIOPSInternalBatteryType), 0) == kCFCompareEqualTo) {
+						battery = true;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	CFRelease(psArray);
+	CFRelease(psInfo);
+
+	return (battery);
+}
+
+/*
+ * Identify a mobile device if it has a battery or
+ * via the hardware model identifier,
+ * e.g. "MacBookAir1,1"
+ *
+ * N.B. Using the hardware model is legacy.
  */
 static int
 mobile_client()
 {
 	char model[128];
 	size_t len = sizeof(model);
+
+	if (machineHasInternalBattery())
+		return 1;
 
 	if (sysctlbyname("hw.model", &model, &len, NULL, 0) < 0 || len <= 0)
 		return 0;
@@ -1823,7 +1889,7 @@ getaddresslist(struct nfs_fs_server *nfss)
 	if (getaddrinfo(hostname, NULL, &aihints, &ailist)) {
 		warnx("can't resolve host: %s", hostname);
 		return (ENOENT);
-        }
+	}
 
 	/* strip out addresses that don't match the mount options given */
 	aidiscard = NULL;
@@ -1969,7 +2035,7 @@ static struct opt {
 	{ MNT_UNION,		"union" },
 	{ MNT_AUTOMOUNTED,	"automounted" },
 	{ MNT_JOURNALED,	"journaled" },
-	{ MNT_DEFWRITE, 	"defwrite" },
+	{ MNT_DEFWRITE,		"defwrite" },
 	{ MNT_IGNORE_OWNERSHIP,	"noowners" },
 	{ MNT_NOATIME,		"noatime" },
 	{ MNT_QUARANTINE,	"quarantine" },
@@ -1979,7 +2045,7 @@ static struct opt {
 	{ MNT_DOVOLFS,		"dovolfs"},
 	{ MNT_NOUSERXATTR,	"nouserxattr"},
 	{ MNT_MULTILABEL,	"multilabel"},
-	{ 0, 			NULL }
+	{ 0,			NULL }
 };
 
 static const char *
@@ -2018,11 +2084,11 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 		}
 	printf("\n");
 
-	printf("socket: type:%s", ((options.socket_type == SOCK_STREAM) ? "tcp" : 
+	printf("socket: type:%s", ((options.socket_type == SOCK_STREAM) ? "tcp" :
 		 (options.socket_type == SOCK_DGRAM) ? "udp" : "any"));
 	if (options.socket_family)
 		printf("%s%s", (options.socket_type ? "" : ",inet"),
-			((options.socket_family == AF_INET) ? "4" : 
+			((options.socket_family == AF_INET) ? "4" :
 			 (options.socket_family == AF_INET6) ? "6" : ""));
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_PORT))
 		printf(",port=%d", options.nfs_port);
@@ -2143,7 +2209,5 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 		printf(",principal=%s", options.principal);
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SVCPRINCIPAL))
 		printf(",sprincipal=%s", options.sprinc);
-	
 	printf("\n");
 }
-

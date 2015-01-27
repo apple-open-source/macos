@@ -256,7 +256,6 @@
 			buildPhases = (
 			);
 			dependencies = (
-				E1DFA33D196E4B6B0023A393 /* PBXTargetDependency */,
 				1CC41B280F9901F900362F40 /* PBXTargetDependency */,
 				1CC41B2A0F9901FC00362F40 /* PBXTargetDependency */,
 				1CF791C40F79829000F27DA5 /* PBXTargetDependency */,
@@ -1954,13 +1953,6 @@
 			remoteGlobalIDString = 1C3430020F71AA900045E860;
 			remoteInfo = ssl.0.9.8;
 		};
-		E1DFA33C196E4B6B0023A393 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E1E950D5196C8E7F00B680D0;
-			remoteInfo = "Verify Source";
-		};
 		E1DFA33E196E4B6E0023A393 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -2080,6 +2072,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		05CD549119FA3C92007BBAB9 /* constant_time_locl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = constant_time_locl.h; path = src/crypto/constant_time_locl.h; sourceTree = "<group>"; };
+		05CD549219FA3C92007BBAB9 /* constant_time_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = constant_time_test.c; path = src/crypto/constant_time_test.c; sourceTree = "<group>"; };
+		05CD549319FA3CB6007BBAB9 /* constant_time_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = constant_time_test.c; path = src/test/constant_time_test.c; sourceTree = "<group>"; };
 		1C342FEE0F71A9220045E860 /* libcrypto.0.9.8.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcrypto.0.9.8.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C3430030F71AA900045E860 /* libssl.0.9.8.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libssl.0.9.8.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C3434430F71AB0C0045E860 /* openssl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = openssl; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -3628,6 +3623,8 @@
 		1C343D0F0F71ABE70045E860 /* crypto */ = {
 			isa = PBXGroup;
 			children = (
+				05CD549119FA3C92007BBAB9 /* constant_time_locl.h */,
+				05CD549219FA3C92007BBAB9 /* constant_time_test.c */,
 				1C6C3C4C0F783EEC005DE0AD /* tmdiff.c */,
 				1C6C3C4D0F783EEC005DE0AD /* tmdiff.h */,
 				1C6C3C480F783EC2005DE0AD /* symhacks.h */,
@@ -4389,6 +4386,7 @@
 		1C4E311F0FA116A900F91AE5 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				05CD549319FA3CB6007BBAB9 /* constant_time_test.c */,
 				1C4E31230FA1174400F91AE5 /* casttest.c */,
 				1C4E31240FA1174400F91AE5 /* destest.c */,
 				1C4E31250FA1174400F91AE5 /* dhtest.c */,
@@ -4479,22 +4477,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
-
-/* Begin PBXLegacyTarget section */
-		E1E950D5196C8E7F00B680D0 /* Verify Source */ = {
-			isa = PBXLegacyTarget;
-			buildArgumentsString = "$(ACTION)";
-			buildConfigurationList = E1E950D6196C8E7F00B680D0 /* Build configuration list for PBXLegacyTarget "Verify Source" */;
-			buildPhases = (
-			);
-			buildToolPath = "$(SRCROOT)/bin/verify-source.sh";
-			dependencies = (
-			);
-			name = "Verify Source";
-			passBuildSettingsInEnvironment = 1;
-			productName = "Verify Source";
-		};
-/* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
 		1C342FED0F71A9220045E860 /* crypto.0.9.8 */ = {
@@ -5130,7 +5112,6 @@
 				1C3434420F71AB0C0045E860 /* openssl */,
 				1C342FED0F71A9220045E860 /* crypto.0.9.8 */,
 				1C3430020F71AA900045E860 /* ssl.0.9.8 */,
-				E1E950D5196C8E7F00B680D0 /* Verify Source */,
 				1CC41AFF0F98FD8200362F40 /* Install symlinks and scripts */,
 				1CC41B030F98FE3500362F40 /* Install Config */,
 				1CC41B060F98FE4400362F40 /* Install manpages */,
@@ -7339,11 +7320,6 @@
 			target = 1C3430020F71AA900045E860 /* ssl.0.9.8 */;
 			targetProxy = 4C1115B6110A866200FCEEB6 /* PBXContainerItemProxy */;
 		};
-		E1DFA33D196E4B6B0023A393 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E1E950D5196C8E7F00B680D0 /* Verify Source */;
-			targetProxy = E1DFA33C196E4B6B0023A393 /* PBXContainerItemProxy */;
-		};
 		E1DFA33F196E4B6E0023A393 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = E1E950EB196CD46400B680D0 /* Deprecate Prototypes */;
@@ -7754,6 +7730,7 @@
 					ZLIB,
 				);
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/src/include";
+				MACOS_DEPLOYMENT_TARGET = 10.7;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/openssl;
 				STRIP_STYLE = debugging;
 			};
@@ -7783,13 +7760,6 @@
 				PRODUCT_NAME = "Unit Tests";
 				WRAPPER_EXTENSION = octest;
 				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		E1E950D7196C8E7F00B680D0 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = "Verify Source";
 			};
 			name = Release;
 		};
@@ -8207,14 +8177,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4C1115B0110A862600FCEEB6 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		E1E950D6196C8E7F00B680D0 /* Build configuration list for PBXLegacyTarget "Verify Source" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E1E950D7196C8E7F00B680D0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

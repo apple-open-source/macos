@@ -181,8 +181,6 @@ typedef enum {
 #define kActionRequestSleepServiceWake                  "sleepservicewake"
 #define kActionRequestMaintenanceWake                   "maintenancewake"
 #define kActionSetTCPKeepAliveExpirationTimeout         "tcpkeepaliveexpiration"
-#define kActionSetTCPWakeQuotaInterval                  "tcpwakequotainterval"
-#define kActionSetTCPWakeQuota                          "tcpwakequota"
 #define kActionDoAckTimeout                             "doacktimeout"
 #define kActionExec                                     "exec"
 #define kActionClaim                                    "claim"

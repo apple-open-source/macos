@@ -175,8 +175,8 @@ public:
 
     bool deleteWithDirection(SelectionDirection, TextGranularity, bool killRing, bool isTypingAction);
     void deleteSelectionWithSmartDelete(bool smartDelete);
-#if PLATFORM(IOS)
     void clearText();
+#if PLATFORM(IOS)
     void removeUnchangeableStyles();
 #endif
     
@@ -441,6 +441,7 @@ public:
     void replaceNodeFromPasteboard(Node*, const String& pasteboardName);
     PassRefPtr<SharedBuffer> dataSelectionForPasteboard(const String& pasteboardName);
 #endif // !PLATFORM(IOS)
+    void replaceSelectionWithAttributedString(NSAttributedString *, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
 #endif
 
 #if PLATFORM(COCOA) || PLATFORM(EFL)

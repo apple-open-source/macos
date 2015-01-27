@@ -63,6 +63,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "su_07_debugging"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_33_keychain_backup"
             isEnabled = "NO">
          </CommandLineArgument>

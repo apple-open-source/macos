@@ -39,11 +39,27 @@
 #import <wtf/text/WTFString.h>
 #import <xpc/xpc.h>
 
+#if __has_include(<sandbox/private.h>)
+#import <sandbox/private.h>
+#else
+enum sandbox_filter_type {
+    SANDBOX_FILTER_GLOBAL_NAME = 2,
+};
+#endif
+
+extern "C" int sandbox_check(pid_t, const char *operation, enum sandbox_filter_type, ...);
+extern "C" const enum sandbox_filter_type SANDBOX_CHECK_NO_REPORT;
+
 #if PLATFORM(IOS)
 #import <wtf/ios/WebCoreThread.h>
 #endif
 
 namespace Inspector {
+
+static bool canAccessWebInspectorMachPort()
+{
+    return sandbox_check(getpid(), "mach-lookup", static_cast<enum sandbox_filter_type>(SANDBOX_FILTER_GLOBAL_NAME | SANDBOX_CHECK_NO_REPORT), WIRXPCMachPortName) == 0;
+}
 
 static void dispatchAsyncOnQueueSafeForAnyDebuggable(void (^block)())
 {
@@ -70,9 +86,11 @@ RemoteInspector& RemoteInspector::shared()
 
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        JSC::initializeThreading();
-        if (RemoteInspector::startEnabled)
-            shared.get().start();
+        if (canAccessWebInspectorMachPort()) {
+            JSC::initializeThreading();
+            if (RemoteInspector::startEnabled)
+                shared.get().start();
+        }
     });
 
     return shared;

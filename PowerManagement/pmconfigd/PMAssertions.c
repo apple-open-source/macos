@@ -1100,13 +1100,26 @@ void ioKitStateCallback (
 }
 
 
-static void _AssertForDeviceEnumeration( )
+static void _AssertForDeviceEnumeration(CFStringRef wakeType)
 {
     IOPMAssertionID     deviceEnumerationAssertion = kIOPMNullAssertionID;
     notifyRegInfo_st    *notifyInfo = NULL;
     devEnumInfo_st *deInfo = NULL;
     IOReturn rc;
     dispatch_source_t dispSrc;
+    
+    if (isA_CFString(wakeType) && (
+        CFEqual(wakeType, kIOPMRootDomainWakeTypeAlarm) ||
+        CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) ||
+        CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepTimer) ||
+        CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService) ||
+        CFEqual(wakeType, kIOPMrootDomainWakeTypeLowBattery) ||
+        CFEqual(wakeType, kIOPMRootDomainWakeTypeNotification)
+       )) {
+
+        /* No need to take proxy for device enumeration */
+        return;
+    }
 
     rc = _localCreateAssertion(kIOPMAssertInternalPreventSleep, 
                                CFSTR("PM configd - Wait for Device enumeration"), 
@@ -1198,7 +1211,7 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
             if (isA_CFString(wakeType) && CFEqual(wakeType, kIOPMRootDomainWakeTypeNetwork))
                 _DarkWakeHandleNetworkWake( );
             else
-                _AssertForDeviceEnumeration( );
+                _AssertForDeviceEnumeration(wakeType);
         }
         else if (isA_CFString(wakeType))
         {
@@ -1210,17 +1223,8 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
                 _localCreateAssertionWithTimer(kIOPMAssertionTypeBackgroundTask, 
                                                CFSTR("Powerd - Wait for client BackgroundTask assertions"), 10, &pushSvcAssert);
             }
-            else if ((CFEqual(wakeType, kIOPMRootDomainWakeTypeAlarm) == false ) &&
-                     (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) == false ) &&
-                     (CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepTimer) == false ) &&
-                     (CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService) == false ) &&
-                     (CFEqual(wakeType, kIOPMrootDomainWakeTypeLowBattery) == false ) )
-            {
-                /* 
-                 * If this is not a Timer based wake, raise assertion and wait for 
-                 * devices to enumerate.
-                 */
-                _AssertForDeviceEnumeration( );
+            else {
+                _AssertForDeviceEnumeration(wakeType);
             }
         }
         else 
@@ -1229,7 +1233,7 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
              * Wake type is not set for some cases. Only wake reason is set.
              * Plugging a new USB device while sleeping is one such case
              */
-            _AssertForDeviceEnumeration( );
+            _AssertForDeviceEnumeration(wakeType);
         }
 
         if (wakeType) {

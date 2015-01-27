@@ -114,6 +114,7 @@ enum {
 
 #define kIOFBCurrentPixelClockKey       "IOFBCurrentPixelClock"
 #define kIOFBCurrentPixelCountKey       "IOFBCurrentPixelCount"
+#define kIOFBCurrentPixelCountRealKey   "IOFBCurrentPixelCountReal"
 
 #define kIOFBTransformKey               "IOFBTransform"
 #define kIOFBRotatePrefsKey             "framebuffer-rotation"

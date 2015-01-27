@@ -178,7 +178,7 @@ void SOSAccountForEachKnownCircle(SOSAccountRef account,
 
 int SOSAccountCountCircles(SOSAccountRef a);
 
-SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error);
+SOSFullPeerInfoRef SOSAccountMakeMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error);
 
 bool SOSAccountDestroyCirclePeerInfoNamed(SOSAccountRef account, CFStringRef name, CFErrorRef* error);
 
@@ -234,7 +234,7 @@ SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircleNamedIfPresent(SOSAccountRef a
 
 bool SOSAccountIsAccountIdentity(SOSAccountRef account, SOSPeerInfoRef peer_info, CFErrorRef *error);
 
-SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error);
+SOSFullPeerInfoRef SOSAccountMakeMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error);
 
 SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircle(SOSAccountRef account, SOSCircleRef circle, CFErrorRef* error);
 

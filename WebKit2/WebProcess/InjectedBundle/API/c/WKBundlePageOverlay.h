@@ -49,6 +49,11 @@ typedef bool (*WKBundlePageOverlayMouseUpCallback)(WKBundlePageOverlayRef pageOv
 typedef bool (*WKBundlePageOverlayMouseMovedCallback)(WKBundlePageOverlayRef pageOverlay, WKPoint position, const void* clientInfo);
 typedef bool (*WKBundlePageOverlayMouseDraggedCallback)(WKBundlePageOverlayRef pageOverlay, WKPoint position, WKEventMouseButton mouseButton, const void* clientInfo);
 
+typedef void* (*WKBundlePageOverlayActionContextForResultAtPointCallback)(WKBundlePageOverlayRef pageOverlay, WKPoint position, WKBundleRangeHandleRef* rangeHandle, const void* clientInfo);
+typedef void (*WKBundlePageOverlayDatadetectorsDidPresentUI)(WKBundlePageOverlayRef pageOverlay, const void* clientInfo);
+typedef void (*WKBundlePageOverlayDatadetectorsDidChangeUI)(WKBundlePageOverlayRef pageOverlay, const void* clientInfo);
+typedef void (*WKBundlePageOverlayDatadetectorsDidHideUI)(WKBundlePageOverlayRef pageOverlay, const void* clientInfo);
+
 typedef struct WKBundlePageOverlayClientBase {
     int                                                                 version;
     const void *                                                        clientInfo;
@@ -57,7 +62,6 @@ typedef struct WKBundlePageOverlayClientBase {
 typedef struct WKBundlePageOverlayClientV0 {
     WKBundlePageOverlayClientBase                                       base;
 
-    // Version 0.
     WKBundlePageOverlayWillMoveToPageCallback                           willMoveToPage;
     WKBundlePageOverlayDidMoveToPageCallback                            didMoveToPage;
     WKBundlePageOverlayDrawRectCallback                                 drawRect;
@@ -67,12 +71,28 @@ typedef struct WKBundlePageOverlayClientV0 {
     WKBundlePageOverlayMouseDraggedCallback                             mouseDragged;
 } WKBundlePageOverlayClientV0;
 
+typedef struct WKBundlePageOverlayClientV1 {
+    WKBundlePageOverlayClientBase                                       base;
+
+    WKBundlePageOverlayWillMoveToPageCallback                           willMoveToPage;
+    WKBundlePageOverlayDidMoveToPageCallback                            didMoveToPage;
+    WKBundlePageOverlayDrawRectCallback                                 drawRect;
+    WKBundlePageOverlayMouseDownCallback                                mouseDown;
+    WKBundlePageOverlayMouseUpCallback                                  mouseUp;
+    WKBundlePageOverlayMouseMovedCallback                               mouseMoved;
+    WKBundlePageOverlayMouseDraggedCallback                             mouseDragged;
+
+    WKBundlePageOverlayActionContextForResultAtPointCallback            actionContextForResultAtPoint;
+    WKBundlePageOverlayDatadetectorsDidPresentUI                         dataDetectorsDidPresentUI;
+    WKBundlePageOverlayDatadetectorsDidChangeUI                           dataDetectorsDidChangeUI;
+    WKBundlePageOverlayDatadetectorsDidHideUI                               dataDetectorsDidHideUI;
+} WKBundlePageOverlayClientV1;
+
 enum { kWKBundlePageOverlayClientCurrentVersion WK_ENUM_DEPRECATED("Use an explicit version number instead") = 0 };
 typedef struct WKBundlePageOverlayClient {
     int                                                                 version;
     const void *                                                        clientInfo;
 
-    // Version 0.
     WKBundlePageOverlayWillMoveToPageCallback                           willMoveToPage;
     WKBundlePageOverlayDidMoveToPageCallback                            didMoveToPage;
     WKBundlePageOverlayDrawRectCallback                                 drawRect;

@@ -415,7 +415,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 					}
 					DLOG("%s[%p]::setPCIPowerState(OFF) - writing 0x%x to PMCS currently (0x%x)\n", getName(), this, bits, extendedConfigRead16(reserved->pmControlStatus));
 					extendedConfigWrite16(reserved->pmControlStatus, bits);
-					DLOG("%s[%p]::setPCIPowerState(OFF) - after writing, PMCS is (0x%x)\n", getName(), this, extendedConfigRead16(reserved->pmControlStatus));
+					DLOG("%s[%p]::setPCIPowerState(OFF) - did move PMCS to D3\n", getName(), this);
 				}
 				break;
 			

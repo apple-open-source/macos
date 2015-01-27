@@ -1017,6 +1017,9 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
 
     clock_get_uptime( &currentTime );
     
+    if (!_readyForInputReports)
+        return kIOReturnOffline;
+
     WORKLOOP_LOCK;
 
 	status = handleReportWithTime( currentTime, report, reportType, options );

@@ -80,25 +80,31 @@ static bool SOSAccountInflateTransportsForCircle(SOSAccountRef account, CFString
     SOSTransportKeyParameterRef tKey = NULL;
     SOSTransportCircleRef tCircle = NULL;
     SOSTransportMessageRef tMessage = NULL;
+    
+#if 0 // IDS_FUTURE
+    // Solve determining transport type without fullpeer
     SOSFullPeerInfoRef fpi = SOSAccountGetMyFullPeerInCircleNamed(account, circleName, error);
     require_quiet(fpi, fail);
     SOSPeerInfoRef myPeer = SOSFullPeerInfoGetPeerInfo(fpi);
     require_quiet(myPeer, fail);
     CFStringRef type = SOSPeerInfoGetTransportType(myPeer);
     if(CFStringCompare(type, CFSTR("KVS"), 0) == kCFCompareEqualTo){
-        tKey = (SOSTransportKeyParameterRef)SOSTransportKeyParameterKVSCreate(account, error);
-        tCircle = (SOSTransportCircleRef)SOSTransportCircleKVSCreate(account, circleName, error);
-        tMessage = (SOSTransportMessageRef)SOSTransportMessageKVSCreate(account, circleName, error);
-        require_quiet(tKey, fail);
-        require_quiet(tCircle, fail);
-        require_quiet(tMessage, fail);
-        
-        CFRetainAssign(account->key_transport, (SOSTransportKeyParameterRef)tKey);
-        CFDictionarySetValue(account->circle_transports, circleName, tCircle);
-        CFDictionarySetValue(account->message_transports, circleName, tMessage);
-    }
+#endif
+    tKey = (SOSTransportKeyParameterRef)SOSTransportKeyParameterKVSCreate(account, error);
+    tCircle = (SOSTransportCircleRef)SOSTransportCircleKVSCreate(account, circleName, error);
+    tMessage = (SOSTransportMessageRef)SOSTransportMessageKVSCreate(account, circleName, error);
+    require_quiet(tKey, fail);
+    require_quiet(tCircle, fail);
+    require_quiet(tMessage, fail);
     
+    CFRetainAssign(account->key_transport, (SOSTransportKeyParameterRef)tKey);
+    CFDictionarySetValue(account->circle_transports, circleName, tCircle);
+    CFDictionarySetValue(account->message_transports, circleName, tMessage);
+#if 0 // IDS_FUTURE
+    }
+#endif
     success = true;
+
 fail:
     CFReleaseNull(tKey);
     CFReleaseNull(tCircle);
@@ -125,9 +131,9 @@ SOSCircleRef SOSAccountEnsureCircle(SOSAccountRef a, CFStringRef name, CFErrorRe
 
         SOSUpdateKeyInterest();
     }
-    
+
     require_quiet(SOSAccountInflateTransportsForCircle(a, name, error), fail);
-    
+   
 fail:
     CFReleaseNull(localError);
     return circle;

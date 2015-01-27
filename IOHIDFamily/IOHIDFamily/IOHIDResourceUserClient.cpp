@@ -816,6 +816,11 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
     const UInt32        entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IODataQueueEntry *  entry;
 
+    if ( ( tail > getQueueSize() || head > getQueueSize() ) )
+    {
+        return false;
+    }
+
     if ( tail >= head )
     {
         // Is there enough room at the end for the entry?
@@ -867,7 +872,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
         // Do not allow the tail to catch up to the head when the queue is full.
         // That's why the comparison uses a '>' rather than '>='.
 
-        if ( (head - tail) > entrySize )
+        if ( ( ( head - tail) > entrySize ) && ( tail + entrySize <= getQueueSize() ) )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 

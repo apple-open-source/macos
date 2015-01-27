@@ -211,10 +211,10 @@ private:
 
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() const override;
     virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) override;
+    virtual void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) override;
     virtual void setNeedsOneShotDrawingSynchronization() override;
     virtual void scheduleCompositingLayerFlush() override;
     virtual bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) override;
-    virtual WebCore::GraphicsLayer* documentOverlayLayerForFrame(WebCore::Frame&) override;
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     virtual PassRefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) const override;
@@ -282,8 +282,6 @@ private:
     
     virtual void numWheelEventHandlersChanged(unsigned) override;
 
-    virtual void logDiagnosticMessage(const String& message, const String& description, const String& success) override;
-
     virtual String plugInStartLabelTitle(const String& mimeType) const override;
     virtual String plugInStartLabelSubtitle(const String& mimeType) const override;
     virtual String plugInExtraStyleSheet() const override;
@@ -298,6 +296,16 @@ private:
     virtual bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const override;
     virtual bool unwrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const override;
 #endif
+
+#if ENABLE(TELEPHONE_NUMBER_DETECTION) && PLATFORM(MAC)
+    virtual void handleTelephoneNumberClick(const String& number, const WebCore::IntPoint&) override;
+#endif
+#if ENABLE(SERVICE_CONTROLS)
+    virtual void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>& telephoneNumbers, const WebCore::IntPoint&) override;
+    virtual bool hasRelevantSelectionServices(bool isTextOnly) const override;
+#endif
+
+    virtual bool shouldDispatchFakeMouseMoveEvents() const override;
 
     String m_cachedToolTip;
     mutable RefPtr<WebFrame> m_cachedFrameSetLargestFrame;

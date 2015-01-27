@@ -35,6 +35,7 @@
 #import "DOMDocumentInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
+#import "DictionaryPopupInfo.h"
 #import "WebAlternativeTextClient.h"
 #import "WebApplicationCache.h"
 #import "WebBackForwardListInternal.h"
@@ -97,6 +98,7 @@
 #import "WebProgressTrackerClient.h"
 #import "WebScriptDebugDelegate.h"
 #import "WebScriptWorldInternal.h"
+#import "WebSelectionServiceController.h"
 #import "WebStorageManagerInternal.h"
 #import "WebSystemInterface.h"
 #import "WebTextCompletionController.h"
@@ -153,6 +155,7 @@
 #import <WebCore/NotificationController.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageCache.h>
+#import <WebCore/PageConfiguration.h>
 #import <WebCore/PageGroup.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/ProgressTracker.h>
@@ -198,13 +201,21 @@
 #import <wtf/StdLibExtras.h>
 
 #if !PLATFORM(IOS)
+#import "WebActionMenuController.h"
 #import "WebContextMenuClient.h"
 #import "WebFullScreenController.h"
+#import "WebImmediateActionController.h"
 #import "WebNSEventExtras.h"
 #import "WebNSObjectExtras.h"
 #import "WebNSPasteboardExtras.h"
 #import "WebNSPrintOperationExtras.h"
 #import "WebPDFView.h"
+#import <WebCore/LookupSPI.h>
+#import <WebCore/NSImmediateActionGestureRecognizerSPI.h>
+#import <WebCore/NSViewSPI.h>
+#import <WebCore/SoftLinking.h>
+#import <WebCore/TextIndicator.h>
+#import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/WebVideoFullscreenController.h>
 #else
 #import "MemoryMeasure.h"
@@ -284,6 +295,11 @@
 
 #if ENABLE(GAMEPAD)
 #import <WebCore/HIDGamepadProvider.h>
+#endif
+
+#if PLATFORM(MAC)
+SOFT_LINK_CONSTANT_MAY_FAIL(Lookup, LUNotificationPopoverWillClose, NSString *)
+SOFT_LINK_CONSTANT_MAY_FAIL(Lookup, LUTermOptionDisableSearchTermIndicator, NSString *)
 #endif
 
 #if !PLATFORM(IOS)
@@ -874,6 +890,22 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     [self addSubview:frameView];
     [frameView release];
 
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    if ([self respondsToSelector:@selector(setActionMenu:)]) {
+        RetainPtr<NSMenu> actionMenu = adoptNS([[NSMenu alloc] init]);
+        self.actionMenu = actionMenu.get();
+        _private->actionMenuController = [[WebActionMenuController alloc] initWithWebView:self];
+        self.actionMenu.autoenablesItems = NO;
+    }
+
+    if (Class gestureClass = NSClassFromString(@"NSImmediateActionGestureRecognizer")) {
+        RetainPtr<NSImmediateActionGestureRecognizer> recognizer = adoptNS([(NSImmediateActionGestureRecognizer *)[gestureClass alloc] initWithTarget:nil action:NULL]);
+        _private->immediateActionController = [[WebImmediateActionController alloc] initWithWebView:self recognizer:recognizer.get()];
+        [recognizer setDelegate:_private->immediateActionController];
+        [self addGestureRecognizer:recognizer.get()];
+    }
+#endif
+
 #if !PLATFORM(IOS)
     static bool didOneTimeInitialization = false;
 #endif
@@ -921,23 +953,23 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         didOneTimeInitialization = true;
     }
 
-    Page::PageClients pageClients;
+    PageConfiguration pageConfiguration;
 #if !PLATFORM(IOS)
-    pageClients.chromeClient = new WebChromeClient(self);
-    pageClients.contextMenuClient = new WebContextMenuClient(self);
+    pageConfiguration.chromeClient = new WebChromeClient(self);
+    pageConfiguration.contextMenuClient = new WebContextMenuClient(self);
 #if ENABLE(DRAG_SUPPORT)
-    pageClients.dragClient = new WebDragClient(self);
+    pageConfiguration.dragClient = new WebDragClient(self);
 #endif
-    pageClients.inspectorClient = new WebInspectorClient(self);
+    pageConfiguration.inspectorClient = new WebInspectorClient(self);
 #else
-    pageClients.chromeClient = new WebChromeClientIOS(self);
-    pageClients.inspectorClient = new WebInspectorClient(self);
+    pageConfiguration.chromeClient = new WebChromeClientIOS(self);
+    pageConfiguration.inspectorClient = new WebInspectorClient(self);
 #endif
-    pageClients.editorClient = new WebEditorClient(self);
-    pageClients.alternativeTextClient = new WebAlternativeTextClient(self);
-    pageClients.loaderClientForMainFrame = new WebFrameLoaderClient;
-    pageClients.progressTrackerClient = new WebProgressTrackerClient(self);
-    _private->page = new Page(pageClients);
+    pageConfiguration.editorClient = new WebEditorClient(self);
+    pageConfiguration.alternativeTextClient = new WebAlternativeTextClient(self);
+    pageConfiguration.loaderClientForMainFrame = new WebFrameLoaderClient;
+    pageConfiguration.progressTrackerClient = new WebProgressTrackerClient(self);
+    _private->page = new Page(pageConfiguration);
 #if ENABLE(GEOLOCATION)
     WebCore::provideGeolocationTo(_private->page, new WebGeolocationClient(self));
 #endif
@@ -1039,9 +1071,11 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         SecurityPolicy::setLocalLoadPolicy(SecurityPolicy::AllowLocalLoadsForLocalAndSubstituteData);
     }
 
-#if !PLATFORM(IOS)
+#if PLATFORM(MAC)
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_CONTENT_SNIFFING_FOR_FILE_URLS))
         ResourceHandle::forceContentSniffing();
+
+    _private->page->setDeviceScaleFactor([self _deviceScaleFactor]);
 #endif
 
 #if USE(GLIB)
@@ -1070,9 +1104,6 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     _private = [[WebViewPrivate alloc] init];
     [self _commonInitializationWithFrameName:frameName groupName:groupName];
     [self setMaintainsBackForwardList: YES];
-#if !PLATFORM(IOS)
-    _private->page->setDeviceScaleFactor([self _deviceScaleFactor]);
-#endif
     return self;
 }
 
@@ -1158,16 +1189,16 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     [frameView release];
 
     
-    Page::PageClients pageClients;
-    pageClients.chromeClient = new WebChromeClientIOS(self);
+    PageConfiguration pageConfiguration;
+    pageConfiguration.chromeClient = new WebChromeClientIOS(self);
 #if ENABLE(DRAG_SUPPORT)
-    pageClients.dragClient = new WebDragClient(self);
+    pageConfiguration.dragClient = new WebDragClient(self);
 #endif
-    pageClients.editorClient = new WebEditorClient(self);
-    pageClients.inspectorClient = new WebInspectorClient(self);
-    pageClients.loaderClientForMainFrame = new WebFrameLoaderClient;
-    pageClients.progressTrackerClient = new WebProgressTrackerClient(self);
-    _private->page = new Page(pageClients);
+    pageConfiguration.editorClient = new WebEditorClient(self);
+    pageConfiguration.inspectorClient = new WebInspectorClient(self);
+    pageConfiguration.loaderClientForMainFrame = new WebFrameLoaderClient;
+    pageConfiguration.progressTrackerClient = new WebProgressTrackerClient(self);
+    _private->page = new Page(pageConfiguration);
     
     [self setSmartInsertDeleteEnabled:YES];
     
@@ -1720,6 +1751,10 @@ static bool fastDocumentTeardownEnabled()
     [self setUIDelegate:nil];
 
     [_private->inspector webViewClosed];
+#endif
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    [_private->actionMenuController webViewClosed];
+    [_private->immediateActionController webViewClosed];
 #endif
 
 #if !PLATFORM(IOS)
@@ -2362,6 +2397,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
 
 #if ENABLE(SERVICE_CONTROLS)
     settings.setImageControlsEnabled([preferences imageControlsEnabled]);
+    settings.setServiceControlsEnabled([preferences serviceControlsEnabled]);
 #endif
 
 #if ENABLE(VIDEO_TRACK)
@@ -7163,9 +7199,14 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
     return [[self _editingDelegateForwarder] webView:self shouldChangeSelectedDOMRange:currentRange toDOMRange:proposedRange affinity:selectionAffinity stillSelecting:flag];
 }
 
+- (void)_setMaintainsInactiveSelection:(BOOL)shouldMaintainInactiveSelection
+{
+    _private->shouldMaintainInactiveSelection = shouldMaintainInactiveSelection;
+}
+
 - (BOOL)maintainsInactiveSelection
 {
-    return NO;
+    return _private->shouldMaintainInactiveSelection;
 }
 
 - (void)setSelectedDOMRange:(DOMRange *)range affinity:(NSSelectionAffinity)selectionAffinity
@@ -8517,6 +8558,15 @@ static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity
 }
 #endif
 
+#if ENABLE(SERVICE_CONTROLS)
+- (WebSelectionServiceController&)_selectionServiceController
+{
+    if (!_private->_selectionServiceController)
+        _private->_selectionServiceController = std::make_unique<WebSelectionServiceController>(self);
+    return *_private->_selectionServiceController;
+}
+#endif
+
 - (NSPoint)_convertPointFromRootView:(NSPoint)point
 {
     return NSMakePoint(point.x, [self bounds].size.height - point.y);
@@ -8526,6 +8576,127 @@ static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity
 {
     return NSMakeRect(rect.origin.x, [self bounds].size.height - rect.origin.y - rect.size.height, rect.size.width, rect.size.height);
 }
+
+#if PLATFORM(MAC)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+- (void)prepareForMenu:(NSMenu *)menu withEvent:(NSEvent *)event
+{
+    if (menu != self.actionMenu)
+        return;
+
+    [_private->actionMenuController prepareForMenu:menu withEvent:event];
+}
+
+- (void)willOpenMenu:(NSMenu *)menu withEvent:(NSEvent *)event
+{
+    if (menu != self.actionMenu)
+        return;
+
+    [_private->actionMenuController willOpenMenu:menu withEvent:event];
+}
+
+- (void)didCloseMenu:(NSMenu *)menu withEvent:(NSEvent *)event
+{
+    if (menu != self.actionMenu)
+        return;
+
+    [_private->actionMenuController didCloseMenu:menu withEvent:event];
+}
+
+- (WebActionMenuController *)_actionMenuController
+{
+    return _private->actionMenuController;
+}
+
+- (WebImmediateActionController *)_immediateActionController
+{
+    return _private->immediateActionController;
+}
+
+- (id)_animationControllerForDictionaryLookupPopupInfo:(const DictionaryPopupInfo&)dictionaryPopupInfo
+{
+    if (!dictionaryPopupInfo.attributedString)
+        return nil;
+
+    NSPoint textBaselineOrigin = dictionaryPopupInfo.origin;
+
+    // Convert to screen coordinates.
+    textBaselineOrigin = [self.window convertRectToScreen:NSMakeRect(textBaselineOrigin.x, textBaselineOrigin.y, 0, 0)].origin;
+
+    if (canLoadLUTermOptionDisableSearchTermIndicator() && canLoadLUNotificationPopoverWillClose()) {
+        if (!_private->hasInitializedLookupObserver) {
+            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_dictionaryLookupPopoverWillClose:) name:getLUNotificationPopoverWillClose() object:nil];
+            _private->hasInitializedLookupObserver = YES;
+        }
+
+        RetainPtr<NSMutableDictionary> mutableOptions = adoptNS([dictionaryPopupInfo.options mutableCopy]);
+        if (!mutableOptions)
+            mutableOptions = adoptNS([[NSMutableDictionary alloc] init]);
+        [mutableOptions setObject:@YES forKey:getLUTermOptionDisableSearchTermIndicator()];
+        [self _setTextIndicator:dictionaryPopupInfo.textIndicator.get() fadeOut:NO];
+        return [getLULookupDefinitionModuleClass() lookupAnimationControllerForTerm:dictionaryPopupInfo.attributedString.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
+    }
+
+    return [getLULookupDefinitionModuleClass() lookupAnimationControllerForTerm:dictionaryPopupInfo.attributedString.get() atLocation:textBaselineOrigin options:dictionaryPopupInfo.options.get()];
+}
+#endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+
+- (void)_setTextIndicator:(TextIndicator *)textIndicator fadeOut:(BOOL)fadeOut
+{
+    if (!textIndicator) {
+        _private->textIndicatorWindow = nullptr;
+        return;
+    }
+
+    if (!_private->textIndicatorWindow)
+        _private->textIndicatorWindow = std::make_unique<TextIndicatorWindow>(self);
+
+    NSRect contentRect = [self.window convertRectToScreen:textIndicator->textBoundingRectInWindowCoordinates()];
+    _private->textIndicatorWindow->setTextIndicator(textIndicator, NSRectToCGRect(contentRect), fadeOut);
+}
+
+- (void)_clearTextIndicator
+{
+    [self _setTextIndicator:nullptr fadeOut:NO];
+}
+
+- (void)_setTextIndicatorAnimationProgress:(float)progress
+{
+    if (_private->textIndicatorWindow)
+        _private->textIndicatorWindow->setAnimationProgress(progress);
+}
+
+- (void)_showDictionaryLookupPopup:(const DictionaryPopupInfo&)dictionaryPopupInfo
+{
+    if (!dictionaryPopupInfo.attributedString)
+        return;
+
+    NSPoint textBaselineOrigin = dictionaryPopupInfo.origin;
+
+    // Convert to screen coordinates.
+    textBaselineOrigin = [self.window convertRectToScreen:NSMakeRect(textBaselineOrigin.x, textBaselineOrigin.y, 0, 0)].origin;
+
+    if (canLoadLUTermOptionDisableSearchTermIndicator() && canLoadLUNotificationPopoverWillClose()) {
+        if (!_private->hasInitializedLookupObserver) {
+            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_dictionaryLookupPopoverWillClose:) name:getLUNotificationPopoverWillClose() object:nil];
+            _private->hasInitializedLookupObserver = YES;
+        }
+
+        RetainPtr<NSMutableDictionary> mutableOptions = adoptNS([dictionaryPopupInfo.options mutableCopy]);
+        if (!mutableOptions)
+            mutableOptions = adoptNS([[NSMutableDictionary alloc] init]);
+        [mutableOptions setObject:@YES forKey:getLUTermOptionDisableSearchTermIndicator()];
+        [self _setTextIndicator:dictionaryPopupInfo.textIndicator.get() fadeOut:NO];
+        [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
+    } else
+        [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.get() atLocation:textBaselineOrigin options:dictionaryPopupInfo.options.get()];
+}
+
+- (void)_dictionaryLookupPopoverWillClose:(NSNotification *)notification
+{
+    [self _setTextIndicator:nullptr fadeOut:NO];
+}
+#endif // PLATFORM(MAC)
 
 @end
 

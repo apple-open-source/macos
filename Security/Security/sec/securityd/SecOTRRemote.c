@@ -49,6 +49,10 @@ CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFData
     });
     
     SecKeyRef privateKeyRef = SOSFullPeerInfoCopyDeviceKey(full_peer_info, error);
+    if(!privateKeyRef) {
+        secnotice("otr_keysetup", "Could not get private key for FullPeerInfo");
+        return NULL;
+    }
     
     CFStringRef publicKeyString = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, publicPeerId, kCFStringEncodingUTF8);
     __block SOSPeerInfoRef peer_info = NULL;

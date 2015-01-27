@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2004,2011-2012,2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,14 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * ocspRequest.cpp - OCSP Request class
  */
- 
+
 #include "ocspRequest.h"
 #include "certGroupUtils.h"
 #include "tpdebugging.h"
@@ -47,15 +47,15 @@ static uint8 nullParam[2] = {5, 0};
 #define OCSP_NONCE_SIZE		8
 
 /*
- * The only constructor. Subject and issuer must remain valid for the 
- * lifetime of this object (they are not refcounted). 
+ * The only constructor. Subject and issuer must remain valid for the
+ * lifetime of this object (they are not refcounted).
  */
 OCSPRequest::OCSPRequest(
 	TPCertInfo		&subject,
 	TPCertInfo		&issuer,
 	bool			genNonce)
 		: mCoder(NULL),
-		  mSubject(subject), 
+		  mSubject(subject),
 		  mIssuer(issuer),
 		  mGenNonce(genNonce),
 		  mCertID(NULL)
@@ -81,6 +81,7 @@ const CSSM_DATA *OCSPRequest::encode()
 	CSSM_DATA_PTR	issuerName;
 	CSSM_DATA_PTR	issuerKey;
 	CSSM_KEY_PTR	issuerPubKey;
+	CSSM_DATA		issuerPubKeyBytes;
 	/* from subject */
 	CSSM_DATA_PTR	subjectSerial=NULL;
 
@@ -98,17 +99,17 @@ const CSSM_DATA *OCSPRequest::encode()
 	CSSM_DATA					nonceData = {OCSP_NONCE_SIZE, nonceBytes};
 	OCSPNonce					*nonce = NULL;
 	NSS_CertExtension			*extenArray[2] = {NULL, NULL};
-	
+
 	if(mEncoded.Data) {
 		/* already done */
 		return &mEncoded;
 	}
 
-	/* 
+	/*
 	 * One single request, no extensions
 	 */
 	memset(&singleReq, 0, sizeof(singleReq));
-	
+
 	/* algId refers to the hash we'll perform in issuer name and key */
 	certId.algId.algorithm = CSSMOID_SHA1;
 	certId.algId.parameters.Data = nullParam;
@@ -138,16 +139,17 @@ const CSSM_DATA *OCSPRequest::encode()
 		goto errOut;
 	}
 	issuerPubKey = (CSSM_KEY_PTR)issuerKey->Data;
-	ocspdSha1(issuerPubKey->KeyData.Data, (CC_LONG)issuerPubKey->KeyData.Length, pubKeyHash);
-	
+	ocspdGetPublicKeyBytes(mCoder, issuerPubKey, issuerPubKeyBytes);
+	ocspdSha1(issuerPubKeyBytes.Data, (CC_LONG)issuerPubKeyBytes.Length, pubKeyHash);
+
 	/* build the CertID from those components */
 	certId.issuerNameHash.Data = issuerNameHash;
 	certId.issuerNameHash.Length = CC_SHA1_DIGEST_LENGTH;
 	certId.issuerPubKeyHash.Data = pubKeyHash;
-	certId.issuerPubKeyHash.Length = CC_SHA1_DIGEST_LENGTH;	
+	certId.issuerPubKeyHash.Length = CC_SHA1_DIGEST_LENGTH;
 	certId.serialNumber = *subjectSerial;
 
-	/* 
+	/*
 	 * Build top level request with one entry in requestList, no signature,
 	 * one optional extension (a nonce)
 	 */
@@ -164,17 +166,17 @@ const CSSM_DATA *OCSPRequest::encode()
 		tbs.requestExtensions = extenArray;
 		SecAsn1AllocCopyItem(mCoder, &nonceData, &mNonce);
 	}
-	
+
 	/* Encode */
-	if(SecAsn1EncodeItem(mCoder, &signedReq, kSecAsn1OCSPSignedRequestTemplate, 
+	if(SecAsn1EncodeItem(mCoder, &signedReq, kSecAsn1OCSPSignedRequestTemplate,
 			&mEncoded)) {
 		tpErrorLog("OCSPRequest::encode: error encoding OCSP req\n");
 		crtn = CSSMERR_TP_INTERNAL_ERROR;
 		goto errOut;
 	}
 	/* save a copy of the CertID */
-	mCertID = new OCSPClientCertID(*issuerName, issuerPubKey->KeyData, *subjectSerial);
-	
+	mCertID = new OCSPClientCertID(*issuerName, issuerPubKeyBytes, *subjectSerial);
+
 errOut:
 	if(issuerName) {
 		mIssuer.freeField(&CSSMOID_X509V1IssuerNameStd, issuerName);

@@ -39,28 +39,11 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_process_context_token (
 	const gss_buffer_t token_buffer
     )
 {
-    krb5_context context;
-    OM_uint32 ret = GSS_S_FAILURE;
-    gss_buffer_desc empty_buffer;
-
-    empty_buffer.length = 0;
-    empty_buffer.value = NULL;
-
-    GSSAPI_KRB5_INIT (&context);
-
-    ret = _gsskrb5_verify_mic_internal(minor_status,
-				       (gsskrb5_ctx)context_handle,
-				       context,
-				       token_buffer, &empty_buffer,
-				       GSS_C_QOP_DEFAULT,
-				       "\x01\x02");
-
-    if (ret == GSS_S_COMPLETE)
-	ret = _gsskrb5_delete_sec_context(minor_status,
-					  rk_UNCONST(&context_handle),
-					  GSS_C_NO_BUFFER);
-    if (ret == GSS_S_COMPLETE)
-	*minor_status = 0;
-
-    return ret;
+    /*
+     * Context tokens are not supported for AES enctypes, and you
+     * probably upgrade to AES enctypes via ETYPE-NEGO anyway, so lets
+     * just always fail.
+     */
+    *minor_status = 0;
+    return GSS_S_UNAVAILABLE;
 }

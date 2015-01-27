@@ -1986,7 +1986,7 @@ zh_Hant{
         persian{
             eras{
                 abbreviated{
-                    "伊朗曆",
+                    "波斯曆",
                 }
             }
             monthNames{

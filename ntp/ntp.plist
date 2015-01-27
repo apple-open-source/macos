@@ -1,32 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>OpenSourceProject</key>
-	<string>ntp</string>
-	<key>OpenSourceVersion</key>
-	<string>4.2.6</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.ntp.org</string>
-	<key>OpenSourceURL</key>
-	<string>http://archive.ntp.org/ntp4/ntp-4.2/ntp-4.2.6.tar.gz</string>
-	<key>OpenSourceSHA1</key>
-	<string>a1f21b23c8c80f35801d59e30ba30779f2025a72</string>
 	<key>OpenSourceImportDate</key>
 	<string>2009-12-31</string>
+	<key>OpenSourceLicense</key>
+	<string>other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>ntp.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Build fixes</string>
 		<string>Map getaddrinfo EAI_NONAME to EAI_AGAIN</string>
-		<string>Use DNS txt record for configuration options</string>	
+		<string>Use DNS txt record for configuration options</string>
 		<string>Don't bind ipv6 if interface is still tentative</string>
 		<string>Instant off and reduced disk i/o</string>
 		<string>Defer first log till after log level is set</string>
 		<string>Force a timesync after each machine wakeup</string>
 		<string>Turn off DEBUG in kod_managment.c</string>
 		<string>Fix sntp -4/-6 option</string>
+		<string>http://bk1.ntp.org/ntp-dev/?PAGE=patch&amp;REV=548acc4dN1TbM1tRJrbPcA4yc1aTdA</string>
+		<string>http://bk1.ntp.org/ntp-dev/?PAGE=patch&amp;REV=548acdf3tUSFizXcv_X4b77Jt_Y-cg</string>
+		<string>http://bk1.ntp.org/ntp-dev/?PAGE=patch&amp;REV=548acf55dxKfhb6MuYQwzu8eDlS97g</string>
+		<string>http://bk1.ntp.org/ntp-dev/ntpd/ntp_io.c?PAGE=diffs&amp;REV=54922b535Kq0xpbylpfIhlJ8E_cqIA</string>
+		<string>fix for NTP Bug 2671</string>
 	</array>
-	<key>OpenSourceLicenseFile</key>
-	<string>ntp.txt</string>
-	<key>OpenSourceLicense</key>
-	<string>other</string>
+	<key>OpenSourceProject</key>
+	<string>ntp</string>
+	<key>OpenSourceSHA1</key>
+	<string>a1f21b23c8c80f35801d59e30ba30779f2025a72</string>
+	<key>OpenSourceURL</key>
+	<string>http://archive.ntp.org/ntp4/ntp-4.2/ntp-4.2.6.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>4.2.6</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.ntp.org</string>
 </dict>
 </plist>

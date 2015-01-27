@@ -28,6 +28,16 @@
 #include <TargetConditionals.h>
 #include <IOKit/IOTypes.h>
 
+#if TARGET_OS_IPHONE
+    #ifndef IRONSIDE_AVAILABLE
+    #ifndef RC_SEED_BUILD
+        #define IRONSIDE_AVAILABLE 1
+    #endif
+    #endif
+#else
+    #include <ironside.h>
+#endif
+
 #define IOHIDEventTypeMask(type) (1LL<<type)
 #define IOHIDEventFieldBase(type) (type << 16)
 /*!
@@ -104,7 +114,12 @@ enum {
     kIOHIDEventTypeBiometric,
     kIOHIDEventTypeUnicode,                 // 30
     kIOHIDEventTypeAtmosphericPressure,
+#if IRONSIDE_AVAILABLE // {
+    kIOHIDEventTypeForce,
+#else // } IRONSIDE_AVAILABLE {
     kIOHIDEventTypeUndefined,
+#endif // } IRONSIDE_AVAILABLE
+    
     kIOHIDEventTypeCount, // This should always be last
     
     
@@ -493,6 +508,17 @@ enum {
     kIOHIDEventFieldAtmosphericPressureLevel = IOHIDEventFieldBase(kIOHIDEventTypeAtmosphericPressure),
     kIOHIDEventFieldAtmosphericSequence
 };
+
+#if IRONSIDE_AVAILABLE // {
+enum {
+    kIOHIDEventFieldForceBehavior = IOHIDEventFieldBase(kIOHIDEventTypeForce),
+    kIOHIDEventFieldForceTransitionProgress,
+    kIOHIDEventFieldForceStage,
+    kIOHIDEventFieldForceStagePressure, 
+    kIOHIDEventFieldForceProgress = kIOHIDEventFieldForceTransitionProgress,
+    kIOHIDEventFieldForceLean = kIOHIDEventFieldForceStagePressure,
+};
+#endif // } IRONSIDE_AVAILABLE
 
 typedef uint32_t IOHIDEventField;
 

@@ -313,7 +313,7 @@ out:
 	return ret;
 }
 
-static Attribute *odusers_copy_passwordRequiredDate(void) {
+Attribute *odusers_copy_passwordRequiredDate(void) {
 	OperationBuffer opbuf;
 	Connection conn;
 	Operation *fakeop = NULL;

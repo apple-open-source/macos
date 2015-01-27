@@ -3031,6 +3031,8 @@ IOFBCreateOverrides( IOFBConnectRef connectRef )
             CFDictionarySetValue( ovr, CFSTR("IOGFlags"), obj );
             CFRelease(obj);
         }
+        if( (obj = CFDictionaryGetValue( oldOvr, CFSTR("DisplayPixelDimensions")) ))
+            CFDictionarySetValue( ovr, CFSTR("DisplayPixelDimensions"), obj );
 
     } while( false );
 
@@ -3642,6 +3644,13 @@ IOFBLookScaleBaseMode( IOFBConnectRef connectRef, IOFBDisplayModeDescription * s
             && !(kDisplayModeNativeFlag & scaleBase->info.flags))
             continue;
         
+        if ((kDisplayModeNativeFlag & scaleBase->info.flags)
+            && !(kDisplayModeNativeFlag & scaleDesc->info.flags))
+        {
+            found = true;
+            continue;
+        }
+        
         if (!(kDisplayModeNativeFlag & scaleDesc->info.flags) && (kDisplayModeDefaultFlag & scaleDesc->info.flags)
             && !(kDisplayModeDefaultFlag & scaleBase->info.flags))
             continue;
@@ -3686,14 +3695,18 @@ IOFBLookScaleBaseMode( IOFBConnectRef connectRef, IOFBDisplayModeDescription * s
             && (!(kDisplayModeInterlacedFlag & scaleDesc->info.flags)))
             continue;
 
-        DEBG(connectRef, "choosing\n");
-
         found = true;
+
+    } while( false );
+    
+    if (found)
+    {
+        DEBG(connectRef, "choosing\n");
+        
         *scaleDesc = *scaleBase;
         scaleDesc->timingInfo.appleTimingID = 0;
         scaleDesc->timingInfo.flags = kIODetailedTimingValid;
-
-    } while( false );
+    }
 
     return( found );
 }

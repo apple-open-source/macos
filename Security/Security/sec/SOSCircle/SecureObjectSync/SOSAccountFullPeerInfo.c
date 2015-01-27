@@ -103,7 +103,7 @@ bool SOSAccountIsAccountIdentity(SOSAccountRef account, SOSPeerInfoRef peer_info
 
 
 
-SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error) {
+SOSFullPeerInfoRef SOSAccountMakeMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error) {
     if (CFDictionaryGetValue(account->circles, name) == NULL) {
         SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, error, NULL, CFSTR("No circle named '%@'"), name);
         return NULL;
@@ -139,7 +139,7 @@ SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircleNamed(SOSAccountRef account, C
 
 
 SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircle(SOSAccountRef account, SOSCircleRef circle, CFErrorRef* error) {
-    return SOSAccountGetMyFullPeerInCircleNamed(account, SOSCircleGetName(circle), error);
+    return SOSAccountGetMyFullPeerInCircleNamedIfPresent(account, SOSCircleGetName(circle), error);
 }
 
 

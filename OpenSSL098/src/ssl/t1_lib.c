@@ -1101,7 +1101,10 @@ static int tls_decrypt_ticket(SSL *s, const unsigned char *etick, int eticklen,
 	HMAC_Final(&hctx, tick_hmac, NULL);
 	HMAC_CTX_cleanup(&hctx);
 	if (CRYPTO_memcmp(tick_hmac, etick + eticklen, mlen))
+		{
+		EVP_CIPHER_CTX_cleanup(&ctx);
 		goto tickerr;
+		}
 	/* Attempt to decrypt session data */
 	/* Move p after IV to start of encrypted ticket, update length */
 	p = etick + 16 + EVP_CIPHER_CTX_iv_length(&ctx);
@@ -1114,7 +1117,11 @@ static int tls_decrypt_ticket(SSL *s, const unsigned char *etick, int eticklen,
 		}
 	EVP_DecryptUpdate(&ctx, sdec, &slen, p, eticklen);
 	if (EVP_DecryptFinal(&ctx, sdec + slen, &mlen) <= 0)
+		{
+		EVP_CIPHER_CTX_cleanup(&ctx);
+		OPENSSL_free(sdec);
 		goto tickerr;
+		}
 	slen += mlen;
 	EVP_CIPHER_CTX_cleanup(&ctx);
 	p = sdec;

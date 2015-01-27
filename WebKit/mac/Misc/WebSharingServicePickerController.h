@@ -26,20 +26,37 @@
 #if ENABLE(SERVICE_CONTROLS)
 
 #import <wtf/RetainPtr.h>
+#import <WebCore/NSSharingServicePickerSPI.h>
+#import <WebCore/NSSharingServiceSPI.h>
 
-@class NSSharingServicePicker;
-@protocol NSSharingServiceDelegate;
-@protocol NSSharingServicePickerDelegate;
+@class WebSharingServicePickerController;
+
+namespace WebCore {
+class FloatRect;
+class Page;
+}
 
 class WebContextMenuClient;
 
+class WebSharingServicePickerClient {
+public:
+    virtual ~WebSharingServicePickerClient() { }
+
+    virtual void sharingServicePickerWillBeDestroyed(WebSharingServicePickerController &) = 0;
+    virtual WebCore::Page* pageForSharingServicePicker(WebSharingServicePickerController &) = 0;
+    virtual RetainPtr<NSWindow> windowForSharingServicePicker(WebSharingServicePickerController &) = 0;
+
+    virtual WebCore::FloatRect screenRectForCurrentSharingServicePickerItem(WebSharingServicePickerController &) = 0;
+    virtual RetainPtr<NSImage> imageForCurrentSharingServicePickerItem(WebSharingServicePickerController &) = 0;
+};
+
 @interface WebSharingServicePickerController : NSObject <NSSharingServiceDelegate, NSSharingServicePickerDelegate> {
-    WebContextMenuClient* _menuClient;
+    WebSharingServicePickerClient* _pickerClient;
     RetainPtr<NSSharingServicePicker> _picker;
     BOOL _includeEditorServices;
 }
 
-- (instancetype)initWithData:(NSData *)data includeEditorServices:(BOOL)includeEditorServices menuClient:(WebContextMenuClient*)menuClient;
+- (instancetype)initWithItems:(NSArray *)items includeEditorServices:(BOOL)includeEditorServices client:(WebSharingServicePickerClient*)pickerClient style:(NSSharingServicePickerStyle)style;
 - (NSMenu *)menu;
 - (void)didShareImageData:(NSData *)data confirmDataIsValidTIFFData:(BOOL)confirmData;
 - (void)clear;

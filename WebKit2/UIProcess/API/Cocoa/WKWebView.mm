@@ -1537,6 +1537,16 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     [_wkView setMagnification:magnification centeredAtPoint:NSPointFromCGPoint(point)];
 }
 
+- (BOOL)_ignoresNonWheelEvents
+{
+    return [_wkView _ignoresNonWheelEvents];
+}
+
+- (void)_setIgnoresNonWheelEvents:(BOOL)ignoresNonWheelEvents 
+{
+    [_wkView _setIgnoresNonWheelEvents:ignoresNonWheelEvents];
+}
+
 #endif
 
 @end

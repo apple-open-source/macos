@@ -100,7 +100,7 @@ SOSPeerInfoRef SOSAccountGetMyPeerInCircle(SOSAccountRef account, SOSCircleRef c
 SOSPeerInfoRef SOSAccountGetMyPeerInCircleNamed(SOSAccountRef account, CFStringRef circle, CFErrorRef* error);
 
 SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircle(SOSAccountRef account, SOSCircleRef circle, CFErrorRef* error);
-SOSFullPeerInfoRef SOSAccountGetMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error);
+SOSFullPeerInfoRef SOSAccountMakeMyFullPeerInCircleNamed(SOSAccountRef account, CFStringRef name, CFErrorRef *error);
 
 //
 // MARK: Credential management

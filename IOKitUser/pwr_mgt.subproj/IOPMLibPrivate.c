@@ -937,6 +937,26 @@ exit:
     return return_code;
 }
 
+/*****************************************************************************/
+/*****************************************************************************/
+IOReturn IOPMSetActivePushConnectionState(bool exists)
+{
+
+    return IOPMSetValueInt(kIOPMPushConnectionActive, exists ? 1:0);
+}
+
+IOReturn IOPMGetActivePushConnectionState(bool *exists)
+{
+    int value = 0;
+
+    if (exists == NULL)
+        return kIOReturnBadArgument;
+
+    value = IOPMGetValueInt(kIOPMPushConnectionActive);
+    *exists = value ? true:false;
+
+    return kIOReturnSuccess;
+}
 
 /*****************************************************************************/
 /*****************************************************************************/
@@ -1535,9 +1555,9 @@ int IOPMGetValueInt(int selector) {
  * @function        IOPMSetValueInt
  * @abstract        For IOKit use only.
  */
-void IOPMSetValueInt(int selector, int value) {
+IOReturn IOPMSetValueInt(int selector, int value) {
     mach_port_t             pm_server = MACH_PORT_NULL;
-    int                     rc = kIOReturnSuccess;
+    IOReturn                rc = kIOReturnError;
     
     if (kIOReturnSuccess == _pm_connect(&pm_server))
     {
@@ -1547,7 +1567,11 @@ void IOPMSetValueInt(int selector, int value) {
                             value, &rc);
         _pm_disconnect(pm_server);
     }
-    return;
+    else {
+        return kIOReturnNotReady;
+    }
+
+    return rc;
 }
 
 

@@ -588,7 +588,7 @@ util_get_thread_threadlist_entry(thread_t th)
 }
 
 static inline void
-wq_thread_override_reset(thread_t th)
+wq_thread_override_reset(thread_t th, user_addr_t resource)
 {
 	struct uthread *uth = pthread_kern->get_bsdthread_info(th);
 	struct threadlist *tl = pthread_kern->uthread_get_threadlist(uth);
@@ -596,19 +596,12 @@ wq_thread_override_reset(thread_t th)
 	if (tl) {
 		/*
 		 * Drop all outstanding overrides on this thread, done outside the wq lock
-		 * because proc_usynch_thread_qos_remove_override takes a spinlock that
+		 * because proc_usynch_thread_qos_remove_override_for_resource takes a spinlock that
 		 * could cause us to panic.
 		 */
-		uint32_t count = tl->th_dispatch_override_count;
-		while (!OSCompareAndSwap(count, 0, &tl->th_dispatch_override_count)) {
-			count = tl->th_dispatch_override_count;
-		}
+		PTHREAD_TRACE(TRACE_wq_override_reset | DBG_FUNC_NONE, tl->th_workq, 0, 0, 0, 0);
 
-		PTHREAD_TRACE(TRACE_wq_override_reset | DBG_FUNC_NONE, tl->th_workq, count, 0, 0, 0);
-
-		for (int i=count; i>0; i--) {
-			pthread_kern->proc_usynch_thread_qos_remove_override(uth, 0);
-		}
+		pthread_kern->proc_usynch_thread_qos_reset_override_for_resource(current_task(), uth, 0, resource, THREAD_QOS_OVERRIDE_TYPE_DISPATCH_ASYNCHRONOUS_OVERRIDE);
 	}
 }
 
@@ -735,14 +728,10 @@ done:
 }
 
 int
-_bsdthread_ctl_qos_override_start(struct proc __unused *p, user_addr_t __unused cmd, mach_port_name_t kport, pthread_priority_t priority, user_addr_t arg3, int __unused *retval)
+_bsdthread_ctl_qos_override_start(struct proc __unused *p, user_addr_t __unused cmd, mach_port_name_t kport, pthread_priority_t priority, user_addr_t resource, int __unused *retval)
 {
 	thread_t th;
 	int rv = 0;
-
-	if (arg3 != 0) {
-		return EINVAL;
-	}
 
 	if ((th = port_name_to_thread(kport)) == THREAD_NULL) {
 		return ESRCH;
@@ -753,27 +742,23 @@ _bsdthread_ctl_qos_override_start(struct proc __unused *p, user_addr_t __unused 
 
 	struct threadlist *tl = util_get_thread_threadlist_entry(th);
 	if (tl) {
-		/* Workqueue threads count their overrides, so they can forcibly balance any outstanding
-		 * overrides when they return to the kernel.
-		 */
-		uint32_t o = OSAddAtomic(1, &tl->th_override_count);
-		PTHREAD_TRACE(TRACE_wq_override_start | DBG_FUNC_NONE, tl->th_workq, thread_tid(th), o+1, priority, 0);
+		PTHREAD_TRACE(TRACE_wq_override_start | DBG_FUNC_NONE, tl->th_workq, thread_tid(th), 1, priority, 0);
 	}
 
 	/* The only failure case here is if we pass a tid and have it lookup the thread, we pass the uthread, so this all always succeeds. */
-	pthread_kern->proc_usynch_thread_qos_add_override(uth, 0, override_qos, TRUE);
+	pthread_kern->proc_usynch_thread_qos_add_override_for_resource(current_task(), uth, 0, override_qos, TRUE, resource, THREAD_QOS_OVERRIDE_TYPE_PTHREAD_EXPLICIT_OVERRIDE);
 
 	thread_deallocate(th);
 	return rv;
 }
 
 int
-_bsdthread_ctl_qos_override_end(struct proc __unused *p, user_addr_t __unused cmd, mach_port_name_t kport, user_addr_t arg2, user_addr_t arg3, int __unused *retval)
+_bsdthread_ctl_qos_override_end(struct proc __unused *p, user_addr_t __unused cmd, mach_port_name_t kport, user_addr_t resource, user_addr_t arg3, int __unused *retval)
 {
 	thread_t th;
 	int rv = 0;
 
-	if (arg2 != 0 || arg3 != 0) {
+	if (arg3 != 0) {
 		return EINVAL;
 	}
 
@@ -785,32 +770,30 @@ _bsdthread_ctl_qos_override_end(struct proc __unused *p, user_addr_t __unused cm
 
 	struct threadlist *tl = util_get_thread_threadlist_entry(th);
 	if (tl) {
-		uint32_t o = OSAddAtomic(-1, &tl->th_override_count);
-
-		PTHREAD_TRACE(TRACE_wq_override_end | DBG_FUNC_NONE, tl->th_workq, thread_tid(th), o-1, 0, 0);
-
-		if (o == 0) {
-			/* underflow! */
-			thread_deallocate(th);
-			return EFAULT;
-		}
+		PTHREAD_TRACE(TRACE_wq_override_end | DBG_FUNC_NONE, tl->th_workq, thread_tid(th), 0, 0, 0);
 	}
 
-	pthread_kern->proc_usynch_thread_qos_remove_override(uth, 0);
+	pthread_kern->proc_usynch_thread_qos_remove_override_for_resource(current_task(), uth, 0, resource, THREAD_QOS_OVERRIDE_TYPE_PTHREAD_EXPLICIT_OVERRIDE);
 
 	thread_deallocate(th);
 	return rv;
 }
 
 int
-_bsdthread_ctl_qos_override_dispatch(struct proc __unused *p, user_addr_t __unused cmd, mach_port_name_t kport, pthread_priority_t priority, user_addr_t arg3, int __unused *retval)
+_bsdthread_ctl_qos_override_dispatch(struct proc *p, user_addr_t cmd, mach_port_name_t kport, pthread_priority_t priority, user_addr_t arg3, int *retval)
 {
-	thread_t th;
-	int rv = 0;
-
 	if (arg3 != 0) {
 		return EINVAL;
 	}
+
+	return _bsdthread_ctl_qos_dispatch_asynchronous_override_add(p, cmd, kport, priority, USER_ADDR_NULL, retval);
+}
+
+int
+_bsdthread_ctl_qos_dispatch_asynchronous_override_add(struct proc __unused *p, user_addr_t __unused cmd, mach_port_name_t kport, pthread_priority_t priority, user_addr_t resource, int __unused *retval)
+{
+	thread_t th;
+	int rv = 0;
 
 	if ((th = port_name_to_thread(kport)) == THREAD_NULL) {
 		return ESRCH;
@@ -825,27 +808,33 @@ _bsdthread_ctl_qos_override_dispatch(struct proc __unused *p, user_addr_t __unus
 		return EPERM;
 	}
 
-	/* Workqueue threads count their overrides, so they can forcibly balance any outstanding
-	 * overrides when they return to the kernel.
-	 */
-	uint32_t o = OSAddAtomic(1, &tl->th_dispatch_override_count);
-	PTHREAD_TRACE(TRACE_wq_override_dispatch | DBG_FUNC_NONE, tl->th_workq, thread_tid(th), o+1, priority, 0);
+	PTHREAD_TRACE(TRACE_wq_override_dispatch | DBG_FUNC_NONE, tl->th_workq, thread_tid(th), 1, priority, 0);
 
 	/* The only failure case here is if we pass a tid and have it lookup the thread, we pass the uthread, so this all always succeeds. */
-	pthread_kern->proc_usynch_thread_qos_add_override(uth, 0, override_qos, TRUE);
+	pthread_kern->proc_usynch_thread_qos_add_override_for_resource(current_task(), uth, 0, override_qos, TRUE, resource, THREAD_QOS_OVERRIDE_TYPE_DISPATCH_ASYNCHRONOUS_OVERRIDE);
 
 	thread_deallocate(th);
 	return rv;
 }
 
 int
-_bsdthread_ctl_qos_override_reset(struct proc __unused *p, user_addr_t __unused cmd, user_addr_t arg1, user_addr_t arg2, user_addr_t arg3, int __unused *retval)
+_bsdthread_ctl_qos_override_reset(struct proc *p, user_addr_t cmd, user_addr_t arg1, user_addr_t arg2, user_addr_t arg3, int *retval)
+{
+	if (arg1 != 0 || arg2 != 0 || arg3 != 0) {
+		return EINVAL;
+	}
+
+	return _bsdthread_ctl_qos_dispatch_asynchronous_override_reset(p, cmd, 1 /* reset_all */, 0, 0, retval);
+}
+
+int
+_bsdthread_ctl_qos_dispatch_asynchronous_override_reset(struct proc __unused *p, user_addr_t __unused cmd, int reset_all, user_addr_t resource, user_addr_t arg3, int __unused *retval)
 {
 	thread_t th;
 	struct threadlist *tl;
 	int rv = 0;
 
-	if (arg1 != 0 || arg2 != 0 || arg3 != 0) {
+	if ((reset_all && (resource != 0)) || arg3 != 0) {
 		return EINVAL;
 	}
 
@@ -853,7 +842,7 @@ _bsdthread_ctl_qos_override_reset(struct proc __unused *p, user_addr_t __unused 
 	tl = util_get_thread_threadlist_entry(th);
 
 	if (tl) {
-		wq_thread_override_reset(th);
+		wq_thread_override_reset(th, reset_all ? THREAD_QOS_OVERRIDE_RESOURCE_WILDCARD : resource);
 	} else {
 		rv = EPERM;
 	}
@@ -875,6 +864,10 @@ _bsdthread_ctl(struct proc *p, user_addr_t cmd, user_addr_t arg1, user_addr_t ar
 			return _bsdthread_ctl_qos_override_reset(p, cmd, arg1, arg2, arg3, retval);
 		case BSDTHREAD_CTL_QOS_OVERRIDE_DISPATCH:
 			return _bsdthread_ctl_qos_override_dispatch(p, cmd, (mach_port_name_t)arg1, (pthread_priority_t)arg2, arg3, retval);
+		case BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_ADD:
+			return _bsdthread_ctl_qos_dispatch_asynchronous_override_add(p, cmd, (mach_port_name_t)arg1, (pthread_priority_t)arg2, arg3, retval);
+		case BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_RESET:
+			return _bsdthread_ctl_qos_dispatch_asynchronous_override_reset(p, cmd, (int)arg1, arg2, arg3, retval);
 		case BSDTHREAD_CTL_SET_SELF:
 			return _bsdthread_ctl_set_self(p, cmd, (pthread_priority_t)arg1, (mach_port_name_t)arg2, (_pthread_set_flags_t)arg3, retval);
 		default:
@@ -1729,7 +1722,7 @@ _workq_kernreturn(struct proc *p,
 		}
 
 		/* dropping WQ override counts has to be done outside the wq lock. */
-		wq_thread_override_reset(th);
+		wq_thread_override_reset(th, THREAD_QOS_OVERRIDE_RESOURCE_WILDCARD);
 
 		workqueue_lock_spin(p);
 

@@ -247,37 +247,30 @@ activateSettingOverrides(void)
 }
 
 __private_extern__ void 
-PMSettingsSleepWakeNotification(natural_t messageType)
+PMSettingsCapabilityChangeNotification(const struct IOPMSystemCapabilityChangeParameters * p)
 {
-    // note: The sleepwake handler in pmconfigd.c does all the dirty work like
-    // acknowledging this sleep notification with IOAllowPowerChange(). That's
-    // why we don't make that call here.
-
-    switch (messageType) {
-        case kIOMessageSystemWillSleep:
-            _pmcfgd_impendingSleep = 1;
-            break;
-            
-        case kIOMessageSystemHasPoweredOn:
+    if (CAPABILITY_BIT_CHANGED(p->fromCapabilities, p->toCapabilities, kIOPMSystemPowerStateCapabilityCPU))
+    {
+        if (BIT_IS_SET(p->toCapabilities, kIOPMSystemPowerStateCapabilityCPU) &&
+            BIT_IS_SET(p->changeFlags, kIOPMSystemCapabilityDidChange))
+        {
+            // did wake
             _pmcfgd_impendingSleep = 0;
-            if(deferredPSChangeNotify)
+            if (deferredPSChangeNotify)
             {
+                bool hasAcPower = (currentPowerSource && CFEqual(currentPowerSource, CFSTR(kIOPMACPowerKey)));
                 deferredPSChangeNotify = 0;
-                _pmcfgd_impendingSleep = 0;    
-        
-                if(currentPowerSource && CFEqual(currentPowerSource, CFSTR(kIOPMACPowerKey)))
-                {
-                    // ac power
-                    IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMExternalPower);
-                } else {
-                    // battery power
-                    IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);            
-                }
+                _pmcfgd_impendingSleep = 0;
+                IOPMSetAggressiveness(gPowerManager, kPMPowerSource, hasAcPower ? kIOPMExternalPower : kIOPMInternalPower);
             }
-            break;
+        }
+        else if (BIT_IS_NOT_SET(p->toCapabilities, kIOPMSystemPowerStateCapabilityCPU) &&
+            BIT_IS_SET(p->changeFlags, kIOPMSystemCapabilityWillChange))
+        {
+            // will sleep
+            _pmcfgd_impendingSleep = 1;
+        }
     }
-    
-    return;
 }
 
 __private_extern__ CFDictionaryRef
@@ -439,6 +432,10 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
         if (g_overrides & kPMPreventDiskSleep)
         {
             if (n0) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMDiskSleepKey), n0);
+        }
+        if (g_overrides & kPMPreventWakeOnLan)
+        {
+            if (n0) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMWakeOnLANKey), n0);
         }
 
         

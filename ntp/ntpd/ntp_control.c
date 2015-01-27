@@ -485,6 +485,10 @@ static u_char	res_async;	/* set to 1 if this is async trap response */
 static	char *reqpt;
 static	char *reqend;
 
+#ifndef MIN
+#define MIN(a, b) (((a) <= (b)) ? (a) : (b))
+#endif
+
 /*
  * init_control - initialize request data
  */
@@ -902,7 +906,7 @@ ctl_flushpkt(
 	int dlen;
 	int sendlen;
 
-	if (!more && datanotbinflag) {
+	if (!more && datanotbinflag && (datapt+2) < (rpkt.data+CTL_MAX_DATA_LEN)) {
 		/*
 		 * Big hack, output a trailing \r\n
 		 */
@@ -996,6 +1000,7 @@ ctl_putdata(
 	)
 {
 	int overhead;
+	unsigned int currentlen;
 
 	overhead = 0;
 	if (!bin) {
@@ -1019,13 +1024,23 @@ ctl_putdata(
 	/*
 	 * Save room for trailing junk
 	 */
-	if (dlen + overhead + datapt > dataend) {
+	while (dlen + overhead + datapt > dataend) {
 		/*
 		 * Not enough room in this one, flush it out.
 		 */
+		currentlen = MIN(dlen, dataend - datapt);
+
+		memcpy(datapt, dp, currentlen);
+
+		datapt += currentlen;
+		dp += currentlen;
+		dlen -= currentlen;
+		datalinelen += currentlen;
+
 		ctl_flushpkt(CTL_MORE);
 	}
-	memmove((char *)datapt, dp, (unsigned)dlen);
+
+	memcpy((char *)datapt, dp, (unsigned)dlen);
 	datapt += dlen;
 	datalinelen += dlen;
 }
@@ -2474,6 +2489,20 @@ static void configure(
 
 	/* Initialize the remote config buffer */
 	data_count = reqend - reqpt;
+
+       if (data_count > sizeof(remote_config.buffer) - 2) {
+               snprintf(remote_config.err_msg,
+                        sizeof(remote_config.err_msg),
+                        "runtime configuration failed: request too long");
+               ctl_putdata(remote_config.err_msg,
+                           strlen(remote_config.err_msg), 0);
+               ctl_flushpkt(0);
+               msyslog(LOG_NOTICE,
+                       "runtime config from %s rejected: request too long",
+                       stoa(&rbufp->recv_srcadr));
+               return;
+       }
+
 	memcpy(remote_config.buffer, reqpt, data_count);
 	if (data_count > 0
 	    && '\n' != remote_config.buffer[data_count - 1])

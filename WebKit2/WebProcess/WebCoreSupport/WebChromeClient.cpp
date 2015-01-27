@@ -806,7 +806,9 @@ PassRefPtr<WebCore::SearchPopupMenu> WebChromeClient::createSearchPopupMenu(WebC
 
 GraphicsLayerFactory* WebChromeClient::graphicsLayerFactory() const
 {
-    return m_page->drawingArea()->graphicsLayerFactory();
+    if (auto drawingArea = m_page->drawingArea())
+        return drawingArea->graphicsLayerFactory();
+    return nullptr;
 }
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
@@ -824,12 +826,10 @@ void WebChromeClient::attachRootGraphicsLayer(Frame*, GraphicsLayer* layer)
         m_page->exitAcceleratedCompositingMode();
 }
 
-GraphicsLayer* WebChromeClient::documentOverlayLayerForFrame(Frame& frame)
+void WebChromeClient::attachViewOverlayGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
 {
-    if (&frame == &m_page->corePage()->mainFrame())
-        return m_page->pageOverlayController().documentOverlayRootLayer();
-
-    return nullptr;
+    if (auto drawingArea = m_page->drawingArea())
+        drawingArea->attachViewOverlayGraphicsLayer(frame, graphicsLayer);
 }
 
 void WebChromeClient::setNeedsOneShotDrawingSynchronization()
@@ -956,14 +956,6 @@ void WebChromeClient::numWheelEventHandlersChanged(unsigned count)
     m_page->numWheelEventHandlersChanged(count);
 }
 
-void WebChromeClient::logDiagnosticMessage(const String& message, const String& description, const String& success)
-{
-    if (!m_page->corePage()->settings().diagnosticLoggingEnabled())
-        return;
-
-    m_page->injectedBundleDiagnosticLoggingClient().logDiagnosticMessage(m_page, message, description, success);
-}
-
 String WebChromeClient::plugInStartLabelTitle(const String& mimeType) const
 {
     return m_page->injectedBundleUIClient().plugInStartLabelTitle(mimeType);
@@ -1037,5 +1029,28 @@ bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<
 }
 #endif
 
+#if ENABLE(TELEPHONE_NUMBER_DETECTION) && PLATFORM(MAC)
+void WebChromeClient::handleTelephoneNumberClick(const String& number, const WebCore::IntPoint& point)
+{
+    m_page->handleTelephoneNumberClick(number, point);
+}
+#endif
+
+#if ENABLE(SERVICE_CONTROLS)
+void WebChromeClient::handleSelectionServiceClick(WebCore::FrameSelection& selection, const Vector<String>& telephoneNumbers, const WebCore::IntPoint& point)
+{
+    m_page->handleSelectionServiceClick(selection, telephoneNumbers, point);
+}
+
+bool WebChromeClient::hasRelevantSelectionServices(bool isTextOnly) const
+{
+    return (isTextOnly && WebProcess::shared().hasSelectionServices()) || WebProcess::shared().hasRichContentServices();
+}
+#endif
+
+bool WebChromeClient::shouldDispatchFakeMouseMoveEvents() const
+{
+    return m_page->shouldDispatchFakeMouseMoveEvents();
+}
 
 } // namespace WebKit

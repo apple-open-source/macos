@@ -29,6 +29,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <IOKit/IOReturn.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
 #include "IOPMLibPrivate.h"
 #include "IOSystemConfiguration.h"
 
@@ -47,7 +48,10 @@ static CFStringRef createSCKeyForIOKitString(CFStringRef str)
         keyForString = CFSTR("ThermalWarning");
     } else if (CFEqual(str, CFSTR(kIOPMCPUPowerLimitsKey))) {
         keyForString = CFSTR("CPUPower");
+    } else if (CFEqual(str, CFSTR(kIOPMPerformanceWarningKey))) {
+        keyForString = CFSTR("PerformanceWarning");
     }
+
 
     if (!keyForString)
         return NULL;
@@ -152,4 +156,48 @@ exit:
 }
 
 
+IOReturn IOPMGetPerformanceWarningLevel(uint32_t *perfLevel)
+{
+    SCDynamicStoreRef   store = NULL;
+    CFStringRef         perf_key = NULL;
+    CFNumberRef         warning_level_num = NULL;
+    IOReturn            ret = kIOReturnError;
+
+    if (!perfLevel) {
+        ret =  kIOReturnBadArgument;
+        goto exit;
+    }
+
+    // Open connection to SCDynamicStore
+    store = SCDynamicStoreCreate(kCFAllocatorDefault,
+                kMySCIdentity, NULL, NULL);
+    if (!store) {
+        goto exit;
+     }
+
+    perf_key = createSCKeyForIOKitString(CFSTR(kIOPMPerformanceWarningKey));
+    if (!perf_key) {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
+
+    warning_level_num = isA_CFNumber(SCDynamicStoreCopyValue(store, perf_key));
+
+    if (!warning_level_num) {
+        ret = kIOReturnNotFound;
+        goto exit;
+    }
+
+    CFNumberGetValue(warning_level_num, kCFNumberIntType, perfLevel);
+    ret = kIOReturnSuccess;
+
+exit:
+    if (warning_level_num)
+        CFRelease(warning_level_num);
+    if (perf_key)
+        CFRelease(perf_key);
+    if (store)
+        CFRelease(store);
+    return ret;
+}
 

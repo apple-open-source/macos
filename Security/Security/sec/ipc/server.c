@@ -65,6 +65,10 @@
 #include <xpc/private.h>
 #include <xpc/xpc.h>
 
+#if TARGET_OS_MAC
+#include <Security/SecTaskPriv.h>
+#endif
+
 static CFStringRef SecTaskCopyStringForEntitlement(SecTaskRef task,
     CFStringRef entitlement)
 {
@@ -122,6 +126,12 @@ static CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task) {
     CFStringRef appID = SecTaskCopyApplicationIdentifier(task);
     CFIndex kagLen = keychainAccessGroups ? CFArrayGetCount(keychainAccessGroups) : 0;
     CFIndex asagLen = appleSecurityApplicationGroups ? CFArrayGetCount(appleSecurityApplicationGroups) : 0;
+#if TARGET_OS_MAC
+    if ((appID || asagLen) && !SecTaskEntitlementsValidated(task)) {
+        CFReleaseNull(appID);
+        asagLen = 0;
+    }
+#endif
     CFIndex len = kagLen + asagLen + (appID ? 1 : 0);
     if (len) {
         groups = CFArrayCreateMutable(kCFAllocatorDefault, len, &kCFTypeArrayCallBacks);

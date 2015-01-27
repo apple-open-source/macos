@@ -29,6 +29,7 @@
 #include "APIInjectedBundleFormClient.h"
 #include "APIInjectedBundlePageUIClient.h"
 #include "APIObject.h"
+#include "DictionaryPopupInfo.h"
 #include "FindController.h"
 #include "GeolocationPermissionRequestManager.h"
 #include "ImageOptions.h"
@@ -41,7 +42,6 @@
 #include "LayerTreeHost.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
-#include "PageOverlayController.h"
 #include "Plugin.h"
 #include "SandboxExtension.h"
 #include "ShareableBitmap.h"
@@ -49,12 +49,15 @@
 #include <WebCore/DragData.h>
 #include <WebCore/Editor.h>
 #include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/HitTestResult.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/IntSizeHash.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageOverlay.h>
 #include <WebCore/PageVisibilityState.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/TextChecking.h>
+#include <WebCore/TextIndicator.h>
 #include <WebCore/UserActivity.h>
 #include <WebCore/ViewState.h>
 #include <WebCore/ViewportConfiguration.h>
@@ -63,6 +66,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/RunLoop.h>
 #include <wtf/text/WTFString.h>
 
 #if HAVE(ACCESSIBILITY) && (PLATFORM(GTK) || PLATFORM(EFL))
@@ -142,9 +146,7 @@ class DrawingArea;
 class InjectedBundleBackForwardList;
 class NotificationPermissionRequestManager;
 class PageBanner;
-class PageOverlay;
 class PluginView;
-class ServicesOverlayController;
 class VisibleContentRectUpdateInfo;
 class WebColorChooser;
 class WebContextMenu;
@@ -160,6 +162,7 @@ class WebMouseEvent;
 class WebNotificationClient;
 class WebOpenPanelResultListener;
 class WebPageGroupProxy;
+class WebPageOverlay;
 class WebPopupMenu;
 class WebUndoStep;
 class WebUserContentController;
@@ -207,8 +210,6 @@ public:
     
     InjectedBundleBackForwardList* backForwardList();
     DrawingArea* drawingArea() const { return m_drawingArea.get(); }
-    const PageOverlayController& pageOverlayController() const { return m_pageOverlayController; }
-    PageOverlayController& pageOverlayController() { return m_pageOverlayController; }
 #if ENABLE(ASYNC_SCROLLING)
     WebCore::ScrollingCoordinator* scrollingCoordinator() const;
 #endif
@@ -311,7 +312,7 @@ public:
 
     WebFrame* mainWebFrame() const { return m_mainFrame.get(); }
 
-    WebCore::Frame* mainFrame() const; // May return 0.
+    WebCore::MainFrame* mainFrame() const; // May return 0.
     WebCore::FrameView* mainFrameView() const; // May return 0.
 
     PassRefPtr<WebCore::Range> currentSelectionAsRange();
@@ -415,8 +416,6 @@ public:
 
     bool windowIsFocused() const;
     bool windowAndWebPageAreFocused() const;
-    void installPageOverlay(PassRefPtr<PageOverlay>, PageOverlay::FadeMode = PageOverlay::FadeMode::DoNotFade);
-    void uninstallPageOverlay(PageOverlay*, PageOverlay::FadeMode = PageOverlay::FadeMode::DoNotFade);
 
 #if !PLATFORM(IOS)
     void setHeaderPageBanner(PassRefPtr<PageBanner>);
@@ -650,12 +649,11 @@ public:
     void dummy(bool&);
 
 #if PLATFORM(COCOA)
-    void performDictionaryLookupForSelection(WebCore::Frame*, const WebCore::VisibleSelection&);
-
     bool isSpeaking();
     void speak(const String&);
     void stopSpeaking();
 
+    void performDictionaryLookupForSelection(WebCore::Frame*, const WebCore::VisibleSelection&, WebCore::TextIndicatorPresentationTransition);
 #endif
 
     bool isSmartInsertDeleteEnabled();
@@ -821,9 +819,6 @@ public:
     WebCore::ScrollPinningBehavior scrollPinningBehavior() { return m_scrollPinningBehavior; }
     void setScrollPinningBehavior(uint32_t /* WebCore::ScrollPinningBehavior */ pinning);
 
-    WKTypeRef pageOverlayCopyAccessibilityAttributeValue(WKStringRef attribute, WKTypeRef parameter);
-    WKArrayRef pageOverlayCopyAccessibilityAttributesNames(bool parameterizedNames);
-
     PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(WebCore::Frame&, const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
 
     void getBytecodeProfile(uint64_t callbackID);
@@ -832,16 +827,15 @@ public:
     // While this is not ideal, it does not have to be applied to every platform at the moment.
     static bool synchronousMessagesShouldSpinRunLoop();
 
-#if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION) 
-    ServicesOverlayController& servicesOverlayController();
+#if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
     void handleTelephoneNumberClick(const String& number, const WebCore::IntPoint&);
     void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>& telephoneNumbers, const WebCore::IntPoint&);
-    bool serviceControlsEnabled() const { return m_serviceControlsEnabled; }
 #endif
 
     void didChangeScrollOffsetForFrame(WebCore::Frame*);
 
     void willChangeCurrentHistoryItemForMainFrame();
+    bool shouldDispatchFakeMouseMoveEvents() const { return m_shouldDispatchFakeMouseMoveEvents; }
 
 private:
     WebPage(uint64_t pageID, const WebPageCreationParameters&);
@@ -909,7 +903,7 @@ private:
     void setInitialFocus(bool forward, bool isKeyboardEventValid, const WebKeyboardEvent&);
     void setWindowResizerSize(const WebCore::IntSize&);
     void updateIsInWindow(bool isInitialState = false);
-    void setViewState(WebCore::ViewState::Flags, bool wantsDidUpdateViewState = false);
+    void setViewState(WebCore::ViewState::Flags, bool wantsDidUpdateViewState, const Vector<uint64_t>& callbackIDs);
     void validateCommand(const String&, uint64_t);
     void executeEditCommand(const String&);
 
@@ -975,7 +969,9 @@ private:
 
 #if PLATFORM(COCOA)
     void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
-    void performDictionaryLookupForRange(WebCore::Frame*, WebCore::Range&, NSDictionary *options);
+    void performDictionaryLookupOfCurrentSelection();
+    void performDictionaryLookupForRange(WebCore::Frame*, WebCore::Range&, NSDictionary *options, WebCore::TextIndicatorPresentationTransition);
+    DictionaryPopupInfo dictionaryPopupInfoForRange(WebCore::Frame* frame, WebCore::Range& range, NSDictionary **options, WebCore::TextIndicatorPresentationTransition presentationTransition);
 
     void windowAndViewFramesChanged(const WebCore::FloatRect& windowFrameInScreenCoordinates, const WebCore::FloatRect& windowFrameInUnflippedScreenCoordinates, const WebCore::FloatRect& viewFrameInWindowCoordinates, const WebCore::FloatPoint& accessibilityViewCoordinates);
 
@@ -1048,6 +1044,19 @@ private:
 
     void reportUsedFeatures();
 
+#if PLATFORM(MAC)
+    void performActionMenuHitTestAtLocation(WebCore::FloatPoint, bool forImmediateAction);
+    PassRefPtr<WebCore::Range> lookupTextAtLocation(WebCore::FloatPoint, NSDictionary **options);
+    void selectLastActionMenuRange();
+    void focusAndSelectLastActionMenuHitTestResult();
+
+    void dataDetectorsDidPresentUI(WebCore::PageOverlay::PageOverlayID);
+    void dataDetectorsDidChangeUI(WebCore::PageOverlay::PageOverlayID);
+    void dataDetectorsDidHideUI(WebCore::PageOverlay::PageOverlayID);
+#endif
+
+    void setShouldDispatchFakeMouseMoveEvents(bool dispatch) { m_shouldDispatchFakeMouseMoveEvents = dispatch; }
+
     uint64_t m_pageID;
 
     std::unique_ptr<WebCore::Page> m_page;
@@ -1094,10 +1103,6 @@ private:
     String m_primaryPlugInOrigin;
     String m_primaryPlugInMimeType;
     RunLoop::Timer<WebPage> m_determinePrimarySnapshottedPlugInTimer;
-#endif
-
-#if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
-    bool m_serviceControlsEnabled;
 #endif
 
     // The layer hosting mode.
@@ -1274,11 +1279,13 @@ private:
     WebCore::WebGLLoadPolicy m_systemWebGLPolicy;
 #endif
 
-#if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
-    std::unique_ptr<ServicesOverlayController> m_servicesOverlayController;
+#if PLATFORM(MAC)
+    RefPtr<WebCore::Range> m_lastActionMenuRangeForSelection;
+    WebCore::HitTestResult m_lastActionMenuHitTestResult;
+    RefPtr<WebPageOverlay> m_lastActionMenuHitPageOverlay;
 #endif
 
-    PageOverlayController m_pageOverlayController;
+    bool m_shouldDispatchFakeMouseMoveEvents;
 };
 
 } // namespace WebKit

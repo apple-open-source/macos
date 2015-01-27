@@ -49,7 +49,7 @@
 
 #include "SOSAccountTesting.h"
 
-static int kTestTestCount = 304;
+static int kTestTestCount = 298;
 
 static void tests(void)
 {

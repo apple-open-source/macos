@@ -298,10 +298,97 @@ IOReturn IOPlatformCopyFeatureActive(
             *outValue = kCFBooleanFalse;
         }
         return kIOReturnSuccess;
-    } else
-    {
+    } 
+    else if (CFEqual(platformSettingKey, CFSTR(kIOPMWakeOnLANKey))) {
+        if (IOPMGetValueInt(kIOPMWakeOnLanIsActive)) {
+            *outValue = kCFBooleanTrue;
+        } else {
+            *outValue = kCFBooleanFalse;
+        }
+        return kIOReturnSuccess;
+    } 
+    else {
         return IOPlatformCopyFeatureDefault(platformSettingKey, outValue);
     }
 }
 
-#endif
+// from syscfg_DClr_RGB
+typedef union __attribute__((packed)) {
+    uint32_t rgb;
+    struct {
+        uint8_t red;
+        uint8_t green;
+        uint8_t blue;
+        uint8_t reserved;
+    } component_v1;
+    struct {
+        uint8_t blue;
+        uint8_t green;
+        uint8_t red;
+        uint8_t reserved;
+    } component_v2;
+} IOPlatformDeviceColorRGB;
+
+// from syscfg_DClr
+typedef struct __attribute__((packed)) {
+    uint8_t minor_version;
+    uint8_t major_version;
+    uint8_t reserved_2;
+    uint8_t reserved_3;
+    IOPlatformDeviceColorRGB device_enclosure;
+    IOPlatformDeviceColorRGB cover_glass;
+    uint8_t reserved_C;
+    uint8_t reserved_D;
+    uint8_t reserved_E;
+    uint8_t reserved_F;
+} IOPlatformDeviceColors;
+
+IOReturn IOPlatformGetDeviceColor(
+    CFStringRef whichColor,
+    uint8_t * red, uint8_t * green, uint8_t * blue )
+{
+    IOReturn ret = kIOReturnNotFound;
+
+    if (!whichColor)
+        return kIOReturnBadArgument;
+
+    if (CFEqual(whichColor, kIOPlatformDeviceEnclosureColorKey))
+    {
+        io_registry_entry_t platform = IO_OBJECT_NULL;
+        CFTypeRef           prop = NULL;
+
+        platform = IORegistryEntryFromPath( kIOMasterPortDefault,
+                                            kIODeviceTreePlane ":/efi/platform");
+        if (IO_OBJECT_NULL != platform)
+        {
+            prop = IORegistryEntryCreateCFProperty(
+                               platform,
+                               CFSTR("device-colors"),
+                               kCFAllocatorDefault,
+                               kNilOptions);
+
+            IOObjectRelease(platform);
+        }
+
+        if (prop && (CFGetTypeID(prop) == CFDataGetTypeID()))
+        {
+            CFDataRef data = (typeof(data)) prop;
+            const IOPlatformDeviceColors * colors = (typeof(colors)) CFDataGetBytePtr(data);
+
+            if ((CFDataGetLength(data) == sizeof(IOPlatformDeviceColors)) &&
+                colors && (colors->major_version == 2))
+            {
+                if (red) *red = colors->device_enclosure.component_v2.red;
+                if (green) *green = colors->device_enclosure.component_v2.green;
+                if (blue) *blue = colors->device_enclosure.component_v2.blue;
+                ret = kIOReturnSuccess;
+            }
+        }
+
+        if (prop) CFRelease(prop);
+    }
+
+    return ret;
+}
+
+#endif /* !TARGET_OS_EMBEDDED */

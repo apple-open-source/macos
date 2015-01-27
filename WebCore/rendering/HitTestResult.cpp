@@ -49,6 +49,7 @@
 #include "SVGImageElement.h"
 #include "SVGNames.h"
 #include "UserGestureIndicator.h"
+#include "VisibleUnits.h"
 #include "XLinkNames.h"
 
 namespace WebCore {
@@ -503,6 +504,59 @@ void HitTestResult::toggleMediaMuteState() const
     if (HTMLMediaElement* mediaElt = mediaElement())
         mediaElt->setMuted(!mediaElt->muted());
 #endif
+}
+
+bool HitTestResult::isDownloadableMedia() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return mediaElt->canSaveMediaData();
+#endif
+
+    return false;
+}
+
+bool HitTestResult::isOverTextInsideFormControlElement() const
+{
+    Node* node = innerNode();
+    if (!node)
+        return false;
+
+    if (!isHTMLTextFormControlElement(*node))
+        return false;
+
+    Frame* frame = node->document().frame();
+    if (!frame)
+        return false;
+
+    IntPoint framePoint = roundedPointInInnerNodeFrame();
+    if (!frame->rangeForPoint(framePoint))
+        return false;
+
+    VisiblePosition position = frame->visiblePositionForPoint(framePoint);
+    if (position.isNull())
+        return false;
+
+    RefPtr<Range> wordRange = enclosingTextUnitOfGranularity(position, WordGranularity, DirectionForward);
+    if (!wordRange)
+        return false;
+
+    return !wordRange->text().isEmpty();
+}
+
+bool HitTestResult::allowsCopy() const
+{
+    Node* node = innerNode();
+    if (!node)
+        return false;
+
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return false;
+
+    bool isUserSelectNone = renderer->style().userSelect() == SELECT_NONE;
+    bool isPasswordField = isHTMLInputElement(node) && toHTMLInputElement(node)->isPasswordField();
+    return !isPasswordField && !isUserSelectNone;
 }
 
 URL HitTestResult::absoluteLinkURL() const

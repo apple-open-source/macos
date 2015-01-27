@@ -303,6 +303,73 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
  */
 IOReturn IOPSCopyChargeLog(CFAbsoluteTime sinceTime, CFDictionaryRef *chargeLog);
 
+
+/*
+ * Power adapter related internal keys
+ */
+
+/*!
+ * @define      kIOPSPowerAdapterSerialStringKey
+ *
+ * @abstract    The power adapter's serial string.
+ *              The value associated with this key is a CFString value
+ *
+ * @discussion  This key may be present in the dictionary returned from
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterSerialStringKey    "SerialString"
+
+/*!
+ * @define      kIOPSPowerAdapterNameKey
+ *
+ * @abstract    The power adapter's name.
+ *              The value associated with this key is a CFString value
+ *
+ * @discussion  This key may be present in the dictionary returned from
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+
+#define kIOPSPowerAdapterNameKey            "Name"
+
+/*!
+ * @define      kIOPSPowerAdapterNameKey
+ *
+ * @abstract    The power adapter's manufacturer's id.
+ *              The value associated with this key is a CFNumber kCFNumberIntType integer value
+ *
+ * @discussion  This key may be present in the dictionary returned from
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterManufacturerIDKey  "Manufacturer"
+
+/*!
+ * @define      kIOPSPowerAdapterHardwareVersionKey
+ *
+ * @abstract    The power adapter's hardware version.
+ *              The value associated with this key is a CFString value
+ *
+ * @discussion  This key may be present in the dictionary returned from
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterHardwareVersionKey       "HwVersion"
+
+/*!
+ * @define      kIOPSPowerAdapterFirmwareVersionKey
+ *
+ * @abstract    The power adapter's firmware version.
+ *              The value associated with this key is a CFString value
+ *
+ * @discussion  This key may be present in the dictionary returned from
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterFirmwareVersionKey       "FwVersion"
+
+
 __END_DECLS
 
 #endif

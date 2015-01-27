@@ -278,7 +278,7 @@ int passwd_extop(
 			char *tmpoldpass = ch_calloc(qpw->rs_old.bv_len + 1, 1);
 			memcpy(tmpoldpass, qpw->rs_old.bv_val, qpw->rs_old.bv_len);
 			op->o_conn->c_sasl_bindop = op;
-			rc = (DoPSAuth(recname, tmpoldpass, NULL, op->o_conn, op->o_req_dn.bv_val) == kAuthNoError) ? LDAP_SUCCESS : LDAP_INVALID_CREDENTIALS;
+			rc = (DoPSAuth(recname, tmpoldpass, NULL, op->o_conn, op->o_req_ndn.bv_val) == kAuthNoError) ? LDAP_SUCCESS : LDAP_INVALID_CREDENTIALS;
 			op->o_conn->c_sasl_bindop = NULL;
 			free(tmpoldpass);
 			free(recname);
@@ -286,7 +286,7 @@ int passwd_extop(
 				isChangingOwnPassword = 1;
 				goto old_good;
 			}
-			Debug(LDAP_DEBUG_ANY, "%s:  [%d]DoPSAuth(%s)\n", __func__, rc, op->o_req_dn.bv_val);			
+			Debug(LDAP_DEBUG_ANY, "%s:  [%d]DoPSAuth(%s)\n", __func__, rc, op->o_req_ndn.bv_val);			
 			rs->sr_text = "unwilling to verify old password";
 			rc = LDAP_UNWILLING_TO_PERFORM;
 			goto error_return;

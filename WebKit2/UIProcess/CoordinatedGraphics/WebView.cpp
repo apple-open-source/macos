@@ -450,7 +450,7 @@ PassRefPtr<WebColorPicker> WebView::createColorPicker(WebPageProxy*, const WebCo
 }
 #endif
 
-void WebView::setFindIndicator(PassRefPtr<FindIndicator>, bool, bool)
+void WebView::setTextIndicator(PassRefPtr<WebCore::TextIndicator>, bool, bool)
 {
     notImplemented();
 }

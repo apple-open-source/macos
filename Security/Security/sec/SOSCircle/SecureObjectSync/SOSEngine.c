@@ -352,18 +352,14 @@ static void SOSEngineSetTrustedPeers(SOSEngineRef engine, CFStringRef myPeerID, 
                     CFReleaseSafe(mfadd);
                 };
 
-                if (source == kSOSDataSourceSOSTransaction) {
-                    processUpdates();
-                } else {
-                    // WARNING: This will deadlock the engine if you call a
-                    // SecItem API function while holding the engine lock!
-                    // However making this async right now isn't safe yet either
-                    // Due to some code in the enginer using Get v/s copy to
-                    // access some of the values that would be modified
-                    // asynchronously here since the engine is coded as if
-                    // running on a serial queue.
-                    dispatch_sync(engine->queue, processUpdates);
-                }
+                // WARNING: This will deadlock the engine if you call a
+                // SecItem API function while holding the engine lock!
+                // However making this async right now isn't safe yet either
+                // Due to some code in the enginer using Get v/s copy to
+                // access some of the values that would be modified
+                // asynchronously here since the engine is coded as if
+                // running on a serial queue.
+                dispatch_sync(engine->queue, processUpdates);
             });
         } else {
             SOSDataSourceSetNotifyPhaseBlock(engine->dataSource, ^(SOSDataSourceRef ds, SOSTransactionRef txn, SOSDataSourceTransactionPhase phase, SOSDataSourceTransactionSource source, struct SOSDigestVector *removals, struct SOSDigestVector *additions) {
@@ -907,8 +903,10 @@ bool SOSEngineHandleMessage(SOSEngineRef engine, CFStringRef peerID,
     __block bool somethingChanged = false;
     SOSMessageRef message = SOSMessageCreateWithData(kCFAllocatorDefault, raw_message, error);
     result = message && SOSDataSourceWith(engine->dataSource, error, ^(SOSTransactionRef txn, bool *commit) {
-        result = SOSEngineHandleMessage_locked(engine, peerID, message, txn, commit, &somethingChanged, error);
+        dispatch_sync(engine->queue, ^{
+            result = SOSEngineHandleMessage_locked(engine, peerID, message, txn, commit, &somethingChanged, error);
         });
+    });
     CFReleaseSafe(message);
     if (somethingChanged)
         SecKeychainChanged(false);

@@ -51,7 +51,8 @@ public:
 
     PassRefPtr<JSC::Bindings::Instance> getInstance();
 
-    Widget* pluginWidget() const;
+    enum class PluginLoadingPolicy { DoNotLoad, Load };
+    Widget* pluginWidget(PluginLoadingPolicy = PluginLoadingPolicy::Load) const;
 
     enum DisplayState {
         WaitingForSnapshot,
@@ -88,6 +89,8 @@ public:
 
     virtual bool isPlugInImageElement() const { return false; }
 
+    bool isUserObservable() const;
+    
 protected:
     HTMLPlugInElement(const QualifiedName& tagName, Document&);
 
@@ -114,7 +117,8 @@ private:
 
     bool dispatchBeforeLoadEvent(const String& sourceURL); // Not implemented, generates a compile error if subclasses call this by mistake.
 
-    virtual RenderWidget* renderWidgetForJSBindings() const = 0;
+    // This will load the plugin if necessary.
+    virtual RenderWidget* renderWidgetLoadingPlugin() const = 0;
 
     virtual bool supportsFocus() const override;
 

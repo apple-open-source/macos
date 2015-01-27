@@ -16,7 +16,7 @@ WARNING_FLAGS = -Wall -Wextra -Wformat=2 -Wpointer-arith -Wcast-align \
 		-Wno-missing-field-initializers -Wno-shadow \
 		-Wno-deprecated-declarations
 Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 -fPIE
-Extra_LD_Flags = -Wl,-pie -lutil -dead_strip
+Extra_LD_Flags = -Wl,-pie -lutil -dead_strip -framework CoreFoundation -framework IOKit
 
 ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 Extra_CC_Flags += -isysroot $(SDKROOT)

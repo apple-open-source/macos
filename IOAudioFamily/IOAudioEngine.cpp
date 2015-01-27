@@ -1148,7 +1148,8 @@ IOReturn IOAudioEngine::detachUserClients()
 IOReturn IOAudioEngine::startClient(IOAudioEngineUserClient *userClient)
 {
     IOReturn result = kIOReturnBadArgument;
-    
+
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineStartClient, (uintptr_t)this, (uintptr_t)userClient, 0, 0);
     audioDebugIOLog(3, "+ IOAudioEngine[%p]::startClient(%p)\n", this, userClient);
 
 	while ( audioDevice->getPowerState() == kIOAudioDeviceSleep )
@@ -1198,6 +1199,7 @@ IOReturn IOAudioEngine::startClient(IOAudioEngineUserClient *userClient)
     }
     
     audioDebugIOLog(3, "- IOAudioEngine[%p]::startClient(%p) returns 0x%lX\n", this, userClient, (long unsigned int)result );
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineStartClient, (uintptr_t)this, (uintptr_t)userClient, 0, result);
     return result;
 }
 
@@ -1863,34 +1865,49 @@ UInt32 IOAudioEngine::getNumSampleFramesPerBuffer()
     return numSampleFramesPerBuffer;
 }
 
-IOAudioEngineState IOAudioEngine::getState()
+
+
+IOAudioEngineState
+IOAudioEngine::getState()
 {
+    AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineGetState, (uintptr_t)this, index, state, 0);
     return state;
 }
 
-IOAudioEngineState IOAudioEngine::setState(IOAudioEngineState newState)
+
+
+IOAudioEngineState
+IOAudioEngine::setState(IOAudioEngineState newState)
 {
     IOAudioEngineState oldState;
 
     audioDebugIOLog(3, "+-IOAudioEngine[%p]::setState(0x%x. oldState=%#x)\n", this, newState, state);
-
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineSetState, (uintptr_t)this, index, state, newState);
+    
     oldState = state;
     state = newState;
 
-    switch (state) {
+    switch (state)
+    {
         case kIOAudioEngineRunning:
-            if (oldState != kIOAudioEngineRunning) {
+            if (oldState != kIOAudioEngineRunning)
+            {
                 addTimer();
             }
             break;
+            
         case kIOAudioEngineStopped:
-            if (oldState == kIOAudioEngineRunning) {
+            if (oldState == kIOAudioEngineRunning)
+            {
                 removeTimer();
                 performErase();
             }
+            
 			// <rdar://15485249,17416423>
-			if (oldState == kIOAudioEnginePaused) {
-				if (commandGate) {
+			if (oldState == kIOAudioEnginePaused)
+            {
+				if (commandGate)
+                {
 					audioDebugIOLog(3, "send commandWakeup on stop for [%p]\n", this);
 					
 					setCommandGateUsage(this, true);
@@ -1899,14 +1916,18 @@ IOAudioEngineState IOAudioEngine::setState(IOAudioEngineState newState)
 				}
 			}
             break;
+            
         default:
             break;
     }
 
     setProperty(kIOAudioEngineStateKey, newState, sizeof(UInt32)*8);
 
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineSetState, (uintptr_t)this, index, state, oldState);
     return oldState;
 }
+
+
 
 const IOAudioSampleRate *IOAudioEngine::getSampleRate()
 {
@@ -2618,7 +2639,8 @@ void IOAudioEngine::setCommandGateUsage(IOAudioEngine *engine, bool increment)
 IOReturn IOAudioEngine::waitForEngineResume ( void )
 {
 	IOReturn err, result = kIOReturnError;
-	
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineWaitForEngineResume, (uintptr_t)this, 0, 0, 0);
+    
 	if (commandGate) {
 		retain();
 
@@ -2645,6 +2667,7 @@ IOReturn IOAudioEngine::waitForEngineResume ( void )
 		release();
 	}
 	
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineWaitForEngineResume, (uintptr_t)this, 0, 0, result);
 	return result;
 }
 

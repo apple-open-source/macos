@@ -100,7 +100,6 @@ void OpenSSL_add_all_ciphers(void)
 	EVP_add_cipher(EVP_rc4_40());
 #endif
 
-
 #ifndef OPENSSL_NO_SEED
 	EVP_add_cipher(EVP_seed_ecb());
 	EVP_add_cipher(EVP_seed_cfb());

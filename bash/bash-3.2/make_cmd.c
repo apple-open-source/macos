@@ -676,6 +676,7 @@ make_redirection (source, instruction, dest_and_filename)
   /* First do the common cases. */
   temp->redirector = source;
   temp->redirectee = dest_and_filename;
+  temp->here_doc_eof = 0;
   temp->instruction = instruction;
   temp->flags = 0;
   temp->next = (REDIRECT *)NULL;

@@ -293,7 +293,6 @@ set(WebKit2_SOURCES
     UIProcess/APISession.cpp
     UIProcess/BackingStore.cpp
     UIProcess/DrawingAreaProxy.cpp
-    UIProcess/FindIndicator.cpp
     UIProcess/FrameLoadState.cpp
     UIProcess/GeolocationPermissionRequestManagerProxy.cpp
     UIProcess/GeolocationPermissionRequestProxy.cpp
@@ -529,6 +528,7 @@ set(WebKit2_SOURCES
     WebProcess/WebCoreSupport/WebContextMenuClient.cpp
     WebProcess/WebCoreSupport/WebDatabaseManager.cpp
     WebProcess/WebCoreSupport/WebDeviceProximityClient.cpp
+    WebProcess/WebCoreSupport/WebDiagnosticLoggingClient.cpp
     WebProcess/WebCoreSupport/WebDragClient.cpp
     WebProcess/WebCoreSupport/WebEditorClient.cpp
     WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp
@@ -548,8 +548,6 @@ set(WebKit2_SOURCES
     WebProcess/WebPage/FindController.cpp
     WebProcess/WebPage/LayerTreeHost.cpp
     WebProcess/WebPage/PageBanner.cpp
-    WebProcess/WebPage/PageOverlay.cpp
-    WebProcess/WebPage/PageOverlayController.cpp
     WebProcess/WebPage/TapHighlightController.cpp
     WebProcess/WebPage/WebBackForwardListProxy.cpp
     WebProcess/WebPage/WebContextMenu.cpp
@@ -559,6 +557,7 @@ set(WebKit2_SOURCES
     WebProcess/WebPage/WebOpenPanelResultListener.cpp
     WebProcess/WebPage/WebPage.cpp
     WebProcess/WebPage/WebPageGroupProxy.cpp
+    WebProcess/WebPage/WebPageOverlay.cpp
     WebProcess/WebPage/VisitedLinkTableController.cpp
     WebProcess/WebPage/WebUndoStep.cpp
 )

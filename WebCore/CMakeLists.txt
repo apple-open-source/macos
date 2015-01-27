@@ -1915,8 +1915,11 @@ set(WebCore_SOURCES
     page/Page.cpp
     page/PageActivityAssertionToken.cpp
     page/PageConsole.cpp
+    page/PageConfiguration.cpp
     page/PageGroup.cpp
     page/PageGroupLoadDeferrer.cpp
+    page/PageOverlay.cpp
+    page/PageOverlayController.cpp
     page/PageSerializer.cpp
     page/PageThrottler.cpp
     page/PageVisibilityState.cpp
@@ -1938,6 +1941,7 @@ set(WebCore_SOURCES
     page/SpeechInputResult.cpp
     page/SpeechInputResultList.cpp
     page/SuspendableTimer.cpp
+    page/TextIndicator.cpp
     page/UserContentController.cpp
     page/UserContentURLPattern.cpp
     page/VisitedLinkStore.cpp

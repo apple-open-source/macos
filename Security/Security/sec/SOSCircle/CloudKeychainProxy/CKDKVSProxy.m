@@ -638,7 +638,7 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
 
             _inCallout = YES;
             if (!_oldInCallout)
-                secnotice("deaf", ">>>>>>>>>>> WTFBBQ _oldInCallout is NO and we're heading in to the callout!");
+                secnotice("deaf", ">>>>>>>>>>> _oldInCallout is NO and we're heading in to the callout!");
 
             _shadowPendingKeys = [NSMutableSet set];
             _shadowSyncWithPeersPending = NO;

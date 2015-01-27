@@ -28,11 +28,14 @@
 
 #if PLATFORM(MAC)
 
+#import "ActionMenuHitTestResult.h"
 #import "AttributedString.h"
 #import "DataReference.h"
 #import "DictionaryPopupInfo.h"
 #import "EditingRange.h"
 #import "EditorState.h"
+#import "InjectedBundleHitTestResult.h"
+#import "InjectedBundleUserMessageCoders.h"
 #import "PDFKitImports.h"
 #import "PageBanner.h"
 #import "PluginView.h"
@@ -44,6 +47,7 @@
 #import "WebFrame.h"
 #import "WebImage.h"
 #import "WebInspector.h"
+#import "WebPageOverlay.h"
 #import "WebPageProxyMessages.h"
 #import "WebPasteboardOverrides.h"
 #import "WebPreferencesStore.h"
@@ -52,10 +56,14 @@
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/BackForwardController.h>
+#import <WebCore/DataDetection.h>
+#import <WebCore/DataDetectorsSPI.h>
+#import <WebCore/DictionaryLookup.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/GraphicsContext.h>
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/KeyboardEvent.h>
@@ -63,17 +71,20 @@
 #import <WebCore/MainFrame.h>
 #import <WebCore/NetworkingContext.h>
 #import <WebCore/Page.h>
+#import <WebCore/PageOverlayController.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/PluginDocument.h>
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderObject.h>
 #import <WebCore/RenderStyle.h>
+#import <WebCore/RenderView.h>
 #import <WebCore/ResourceHandle.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/StyleInheritedData.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WindowsKeyboardCodes.h>
+#import <WebCore/htmlediting.h>
 #import <WebKitSystemInterface.h>
 
 using namespace WebCore;
@@ -462,35 +473,6 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
     send(Messages::WebPageProxy::AttributedStringForCharacterRangeCallback(result, EditingRange(editingRange.location, [result.string length]), callbackID));
 }
 
-static bool isPositionInRange(const VisiblePosition& position, Range* range)
-{
-    RefPtr<Range> positionRange = makeRange(position, position);
-
-    ExceptionCode ec = 0;
-    range->compareBoundaryPoints(Range::START_TO_START, positionRange.get(), ec);
-    if (ec)
-        return false;
-
-    if (!range->isPointInRange(positionRange->startContainer(), positionRange->startOffset(), ec))
-        return false;
-    if (ec)
-        return false;
-
-    return true;
-}
-
-static bool shouldUseSelection(const VisiblePosition& position, const VisibleSelection& selection)
-{
-    if (!selection.isRange())
-        return false;
-
-    RefPtr<Range> selectedRange = selection.toNormalizedRange();
-    if (!selectedRange)
-        return false;
-
-    return isPositionInRange(position, selectedRange.get());
-}
-
 void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
 {
     if (PluginView* pluginView = pluginViewForFrame(&m_page->mainFrame())) {
@@ -502,96 +484,33 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
     IntPoint point = roundedIntPoint(floatPoint);
     HitTestResult result = m_page->mainFrame().eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(point));
     Frame* frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document().frame() : &m_page->focusController().focusedOrMainFrame();
-
-    IntPoint translatedPoint = frame->view()->windowToContents(point);
-
-    // Don't do anything if there is no character at the point.
-    if (!frame->rangeForPoint(translatedPoint))
-        return;
-
-    VisiblePosition position = frame->visiblePositionForPoint(translatedPoint);
-    VisibleSelection selection = m_page->focusController().focusedOrMainFrame().selection().selection();
-    if (shouldUseSelection(position, selection)) {
-        performDictionaryLookupForSelection(frame, selection);
-        return;
-    }
-
     NSDictionary *options = nil;
-
-    // As context, we are going to use four lines of text before and after the point. (Dictionary can sometimes look up things that are four lines long)
-    const int numberOfLinesOfContext = 4;
-    VisiblePosition contextStart = position;
-    VisiblePosition contextEnd = position;
-    for (int i = 0; i < numberOfLinesOfContext; i++) {
-        VisiblePosition n = previousLinePosition(contextStart, contextStart.lineDirectionPointForBlockDirectionNavigation());
-        if (n.isNull() || n == contextStart)
-            break;
-        contextStart = n;
-    }
-    for (int i = 0; i < numberOfLinesOfContext; i++) {
-        VisiblePosition n = nextLinePosition(contextEnd, contextEnd.lineDirectionPointForBlockDirectionNavigation());
-        if (n.isNull() || n == contextEnd)
-            break;
-        contextEnd = n;
-    }
-
-    VisiblePosition lineStart = startOfLine(contextStart);
-    if (!lineStart.isNull())
-        contextStart = lineStart;
-
-    VisiblePosition lineEnd = endOfLine(contextEnd);
-    if (!lineEnd.isNull())
-        contextEnd = lineEnd;
-
-    NSRange rangeToPass = NSMakeRange(TextIterator::rangeLength(makeRange(contextStart, position).get()), 0);
-
-    RefPtr<Range> fullCharacterRange = makeRange(contextStart, contextEnd);
-    String fullPlainTextString = plainText(fullCharacterRange.get());
-
-    NSRange extractedRange = WKExtractWordDefinitionTokenRangeFromContextualString(fullPlainTextString, rangeToPass, &options);
-
-    // This function sometimes returns {NSNotFound, 0} if it was unable to determine a good string.
-    if (extractedRange.location == NSNotFound)
+    RefPtr<Range> range = rangeForDictionaryLookupAtHitTestResult(result, &options);
+    if (!range)
         return;
 
-    RefPtr<Range> finalRange = TextIterator::subrange(fullCharacterRange.get(), extractedRange.location, extractedRange.length);
-    if (!finalRange)
-        return;
-
-    performDictionaryLookupForRange(frame, *finalRange, options);
+    performDictionaryLookupForRange(frame, *range, options, TextIndicatorPresentationTransition::Bounce);
 }
 
-void WebPage::performDictionaryLookupForSelection(Frame* frame, const VisibleSelection& selection)
+void WebPage::performDictionaryLookupForSelection(Frame* frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
 {
-    RefPtr<Range> selectedRange = selection.toNormalizedRange();
-    if (!selectedRange)
-        return;
-
     NSDictionary *options = nil;
-
-    VisiblePosition selectionStart = selection.visibleStart();
-    VisiblePosition selectionEnd = selection.visibleEnd();
-
-    // As context, we are going to use the surrounding paragraphs of text.
-    VisiblePosition paragraphStart = startOfParagraph(selectionStart);
-    VisiblePosition paragraphEnd = endOfParagraph(selectionEnd);
-
-    int lengthToSelectionStart = TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
-    int lengthToSelectionEnd = TextIterator::rangeLength(makeRange(paragraphStart, selectionEnd).get());
-    NSRange rangeToPass = NSMakeRange(lengthToSelectionStart, lengthToSelectionEnd - lengthToSelectionStart);
-
-    String fullPlainTextString = plainText(makeRange(paragraphStart, paragraphEnd).get());
-
-    // Since we already have the range we want, we just need to grab the returned options.
-    WKExtractWordDefinitionTokenRangeFromContextualString(fullPlainTextString, rangeToPass, &options);
-
-    performDictionaryLookupForRange(frame, *selectedRange, options);
+    RefPtr<Range> selectedRange = rangeForDictionaryLookupForSelection(selection, &options);
+    if (selectedRange)
+        performDictionaryLookupForRange(frame, *selectedRange, options, presentationTransition);
 }
 
-void WebPage::performDictionaryLookupForRange(Frame* frame, Range& range, NSDictionary *options)
+void WebPage::performDictionaryLookupOfCurrentSelection()
 {
+    Frame* frame = &m_page->focusController().focusedOrMainFrame();
+    performDictionaryLookupForSelection(frame, frame->selection().selection(), TextIndicatorPresentationTransition::BounceAndCrossfade);
+}
+
+DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame* frame, Range& range, NSDictionary **options, TextIndicatorPresentationTransition presentationTransition)
+{
+    DictionaryPopupInfo dictionaryPopupInfo;
     if (range.text().stripWhiteSpace().isEmpty())
-        return;
+        return dictionaryPopupInfo;
     
     RenderObject* renderer = range.startContainer()->renderer();
     const RenderStyle& style = renderer->style();
@@ -599,15 +518,14 @@ void WebPage::performDictionaryLookupForRange(Frame* frame, Range& range, NSDict
     Vector<FloatQuad> quads;
     range.textQuads(quads);
     if (quads.isEmpty())
-        return;
+        return dictionaryPopupInfo;
 
     IntRect rangeRect = frame->view()->contentsToWindow(quads[0].enclosingBoundingBox());
-    
-    DictionaryPopupInfo dictionaryPopupInfo;
-    dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y() + (style.fontMetrics().ascent() * pageScaleFactor()));
-    dictionaryPopupInfo.options = (CFDictionaryRef)options;
 
-    NSAttributedString *nsAttributedString = editingAttributedStringFromRange(range);
+    dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y() + (style.fontMetrics().ascent() * pageScaleFactor()));
+    dictionaryPopupInfo.options = (CFDictionaryRef)*options;
+
+    NSAttributedString *nsAttributedString = editingAttributedStringFromRange(range, IncludeImagesInAttributedString::No);
 
     RetainPtr<NSMutableAttributedString> scaledNSAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:[nsAttributedString string]]);
 
@@ -625,10 +543,20 @@ void WebPage::performDictionaryLookupForRange(Frame* frame, Range& range, NSDict
         [scaledNSAttributedString addAttributes:scaledAttributes.get() range:range];
     }];
 
-    AttributedString attributedString;
-    attributedString.string = scaledNSAttributedString;
+    RefPtr<TextIndicator> textIndicator = TextIndicator::createWithRange(range, presentationTransition);
+    if (!textIndicator)
+        return dictionaryPopupInfo;
 
-    send(Messages::WebPageProxy::DidPerformDictionaryLookup(attributedString, dictionaryPopupInfo));
+    dictionaryPopupInfo.textIndicator = textIndicator->data();
+    dictionaryPopupInfo.attributedString.string = scaledNSAttributedString;
+
+    return dictionaryPopupInfo;
+}
+
+void WebPage::performDictionaryLookupForRange(Frame* frame, Range& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
+{
+    DictionaryPopupInfo dictionaryPopupInfo = dictionaryPopupInfoForRange(frame, range, &options, presentationTransition);
+    send(Messages::WebPageProxy::DidPerformDictionaryLookup(dictionaryPopupInfo));
 }
 
 bool WebPage::performNonEditingBehaviorForSelector(const String& selector, KeyboardEvent* event)
@@ -1034,7 +962,7 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
 
     NSData *selectionData = [attributedSelection RTFDFromRange:NSMakeRange(0, [attributedSelection length]) documentAttributes:nil];
     IPC::DataReference data = IPC::DataReference(reinterpret_cast<const uint8_t*>([selectionData bytes]), [selectionData length]);
-    bool isEditable = selection.selection().isContentRichlyEditable();
+    bool isEditable = selection.selection().isContentEditable();
 
     send(Messages::WebPageProxy::ShowSelectionServiceMenu(data, phoneNumbers, isEditable, point));
 }
@@ -1043,6 +971,188 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
 String WebPage::platformUserAgent(const URL&) const
 {
     return String();
+}
+
+static TextIndicatorPresentationTransition textIndicatorTransitionForActionMenu(Range* selectionRange, Range& indicatorRange, bool forImmediateAction, bool forDataDetectors)
+{
+    if (areRangesEqual(&indicatorRange, selectionRange) || (forDataDetectors && !forImmediateAction))
+        return forImmediateAction ? TextIndicatorPresentationTransition::Crossfade : TextIndicatorPresentationTransition::BounceAndCrossfade;
+    return forImmediateAction ? TextIndicatorPresentationTransition::FadeIn : TextIndicatorPresentationTransition::Bounce;
+}
+
+void WebPage::performActionMenuHitTestAtLocation(WebCore::FloatPoint locationInViewCooordinates, bool forImmediateAction)
+{
+    layoutIfNeeded();
+
+    MainFrame& mainFrame = corePage()->mainFrame();
+    if (!mainFrame.view() || !mainFrame.view()->renderView()) {
+        send(Messages::WebPageProxy::DidPerformActionMenuHitTest(ActionMenuHitTestResult(), forImmediateAction, InjectedBundleUserMessageEncoder(nullptr)));
+        return;
+    }
+
+    IntPoint locationInContentCoordinates = mainFrame.view()->rootViewToContents(roundedIntPoint(locationInViewCooordinates));
+    HitTestResult hitTestResult = mainFrame.eventHandler().hitTestResultAtPoint(locationInContentCoordinates);
+
+    ActionMenuHitTestResult actionMenuResult;
+    actionMenuResult.hitTestLocationInViewCooordinates = locationInViewCooordinates;
+    actionMenuResult.hitTestResult = WebHitTestResult::Data(hitTestResult);
+
+    RefPtr<Range> selectionRange = corePage()->focusController().focusedOrMainFrame().selection().selection().firstRange();
+
+    URL absoluteLinkURL = hitTestResult.absoluteLinkURL();
+    Node *innerNode = hitTestResult.innerNode();
+    if (!absoluteLinkURL.isEmpty() && innerNode) {
+        RefPtr<Range> linkRange = rangeOfContents(*innerNode);
+        actionMenuResult.linkTextIndicator = TextIndicator::createWithRange(*linkRange, textIndicatorTransitionForActionMenu(selectionRange.get(), *linkRange, forImmediateAction, false));
+    }
+
+    NSDictionary *options = nil;
+    RefPtr<Range> lookupRange = lookupTextAtLocation(locationInViewCooordinates, &options);
+    actionMenuResult.lookupText = lookupRange ? lookupRange->text() : String();
+
+    if (lookupRange) {
+        if (Node* node = hitTestResult.innerNode()) {
+            if (Frame* hitTestResultFrame = node->document().frame())
+                actionMenuResult.dictionaryPopupInfo = dictionaryPopupInfoForRange(hitTestResultFrame, *lookupRange.get(), &options, textIndicatorTransitionForActionMenu(selectionRange.get(), *lookupRange, forImmediateAction, false));
+        }
+    }
+
+    m_lastActionMenuRangeForSelection = lookupRange;
+    m_lastActionMenuHitTestResult = hitTestResult;
+
+    if (!forImmediateAction) {
+        if (Image* image = hitTestResult.image()) {
+            RefPtr<SharedBuffer> buffer = image->data();
+            String imageExtension = image->filenameExtension();
+            if (!imageExtension.isEmpty() && buffer) {
+                actionMenuResult.imageSharedMemory = SharedMemory::create(buffer->size());
+                memcpy(actionMenuResult.imageSharedMemory->data(), buffer->data(), buffer->size());
+                actionMenuResult.imageExtension = imageExtension;
+            }
+        }
+    }
+
+    bool pageOverlayDidOverrideDataDetectors = false;
+    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+        WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay);
+        if (!webOverlay)
+            continue;
+
+        RefPtr<Range> mainResultRange;
+        DDActionContext *actionContext = webOverlay->actionContextForResultAtPoint(locationInContentCoordinates, mainResultRange);
+        if (!actionContext || !mainResultRange)
+            continue;
+
+        pageOverlayDidOverrideDataDetectors = true;
+        actionMenuResult.actionContext = actionContext;
+
+        Vector<FloatQuad> quads;
+        mainResultRange->textQuads(quads);
+        FloatRect detectedDataBoundingBox;
+        FrameView* frameView = mainResultRange->ownerDocument().view();
+        for (const auto& quad : quads)
+            detectedDataBoundingBox.unite(frameView->contentsToWindow(quad.enclosingBoundingBox()));
+
+        actionMenuResult.detectedDataBoundingBox = detectedDataBoundingBox;
+        actionMenuResult.detectedDataTextIndicator = TextIndicator::createWithRange(*mainResultRange, textIndicatorTransitionForActionMenu(selectionRange.get(), *mainResultRange, forImmediateAction, true));
+        actionMenuResult.detectedDataOriginatingPageOverlay = overlay->pageOverlayID();
+        m_lastActionMenuRangeForSelection = mainResultRange;
+
+        break;
+    }
+
+    // FIXME: Avoid scanning if we will just throw away the result (e.g. we're over a link).
+    if (!pageOverlayDidOverrideDataDetectors && hitTestResult.innerNode() && hitTestResult.innerNode()->isTextNode()) {
+        FloatRect detectedDataBoundingBox;
+        RefPtr<Range> detectedDataRange;
+        actionMenuResult.actionContext = DataDetection::detectItemAroundHitTestResult(hitTestResult, detectedDataBoundingBox, detectedDataRange);
+        if (actionMenuResult.actionContext && detectedDataRange) {
+            actionMenuResult.detectedDataBoundingBox = detectedDataBoundingBox;
+            actionMenuResult.detectedDataTextIndicator = TextIndicator::createWithRange(*detectedDataRange, textIndicatorTransitionForActionMenu(selectionRange.get(), *detectedDataRange, forImmediateAction, true));
+            m_lastActionMenuRangeForSelection = detectedDataRange;
+        }
+    }
+
+    RefPtr<API::Object> userData;
+    RefPtr<InjectedBundleHitTestResult> injectedBundleHitTestResult = InjectedBundleHitTestResult::create(hitTestResult);
+    injectedBundleContextMenuClient().prepareForActionMenu(this, injectedBundleHitTestResult.get(), userData);
+
+    send(Messages::WebPageProxy::DidPerformActionMenuHitTest(actionMenuResult, forImmediateAction, InjectedBundleUserMessageEncoder(userData.get())));
+}
+
+PassRefPtr<WebCore::Range> WebPage::lookupTextAtLocation(FloatPoint locationInViewCooordinates, NSDictionary **options)
+{
+    MainFrame& mainFrame = corePage()->mainFrame();
+    if (!mainFrame.view() || !mainFrame.view()->renderView())
+        return nullptr;
+
+    IntPoint point = roundedIntPoint(locationInViewCooordinates);
+    HitTestResult result = mainFrame.eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(point));
+    return rangeForDictionaryLookupAtHitTestResult(result, options);
+}
+
+void WebPage::selectLastActionMenuRange()
+{
+    if (m_lastActionMenuRangeForSelection)
+        corePage()->mainFrame().selection().setSelectedRange(m_lastActionMenuRangeForSelection.get(), DOWNSTREAM, true);
+}
+
+void WebPage::focusAndSelectLastActionMenuHitTestResult()
+{
+    if (!m_lastActionMenuHitTestResult.isContentEditable())
+        return;
+
+    Element* element = m_lastActionMenuHitTestResult.innerElement();
+    if (!element)
+        return;
+
+    Frame* frame = element->document().frame();
+    if (!frame)
+        return;
+
+    m_page->focusController().setFocusedElement(element, frame);
+    VisiblePosition position = frame->visiblePositionForPoint(m_lastActionMenuHitTestResult.roundedPointInInnerNodeFrame());
+    frame->selection().setSelection(position);
+}
+
+void WebPage::dataDetectorsDidPresentUI(PageOverlay::PageOverlayID overlayID)
+{
+    MainFrame& mainFrame = corePage()->mainFrame();
+    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+        if (overlay->pageOverlayID() == overlayID) {
+            if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
+                webOverlay->dataDetectorsDidPresentUI();
+            return;
+        }
+    }
+}
+
+void WebPage::dataDetectorsDidChangeUI(PageOverlay::PageOverlayID overlayID)
+{
+    MainFrame& mainFrame = corePage()->mainFrame();
+    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+        if (overlay->pageOverlayID() == overlayID) {
+            if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
+                webOverlay->dataDetectorsDidChangeUI();
+            return;
+        }
+    }
+}
+
+void WebPage::dataDetectorsDidHideUI(PageOverlay::PageOverlayID overlayID)
+{
+    MainFrame& mainFrame = corePage()->mainFrame();
+
+    // Dispatching a fake mouse event will allow clients to display any UI that is normally displayed on hover.
+    mainFrame.eventHandler().dispatchFakeMouseMoveEventSoon();
+
+    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+        if (overlay->pageOverlayID() == overlayID) {
+            if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
+                webOverlay->dataDetectorsDidHideUI();
+            return;
+        }
+    }
 }
 
 } // namespace WebKit

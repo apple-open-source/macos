@@ -571,11 +571,12 @@ bool RenderLayerBacking::updateConfiguration()
     } else
         m_graphicsLayer->setReplicatedByLayer(0);
 
-    bool isSimpleContainer = isSimpleContainerCompositingLayer();
-    bool didUpdateContentsRect = false;
-    updateDirectlyCompositedContents(isSimpleContainer, didUpdateContentsRect);
-
-    updateRootLayerConfiguration();
+    if (!m_owningLayer.isRootLayer()) {
+        bool isSimpleContainer = isSimpleContainerCompositingLayer();
+        bool didUpdateContentsRect = false;
+        updateDirectlyCompositedContents(isSimpleContainer, didUpdateContentsRect);
+    } else
+        updateRootLayerConfiguration();
     
     if (isDirectlyCompositedImage())
         updateImageContents();
@@ -966,11 +967,15 @@ void RenderLayerBacking::updateGeometry()
 
 void RenderLayerBacking::updateAfterDescendents()
 {
-    bool didUpdateContentsRect = false;
-    bool isSimpleContainer = isSimpleContainerCompositingLayer();
-    updateDirectlyCompositedContents(isSimpleContainer, didUpdateContentsRect);
-    if (!didUpdateContentsRect && m_graphicsLayer->usesContentsLayer())
-        resetContentsRect();
+    bool isSimpleContainer = false;
+    if (!m_owningLayer.isRootLayer()) {
+        bool didUpdateContentsRect = false;
+        // FIXME: this duplicates work we did in updateConfiguration().
+        isSimpleContainer = isSimpleContainerCompositingLayer();
+        updateDirectlyCompositedContents(isSimpleContainer, didUpdateContentsRect);
+        if (!didUpdateContentsRect && m_graphicsLayer->usesContentsLayer())
+            resetContentsRect();
+    }
 
     updateDrawsContent(isSimpleContainer);
 
@@ -1503,6 +1508,7 @@ float RenderLayerBacking::compositingOpacity(float rendererOpacity) const
     return finalOpacity;
 }
 
+// FIXME: Code is duplicated in RenderLayer. Also, we should probably not consider filters a box decoration here.
 static inline bool hasBoxDecorations(const RenderStyle& style)
 {
     return style.hasBorder() || style.hasBorderRadius() || style.hasOutline() || style.hasAppearance() || style.boxShadow() || style.hasFilter();
@@ -1702,7 +1708,7 @@ static bool isCompositedPlugin(RenderObject* renderer)
 // This is a useful optimization, because it allows us to avoid allocating backing store.
 bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
 {
-    if (renderer().isReplaced() && (!isCompositedPlugin(&renderer()) || isRestartedPlugin(&renderer())))
+    if (renderer().isRenderReplaced() && (!isCompositedPlugin(&renderer()) || isRestartedPlugin(&renderer())))
         return false;
 
     if (paintsBoxDecorations() || paintsChildren())
@@ -1754,7 +1760,7 @@ static bool descendentLayerPaintsIntoAncestor(RenderLayer& parent)
         for (size_t i = 0; i < listSize; ++i) {
             RenderLayer* curLayer = normalFlowList->at(i);
             if (!compositedWithOwnBackingStore(curLayer)
-                && (curLayer->hasVisibleContent() || descendentLayerPaintsIntoAncestor(*curLayer)))
+                && (curLayer->isVisuallyNonEmpty() || descendentLayerPaintsIntoAncestor(*curLayer)))
                 return true;
         }
     }
@@ -1769,7 +1775,7 @@ static bool descendentLayerPaintsIntoAncestor(RenderLayer& parent)
             for (size_t i = 0; i < listSize; ++i) {
                 RenderLayer* curLayer = negZOrderList->at(i);
                 if (!compositedWithOwnBackingStore(curLayer)
-                    && (curLayer->hasVisibleContent() || descendentLayerPaintsIntoAncestor(*curLayer)))
+                    && (curLayer->isVisuallyNonEmpty() || descendentLayerPaintsIntoAncestor(*curLayer)))
                     return true;
             }
         }
@@ -1779,7 +1785,7 @@ static bool descendentLayerPaintsIntoAncestor(RenderLayer& parent)
             for (size_t i = 0; i < listSize; ++i) {
                 RenderLayer* curLayer = posZOrderList->at(i);
                 if (!compositedWithOwnBackingStore(curLayer)
-                    && (curLayer->hasVisibleContent() || descendentLayerPaintsIntoAncestor(*curLayer)))
+                    && (curLayer->isVisuallyNonEmpty() || descendentLayerPaintsIntoAncestor(*curLayer)))
                     return true;
             }
         }

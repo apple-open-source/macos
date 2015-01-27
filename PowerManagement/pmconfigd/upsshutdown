@@ -1,27 +1,13 @@
 #!/bin/sh
 
 #
-# Pick up the email recipient from /etc/hostconfig, if defined.
-#
-. /etc/hostconfig
-
-#
 # Initialize...
 #
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 SI_PATH=/System/Library/StartupItems
-MAIL=mail
 MSG="Shutting down due to power loss!"
 
 logger -i -p daemon.emerg -t UPS "${MSG}"
-
-#
-# Send notification to the same address used for IP Failover.
-#
-if ! [ "${FAILOVER_EMAIL_RECIPIENT:=-AUTOMATIC-}" = "-AUTOMATIC-" ] ; then
-	SUBJECT="UPS Notification: ${MSG}"
-	${MAIL} -s "${SUBJECT}" ${FAILOVER_EMAIL_RECIPIENT} < /dev/null
-fi
 
 #
 # Take the system down.

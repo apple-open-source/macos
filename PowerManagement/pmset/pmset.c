@@ -435,6 +435,7 @@ static void log_thermal_events(void);
 static void show_systempower_notify(void);
 static void show_thermal_warning_level(void);
 static void show_thermal_cpu_power_level(void);
+static void show_performance_warning_level(void);
 
 static void print_raw_battery_state(io_registry_entry_t b_reg);
 static void print_setting_value(CFTypeRef a, int divider);
@@ -540,7 +541,7 @@ static CommandAndAction the_getters[] =
                                                         CFRunLoopRun(); }},
     	{kActionGetLog,         ARG_PSRAW,          ^(char **arg){ log_raw_power_source_changes(); }},
         {kActionGetOnceNoArgs,  ARG_BATTRAW,        ^(char **arg){ print_raw_battery_state(IO_OBJECT_NULL); }},
-        {kActionGetOnceNoArgs,  ARG_THERM,          ^(char **arg){ show_thermal_warning_level(); show_thermal_cpu_power_level(); }},
+        {kActionGetOnceNoArgs,  ARG_THERM,          ^(char **arg){ show_thermal_warning_level(); show_performance_warning_level(); show_thermal_cpu_power_level(); }},
     	{kActionGetLog,         ARG_THERMLOG,       ^(char **arg){ log_thermal_events(); }},
     	{kActionGetOnceNoArgs,  ARG_ASSERTIONS,     ^(char **arg){ show_assertions(NULL); }},
     	{kActionGetLog,         ARG_ASSERTIONSLOG,  ^(char **arg){ log_assertions(); }},
@@ -3869,6 +3870,7 @@ static void log_thermal_events(void)
 {
     int             powerConstraintNotifyToken = 0;
     int             cpuPowerNotifyToken = 0;
+    int             perfNotifyToken = 0;
 
     uint32_t        status;
     
@@ -3903,7 +3905,23 @@ static void log_thermal_events(void)
                         kIOPMThermalWarningNotificationKey, status);
     }
 
+    status = notify_register_dispatch(
+            kIOPMPerformanceWarningNotificationKey, 
+            &perfNotifyToken, 
+            dispatch_get_main_queue(), 
+            ^(int t) {
+                show_performance_warning_level();
+             });
+
+
+    if (NOTIFY_STATUS_OK != status)
+    {
+        fprintf(stderr, "Registration failed for \"%s\" with (%u)\n",
+                        kIOPMPerformanceWarningKey, status);
+    }
+
     show_thermal_warning_level();
+    show_performance_warning_level();
     show_thermal_cpu_power_level();
     
     dispatch_main();
@@ -3924,7 +3942,7 @@ static void show_thermal_warning_level(void)
 
     if (kIOReturnSuccess != ret) 
     {
-        printf("Error: No thermal warning level with error code 0x%08x\n", ret);
+        printf("Error:Failed to get thermal warning level with error code 0x%08x\n", ret);
         return;
     }
 
@@ -3933,6 +3951,31 @@ static void show_thermal_warning_level(void)
     printf("Thermal Warning Level = %d\n", warn);
     return;
 }
+
+static void show_performance_warning_level(void)
+{
+    uint32_t                warn = -1;
+    IOReturn                ret;
+    
+    ret = IOPMGetPerformanceWarningLevel(&warn);
+
+    if (kIOReturnNotFound == ret) {
+        printf("Note: No performance warning level has been recorded\n");
+        return;
+    }
+
+    if (kIOReturnSuccess != ret) 
+    {
+        printf("Error: Failed to get performance warning level with error code 0x%08x\n", ret);
+        return;
+    }
+
+    // successfully found warning level
+    print_pretty_date(CFAbsoluteTimeGetCurrent(), false);
+    printf("Performance Warning Level = %d\n", warn);
+    return;
+}
+
 
 
 static void show_thermal_cpu_power_level(void)
@@ -3993,7 +4036,9 @@ static void show_power_adapter(void)
 {
     CFDictionaryRef     acInfo = NULL;
     CFNumberRef         valNum = NULL;
+    CFStringRef         valStr = NULL;
     int                 val;
+    char                buf[33];
     
     acInfo = IOPSCopyExternalPowerAdapterDetails();
     if (!acInfo) {
@@ -4012,17 +4057,6 @@ static void show_power_adapter(void)
         // New format
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" SourceID = 0x%04x\n", val); 
-
-        valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterCurrentKey));
-        if (valNum) {
-            CFNumberGetValue(valNum, kCFNumberIntType, &val);
-            printf(" Current = %dmA\n", val); 
-        }
-
-        if ((valNum = CFDictionaryGetValue(acInfo, CFSTR("Voltage")))) {
-            CFNumberGetValue(valNum, kCFNumberIntType, &val);
-            printf(" Voltage = %dmW\n", val);
-        }
     }
     else {
         valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterRevisionKey));
@@ -4032,11 +4066,28 @@ static void show_power_adapter(void)
         }
     }
 
+    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterCurrentKey));
+    if (valNum) {
+        CFNumberGetValue(valNum, kCFNumberIntType, &val);
+        printf(" Current = %dmA\n", val); 
+    }
+
+    if ((valNum = CFDictionaryGetValue(acInfo, CFSTR("Voltage")))) {
+        CFNumberGetValue(valNum, kCFNumberIntType, &val);
+        printf(" Voltage = %dmW\n", val);
+    }
+
     // Legacy format
     valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterIDKey));
     if (valNum) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" AdapterID = 0x%04x\n", val); 
+    }
+
+    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterManufacturerIDKey));
+    if (valNum) {
+        CFNumberGetValue(valNum, kCFNumberIntType, &val);
+        printf(" Manufacturer ID = 0x%04x\n", val); 
     }
 
     valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterFamilyKey));
@@ -4049,6 +4100,37 @@ static void show_power_adapter(void)
     if (valNum) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" Serial Number = 0x%08x\n", val); 
+    }
+    else if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterSerialStringKey)))) {
+        bzero(buf, sizeof(buf));
+        CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
+        if (buf[0]) {
+            printf(" Serial String = %s\n", buf); 
+        }
+    }
+
+    if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterNameKey)))) {
+        bzero(buf, sizeof(buf));
+        CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
+        if (buf[0]) {
+            printf(" Adapter Name = %s\n", buf); 
+        }
+    }
+
+    if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterHardwareVersionKey)))) {
+        bzero(buf, sizeof(buf));
+        CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
+        if (buf[0]) {
+            printf(" Hardware Version = %s\n", buf); 
+        }
+    }
+
+    if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterFirmwareVersionKey)))) {
+        bzero(buf, sizeof(buf));
+        CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
+        if (buf[0]) {
+            printf(" Firmware Version = %s\n", buf); 
+        }
     }
     CFRelease(acInfo);
 }

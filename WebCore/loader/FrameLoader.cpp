@@ -47,6 +47,8 @@
 #include "DOMImplementation.h"
 #include "DOMWindow.h"
 #include "DatabaseManager.h"
+#include "DiagnosticLoggingClient.h"
+#include "DiagnosticLoggingKeys.h"
 #include "Document.h"
 #include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
@@ -2171,11 +2173,6 @@ CachePolicy FrameLoader::subresourceCachePolicy() const
         return CachePolicyRevalidate;
 
     const ResourceRequest& request(documentLoader()->request());
-#if PLATFORM(COCOA)
-    if (request.cachePolicy() == ReloadIgnoringCacheData && !equalIgnoringCase(request.httpMethod(), "post") && ResourceRequest::useQuickLookResourceCachingQuirks())
-        return CachePolicyRevalidate;
-#endif
-
     if (request.cachePolicy() == ReturnCacheDataElseLoad)
         return CachePolicyHistoryBuffer;
 
@@ -2261,7 +2258,8 @@ void FrameLoader::checkLoadCompleteForThisFrame()
                 return;
 
             m_progressTracker->progressCompleted();
-            if (Page* page = m_frame.page()) {
+            Page* page = m_frame.page();
+            if (page) {
                 if (m_frame.isMainFrame())
                     page->resetRelevantPaintedObjectCounter();
             }
@@ -2280,6 +2278,15 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             // Notify accessibility.
             if (AXObjectCache* cache = m_frame.document()->existingAXObjectCache())
                 cache->frameLoadingEventNotification(&m_frame, loadingEvent);
+
+            if (!page || !page->settings().diagnosticLoggingEnabled())
+                return;
+
+            DiagnosticLoggingClient* diagnosticLoggingClient = page->mainFrame().diagnosticLoggingClient();
+            if (!diagnosticLoggingClient)
+                return;
+
+            diagnosticLoggingClient->logDiagnosticMessageWithResult(DiagnosticLoggingKeys::pageLoadedKey(), emptyString(), error.isNull() ? DiagnosticLoggingClient::Pass : DiagnosticLoggingClient::Fail);
 
             return;
         }

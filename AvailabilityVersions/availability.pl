@@ -16,6 +16,7 @@ my @macosx_versions = (
     "10.8",
     "10.9",
     "10.10",
+    "10.10.2",
 );
 
 my @ios_versions = (

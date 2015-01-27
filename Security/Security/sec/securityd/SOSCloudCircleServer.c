@@ -292,6 +292,11 @@ static void SOSKeychainAccountEnsureSaved(SOSAccountRef account)
     static CFDataRef sLastSavedAccountData = NULL;
 
     CFErrorRef saveError = NULL;
+    
+    if(SOSAccountGetMyFullPeerInCircleNamedIfPresent(account, CFSTR("ak"), NULL) == NULL) {
+        return;
+    }
+    
 	SOSCCCircleIsOn_UpdateArtifact(SOSAccountIsInCircles(account, NULL));
 
     CFDataRef accountAsData = SOSAccountCopyEncodedData(account, kCFAllocatorDefault, &saveError);
@@ -353,11 +358,22 @@ static SOSAccountRef SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_g
 
         account = SOSAccountCreateFromData(kCFAllocatorDefault, savedAccount, factory, &inflationError);
 
+        if(account && SOSAccountGetMyFullPeerInCircleNamedIfPresent(account, CFSTR("ak"), NULL) == NULL) {
+            SOSAccountRef newAccount = SOSAccountCreate(kCFAllocatorDefault, our_gestalt, factory);
+            
+            if (!newAccount) {
+                secnotice("repair_account", "Tried to repair bad account - got null account");
+            } else {
+                account = newAccount;
+            }
+        }
+
         if (account){
             SOSAccountUpdateGestalt(account, our_gestalt);
-        }
-        else
+        } else {
             secerror("Got error inflating account: %@", inflationError);
+        }
+        
         CFReleaseNull(inflationError);
     }
     CFReleaseSafe(savedAccount);

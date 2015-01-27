@@ -93,8 +93,6 @@ struct threadlist {
 	mach_vm_size_t th_allocsize;
 	mach_vm_offset_t th_stackaddr;
 	mach_port_name_t th_thport;
-	uint32_t th_override_count;
-	uint32_t th_dispatch_override_count;
 };
 #define TH_LIST_INITED 		0x01
 #define TH_LIST_RUNNING 	0x02

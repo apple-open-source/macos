@@ -339,7 +339,7 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
                     if (fullPeerInfoData) {
                         SOSFullPeerInfoRef full_peer = SOSFullPeerInfoCreateFromData(kCFAllocatorDefault, fullPeerInfoData, error);
                         require_action_quiet(full_peer, fail, success = false);
-                        
+                    
                         CFDictionaryAddValue(account->circle_identities, circleName, full_peer);
                         CFReleaseNull(full_peer);
                     }
@@ -352,6 +352,7 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
     CFReleaseNull(array);
     
     require_quiet(success, fail);
+    
     require_action_quiet(SOSAccountEnsureFactoryCircles(account), fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Cannot EnsureFactoryCircles"), (error != NULL) ? *error : NULL, error));
     

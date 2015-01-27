@@ -1802,6 +1802,29 @@ void IOPMClaimSystemWakeEvent(
         CFDictionaryRef     description);
 
 /*****************************************************************************/
+
+/*
+ *! @function   IOPMSetActivePushConnectionState
+ *  @abstract   Specify if Active push connections exists on the system.
+ *
+ *  @param  exists      Set to 'true' when there are active push connections on the system.
+ *
+ *  @result             Return kIOReturnSuccess on success.
+ */
+IOReturn IOPMSetActivePushConnectionState(bool exists);
+
+/*
+ *! @function   IOPMGetActivePushConnectionState
+ *  @abstract   Returns the current state of active push connections
+ *
+ *  @param  exists      Returns 'true' if there are active push connections on the system.
+ *
+ *  @result             Return kIOReturnSuccess. All other return values indicate a failure
+ *                      in getting the current state; value of 'exists' parameter is not
+ *                      valid in that case.
+ */
+IOReturn IOPMGetActivePushConnectionState(bool *exists);
+
 /*****************************************************************************/
 
 /*! @group IOPMCapabilityBits
@@ -2668,24 +2691,24 @@ enum {
     kIOPMDarkWakeThermalEventCount,
     kIOPMTCPKeepAliveExpirationOverride,
     kIOPMTCPKeepAliveIsActive,
-    kIOPMTCPWakeQuota,
-    kIOPMTCPWakeQuotaInterval,
     kIOPMSetAssertionActivityLog,
     kIOPMSetAssertionActivityAggregate,
     kIOPMSetReservePowerMode,
+    kIOPMWakeOnLanIsActive,
+    kIOPMPushConnectionActive,
 };
 
 /*!
  * @function        IOPMGetValueInt
- * @abstract        For IOKit use only.
+ * @abstract        For IOKit internal use only.
  */
 int IOPMGetValueInt(int selector);
 
 /*!
  * @function        IOPMSetValueInt
- * @abstract        For IOKit use only.
+ * @abstract        For IOKit internal use only.
  */
-void IOPMSetValueInt(int selector, int value);
+IOReturn IOPMSetValueInt(int selector, int value);
 
 
 
@@ -2702,6 +2725,30 @@ IOReturn IOPMSetDWLingerInterval(uint32_t newInterval, uint32_t *oldInterval);
 #define kIOPMDisableAssertionType 0x1
 #define kIOPMEnableAssertionType 0x2
 IOReturn IOPMCtlAssertionType(char *type, int op);
+
+/*!
+ * @constant    kIOPMPerformanceWarningNotificationKey
+ * @abstract    Notify(3) string that PM fires every time there is performance warning change
+ */
+
+#define kIOPMPerformanceWarningNotificationKey      "com.apple.system.power.performance_warning"
+
+/*!
+ * @function    IOPMGetPerformanceWarningLevel
+ * @abstract    Get performance warning level of the system.
+ * @result      An integer pointer declaring the performance warning level of the system.
+ *              The value of the integer is one of (defined in IOPMPrivate.h):
+ *              <ul>
+ *                  <li>kIOPMPerformanceNormal
+ *                  <li>kIOPMPerformanceWarning
+ *              </ul>
+ *              Upon success the performance level value will be found at the
+ *              pointer argument
+ * @result      kIOReturnSuccess, or other error report. Returns kIOReturnNotFound if
+ *              performance warning level has not been published.
+ */
+
+IOReturn IOPMGetPerformanceWarningLevel(uint32_t *perfLevel);
 
 
 /*! @group IOReporting power SPI

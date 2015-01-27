@@ -910,6 +910,7 @@ SOSPeerInfoRef SOSCircleCopyPeerWithID(SOSCircleRef circle, CFStringRef peerid, 
 }
 
 bool SOSCircleHasPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
+    if(!peerInfo) return false;
     return SOSCircleHasPeerWithID(circle, SOSPeerInfoGetPeerID(peerInfo), error);
 }
 
@@ -980,11 +981,10 @@ bool SOSCircleRemoveRetired(SOSCircleRef circle, CFErrorRef *error) {
     return true;
 }
 
-static bool SOSCircleRecordAdmissionRequest(SOSCircleRef circle, SecKeyRef user_pubkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+static bool SOSCircleRecordAdmissionRequest(SOSCircleRef circle, SecKeyRef user_pubkey, SOSPeerInfoRef requestorPeerInfo, CFErrorRef *error) {
     SOSCircleAssertStable(circle);
     
-    SOSPeerInfoRef requestorPeerInfo = SOSFullPeerInfoGetPeerInfo(requestor);
-    bool isPeer = SOSCircleHasPeer(circle, SOSFullPeerInfoGetPeerInfo(requestor), error);
+    bool isPeer = SOSCircleHasPeer(circle, requestorPeerInfo, error);
     
     require_action_quiet(!isPeer, fail, SOSCreateError(kSOSErrorAlreadyPeer, CFSTR("Cannot request admission when already a peer"), NULL, error));
     
@@ -998,12 +998,11 @@ fail:
     
 }
 
-bool SOSCircleRequestReadmission(SOSCircleRef circle, SecKeyRef user_pubkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+bool SOSCircleRequestReadmission(SOSCircleRef circle, SecKeyRef user_pubkey, SOSPeerInfoRef peer, CFErrorRef *error) {
     bool success = false;
     
-    SOSPeerInfoRef peer = SOSFullPeerInfoGetPeerInfo(requestor);
     require_quiet(SOSPeerInfoApplicationVerify(peer, user_pubkey, error), fail);
-    success = SOSCircleRecordAdmissionRequest(circle, user_pubkey, requestor, error);
+    success = SOSCircleRecordAdmissionRequest(circle, user_pubkey, peer, error);
 fail:
     return success;
 }
@@ -1016,7 +1015,7 @@ bool SOSCircleRequestAdmission(SOSCircleRef circle, SecKeyRef user_privkey, SOSF
 
     require(SOSFullPeerInfoPromoteToApplication(requestor, user_privkey, error), fail);
     
-    success = SOSCircleRecordAdmissionRequest(circle, user_pubkey, requestor, error);
+    success = SOSCircleRecordAdmissionRequest(circle, user_pubkey, SOSFullPeerInfoGetPeerInfo(requestor), error);
 fail:
     CFReleaseNull(user_pubkey);
     return success;

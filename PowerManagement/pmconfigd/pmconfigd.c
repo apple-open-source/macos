@@ -138,7 +138,6 @@ static LoginWindowNotifyTokens  lwNotify = {0,0,0,0,0};
 
 static CFStringRef              gConsoleNotifyKey                   = NULL;
 static bool                     gDisplayIsAsleep = false;
-static CFAbsoluteTime           gSleepFromUserWakeTime = 0;
 static struct timeval           gLastSleepTime                      = {0, 0};
 
 static mach_port_t              serverPort                          = MACH_PORT_NULL;
@@ -149,9 +148,6 @@ static int                      _darkWakeThermalEventCount          = 0;
 static dispatch_source_t        gDWTMsgDispatch; /* Darkwake thermal emergency message handler dispatch */
 #endif
 
-#if TCPKEEPALIVE
-extern TCPKeepAliveStruct           *gTCPKeepAlive;
-#endif
 
 // defined by MiG
 extern boolean_t powermanagement_server(mach_msg_header_t *, mach_msg_header_t *);
@@ -405,6 +401,9 @@ static void ioregBatteryMatch(
     }
     InternalEvaluateAssertions();
     InternalEvalConnections();
+#if !TARGET_OS_EMBEDDED
+    evalTcpkaForPSChange();
+#endif
 }
 
 
@@ -431,6 +430,9 @@ static void ioregBatteryInterest(
         SystemLoadBatteriesHaveChanged(batt_stats);
         InternalEvaluateAssertions();
         InternalEvalConnections();
+#if !TARGET_OS_EMBEDDED
+        evalTcpkaForPSChange();
+#endif
     }
 
     return;
@@ -490,15 +492,13 @@ SleepWakeCallback(
 {
 
     BatteryTimeRemainingSleepWakeNotification(messageType);
-    PMSettingsSleepWakeNotification(messageType);
 
     // Log Message to MessageTracer
 
     // Acknowledge message
     switch ( messageType ) {
         case kIOMessageSystemWillSleep:
-            if (isUserActiveRootDomain) {
-                gSleepFromUserWakeTime = CFAbsoluteTimeGetCurrent();
+            if (userActiveRootDomain()) {
                 userActiveHandleSleep();
             }
             // Fall thru
@@ -1134,6 +1134,13 @@ kern_return_t _io_pm_set_value_int(
             *result = kIOReturnNotPrivileged;
         else 
             *result = setReservePwrMode(inValue);
+        break;
+
+#if !TARGET_OS_EMBEDDED
+    case kIOPMPushConnectionActive:
+        setPushConnectionState(inValue ? true:false);
+        break;
+#endif
 
     default:
         break;
@@ -1177,19 +1184,22 @@ kern_return_t _io_pm_get_value_int(
         break;
 #if TCPKEEPALIVE
     case kIOPMTCPKeepAliveExpirationOverride:
-            if (gTCPKeepAlive) {
-                *outValue = gTCPKeepAlive->overrideSec;
-            }
+            *outValue = (int)getTCPKeepAliveOverrideSec();
         break;
             
     case kIOPMTCPKeepAliveIsActive:
-            if (gTCPKeepAlive) {
-                *outValue = (getTCPKeepAliveState(NULL, 0) == kActive) ? true : false;
-            }
+            *outValue = (getTCPKeepAliveState(NULL, 0) == kActive) ? true : false;
             break;
 #endif
-            
+    case kIOPMWakeOnLanIsActive:
+            *outValue = getWakeOnLanState( );
+            break;
+
+    case kIOPMPushConnectionActive:
+        *outValue = getPushConnectionState();
+        break;
 #endif
+
       default:
          *outValue = 0;
          break;

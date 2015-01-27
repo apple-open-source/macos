@@ -39,14 +39,10 @@ typedef enum {
 
 
 typedef struct {
-    int                 qIndex;
-    int                 darkWakesCount;
-    int                 wakeQuota;
-    CFTimeInterval      wakeQuotaInterval;
-    CFAbsoluteTime      *darkWakes;
     long                overrideSec;
     tcpKeepAliveStates_et   state;
     dispatch_source_t   expiration;
+    CFAbsoluteTime      ts_turnoff; // Time at which Keep Aive will be turned off
 } TCPKeepAliveStruct;
 
 /*! getTCPKeepAliveState
@@ -59,9 +55,18 @@ typedef struct {
  *  @result         Returns a state value from enum tcpKeepAliveStates_et
  */
 __private_extern__ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen);
+__private_extern__ long getTCPKeepAliveOverrideSec( );
 
 __private_extern__ void startTCPKeepAliveExpTimer( );
 __private_extern__ void cancelTCPKeepAliveExpTimer( );
-__private_extern__ void startTCPKeepAliveExpTimer( );
-__private_extern__ void cancelTCPKeepAliveExpTimer( );
+__private_extern__ CFTimeInterval getTcpkaTurnOffTime( );
+
+__private_extern__ void enableTCPKeepAlive();
+__private_extern__ void disableTCPKeepAlive();
+__private_extern__ void evalTcpkaForPSChange();
+
+
+__private_extern__ void setPushConnectionState(bool active);
+__private_extern__ bool getPushConnectionState();
+__private_extern__ bool getWakeOnLanState();
 #endif

@@ -93,6 +93,7 @@ protected:
 	uint32_t				 fFadeState;
 	uint32_t				 fFadeStateEnd;
 	uint32_t				 fFadeStateFadeMin;
+	uint32_t				 fFadeStateFadeMax;
 	uint32_t				 fFadeStateFadeDelta;
     uint8_t                  fClamshellSlept;
 	uint8_t					 fDisplayDims;
@@ -443,6 +444,7 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 			if (current > max)   current = max;
 
 			fFadeStateFadeMin   = max - current;
+			fFadeStateFadeMax   = max;
 			fFadeStateFadeDelta = current;
 			if (steps > fFadeStateFadeDelta) steps = fFadeStateFadeDelta;
 
@@ -525,6 +527,11 @@ void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
 		if (fFadeBacklight)
 		{
 			if (!fFadeDown && !point) fade = 0;
+			else if (fFadeStateFadeMax > 0x8000)
+			{
+				fade = fFadeDown ? fFadeStateFadeMax : 0;
+				fFadeBacklight = false;
+			}
 			else
 			{
 				fade = ((point * fFadeStateFadeDelta) / fFadeStateEnd);

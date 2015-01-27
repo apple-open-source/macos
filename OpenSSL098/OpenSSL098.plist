@@ -23,7 +23,7 @@
 	<key>OpenSourceProject</key>
 	<string>OpenSSL</string>
 	<key>OpenSourceVersion</key>
-	<string>0.9.8za</string>
+	<string>0.9.8zc</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.openssl.org/</string>
 </dict>

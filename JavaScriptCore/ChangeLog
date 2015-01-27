@@ -1,3 +1,216 @@
+2014-12-16  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r176399. rdar://problem/19267545
+
+    2014-11-19  Mark Lam  <mark.lam@apple.com>
+
+            WTFCrashWithSecurityImplication under SpeculativeJIT::compile() when loading a page from theblaze.com.
+            <https://webkit.org/b/137642>
+
+            Reviewed by Filip Pizlo.
+
+            In the DFG, we have a ConstantFolding phase that occurs after all LocalCSE
+            phases have already transpired.  Hence, Identity nodes introduced in the
+            ConstantFolding phase will be left in the node graph.  Subsequently, the
+            DFG code generator asserts that CSE phases have consumed all Identity nodes.
+            This turns out to not be true.  Hence, the crash.  We fix this by teaching
+            the DFG code generator to emit code for Identity nodes.
+
+            Unlike the DFG, the FTL does not have this issue.  That is because the FTL
+            plan has GlobalCSE phases that come after ConstantFolding and any other
+            phases that can generate Identity nodes.  Hence, for the FTL, it is true that
+            CSE will consume all Identity nodes, and the code generator should not see any
+            Identity nodes.
+
+            * dfg/DFGSpeculativeJIT32_64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+
+2014-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r176972. <rdar://problem/19196762>
+
+    2014-12-08  Mark Lam  <mark.lam@apple.com>
+
+            CFA wrongly assumes that a speculation for SlowPutArrayStorageShape disallows ArrayStorageShape arrays.
+            <https://webkit.org/b/139327>
+
+            Reviewed by Michael Saboff.
+
+            The code generator and runtime slow paths expects otherwise.  This patch fixes
+            CFA to match the code generator's expectation.
+
+            * dfg/DFGArrayMode.h:
+            (JSC::DFG::ArrayMode::arrayModesThatPassFiltering):
+            (JSC::DFG::ArrayMode::arrayModesWithIndexingShapes):
+
+
+2014-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r175653. <rdar://problem/19196762>
+
+    2014-11-05  Mark Lam  <mark.lam@apple.com>
+
+            PutById inline caches should have a store barrier when it triggers a structure transition.
+            <https://webkit.org/b/138441>
+
+            Reviewed by Geoffrey Garen.
+
+            After r174025, we no longer insert DFG store barriers when the payload of a
+            PutById operation is not a cell.  However, this can lead to a crash when we have
+            PutById inline cache code transitioning the structure and re-allocating the
+            butterfly of an old gen object.  The lack of a store barrier in that inline
+            cache results in the old gen object not being noticed during an eden GC scan.
+            As a result, its newly allocated butterfly will not be kept alive, which leads
+            to a stale butterfly pointer and, eventually, a crash.
+
+            It is also possible that the new structure can be collected by the eden GC if
+            (at GC time):
+            1. It is in the eden gen.
+            2. The inline cache that installed it has been evicted.
+            3. There are no live eden gen objects referring to it.
+
+            The chances of this should be more rare than the butterfly re-allocation, but
+            it is still possible.  Hence, the fix is to always add a store barrier if the
+            inline caches performs a structure transition.
+
+            * jit/Repatch.cpp:
+            (JSC::emitPutTransitionStub):
+            - Added store barrier code based on SpeculativeJIT::storeToWriteBarrierBuffer()'s
+              implementation.
+
+
+2014-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r175593. <rdar://problem/19196762>
+
+    2014-11-04  Mark Lam  <mark.lam@apple.com>
+
+            Rename checkMarkByte() to jumpIfIsRememberedOrInEden().
+            <https://webkit.org/b/138369>
+
+            Reviewed by Geoffrey Garen.
+
+            Write barriers are needed for GC Eden collections so that we can scan pointers
+            pointing from old generation objects to eden generation objects.  The barrier
+            currently checks the mark byte in a cell to see if we should skip adding the
+            cell to the GC remembered set.  The addition should be skipped if:
+
+            1. The cell is in the young generation.  It has no old to eden pointers by
+               definition.
+            2. The cell is already in the remembered set.  While it is ok to add the cell
+               to the GC remembered set more than once, it would be redundant.  Hence,
+               we skip this as an optimization to avoid doing unnecessary work.
+
+            The barrier currently names this check as checkMarkByte().  We should rename it
+            to jumpIfIsRememberedOrInEden() to be clearer about its intent.
+
+            Similarly, Jump results of this check are currently named
+            ownerNotMarkedOrAlreadyRemembered.  This can be misinterpreted as the owner is
+            not marked or not already remembered.  We should rename it to
+            ownerIsRememberedOrInEden which is clearer about the intent of the
+            check.  What we are really checking for is that the cell is in the eden gen,
+            which is implied by it being "not marked".
+
+            * dfg/DFGOSRExitCompilerCommon.cpp:
+            (JSC::DFG::osrWriteBarrier):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::writeBarrier):
+            * dfg/DFGSpeculativeJIT32_64.cpp:
+            (JSC::DFG::SpeculativeJIT::writeBarrier):
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::writeBarrier):
+            * jit/AssemblyHelpers.h:
+            (JSC::AssemblyHelpers::jumpIfIsRememberedOrInEden):
+            (JSC::AssemblyHelpers::checkMarkByte): Deleted.
+            * jit/JITPropertyAccess.cpp:
+            (JSC::JIT::emitWriteBarrier):
+            * llint/LowLevelInterpreter.asm:
+            * llint/LowLevelInterpreter32_64.asm:
+            * llint/LowLevelInterpreter64.asm:
+            * runtime/JSCell.h:
+
+
+2014-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r175243. <rdar://problem/19196762>
+
+    2014-10-27  Mark Lam  <mark.lam@apple.com>
+
+            Crash when attempting to perform array iteration on a non-array with numeric keys not initialized.
+            <https://webkit.org/b/137814>
+
+            Reviewed by Geoffrey Garen.
+
+            The arrayIteratorNextThunkGenerator() thunk was not checking for the case where
+            the butterfly may be NULL.  This was the source of the crash, and is now fixed.
+
+            In addition, it is also not checking for the case where a property named "length"
+            may have been set on the iterated object.  The thunk only checks the butterfly's
+            publicLength for its iteration operation.  Array objects will work fine with this
+            because it always updates its butterfly's publicLength when its length changes.
+            In the case of iterable non-Array objects, the "length" property will require a
+            look up outside of the scope of this thunk.  The fix is simply to limit the fast
+            case checks in this thunk to Array objects.
+
+            * jit/ThunkGenerators.cpp:
+            (JSC::arrayIteratorNextThunkGenerator):
+
+
+2014-12-04  Dana Burkart  <dburkart@apple.com>
+
+        Merge r176803. <rdar://problem/19034499>
+
+    2014-12-04  Oliver Hunt  <oliver@apple.com>
+
+            Serialization of MapData object provides unsafe access to internal types
+            https://bugs.webkit.org/show_bug.cgi?id=138653
+
+            Reviewed by Geoffrey Garen.
+
+            Converting these ASSERTs into RELEASE_ASSERTs, as it is now obvious
+            that despite trying hard to be safe in all cases it's simply to easy
+            to use an iterator in an unsafe state.
+
+            * runtime/MapData.h:
+            (JSC::MapData::const_iterator::key):
+            (JSC::MapData::const_iterator::value):
+
+
+2014-11-05  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r175629. <rdar://problem/18883540>
+
+    2014-11-05  Alexey Proskuryakov  <ap@apple.com>
+    
+            Incorrect sandbox_check in RemoteInspector.mm
+            https://bugs.webkit.org/show_bug.cgi?id=138408
+    
+            Reviewed by Joseph Pecoraro.
+    
+            * inspector/remote/RemoteInspector.mm:
+            (Inspector::canAccessWebInspectorMachPort):
+    
+
+2014-10-21  Dana Burkart  <dburkart@apple.com>
+
+        Merge r173238
+
+    2014-09-03  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Avoid warning if a process does not have access to com.apple.webinspector
+            https://bugs.webkit.org/show_bug.cgi?id=136473
+
+            Reviewed by Alexey Proskuryakov.
+
+            Pre-check for access to the mach port to avoid emitting warnings
+            in syslog for processes that do not have access.
+
+            * inspector/remote/RemoteInspector.mm:
+            (Inspector::canAccessWebInspectorMachPort):
+            (Inspector::RemoteInspector::shared):
+
 2014-08-21  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r172707. <rdar://problem/18043281>

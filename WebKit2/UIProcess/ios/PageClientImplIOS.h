@@ -96,7 +96,7 @@ private:
 #endif
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) override;
     virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*) override;
-    virtual void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut, bool animate) override;
+    virtual void setTextIndicator(PassRefPtr<WebCore::TextIndicator>, bool fadeOut) override;
 
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&) override;
     virtual void exitAcceleratedCompositingMode() override;
@@ -178,6 +178,8 @@ private:
     virtual void didFirstVisuallyNonEmptyLayoutForMainFrame() override;
     virtual void didFinishLoadForMainFrame() override;
     virtual void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override;
+
+    virtual void didPerformActionMenuHitTest(const ActionMenuHitTestResult&) override;
 
     WKContentView *m_contentView;
     WKWebView *m_webView;

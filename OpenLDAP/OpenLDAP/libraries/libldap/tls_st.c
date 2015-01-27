@@ -1009,14 +1009,18 @@ tlsst_ctx_init(struct ldapoptions *lo, struct ldaptls *lt, int is_server)
 
 	if (lo->ldo_tls_protocol_min) {
 		ctx->protocol_min = tlsst_protocol_map_ldap2st(lo->ldo_tls_protocol_min, is_server ? "TLSProtocolMin" : "TLS_PROTOCOL_MIN");
-		if (ctx->protocol_min == kSSLProtocolUnknown)
+		if (ctx->protocol_min == kSSLProtocolUnknown) {
 			return -1;
-		else if (ctx->protocol_min == kSSLProtocol2) {
+		} else if (ctx->protocol_min == kSSLProtocol2) {
 			syslog(LOG_ERR, "TLS: SSLv2 is no longer supported (check %s setting)", is_server ? "TLSProtocolMin" : "TLS_PROTOCOL_MIN");
 			return -1;
+		} else if (ctx->protocol_min == kSSLProtocol3) {
+			syslog(LOG_ERR, "TLS: SSLv3 is no longer supported (check %s setting)", is_server ? "TLSProtocolMin" : "TLS_PROTOCOL_MIN");
+			return -1;
 		}
-	} else
-		ctx->protocol_min = kSSLProtocolUnknown;
+	} else {
+		ctx->protocol_min = kTLSProtocol1;
+	}
 	ctx->require_cert = lo->ldo_tls_require_cert;
 	ctx->crl_check = lo->ldo_tls_crlcheck;
 	ctx->ciphers = tlsst_ciphers_get(lo->ldo_tls_ciphersuite, &ctx->ciphers_count, is_server ? "TLSCipherSuite" : "TLS_CIPHER_SUITE");

@@ -16,9 +16,7 @@
 		<string>Fix off-by-1 error in compact_jobs_list</string>
 		<string>Do not rl_forward_char past rl_end</string>
 		<string>Do not echo \e as ESC when in posix mode</string>
-		<string>Update to patch 52 for CVE-2014-6271</string>	
-		<string>Wrap/unwrap function exports/imports</string>
-		<string>Update to patch 53 for CVE-2014-7169</string>	
+		<string>Update to patchlevel 57 for CVE-2014-6271 & friends</string>	
 	</array>
 	<key>OpenSourceProject</key>
 	<string>bash</string>

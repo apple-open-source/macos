@@ -24,7 +24,6 @@
  */
 
 #import "WKViewPrivate.h"
-
 #import "PluginComplexTextInputState.h"
 #import "SameDocumentNavigationType.h"
 #import "WebFindOptions.h"
@@ -38,18 +37,23 @@ namespace IPC {
 class DataReference;
 }
 
+namespace API {
+class Object;
+}
+
 namespace WebCore {
 class Image;
 class SharedBuffer;
+class TextIndicator;
 struct KeypressCommand;
 }
 
 namespace WebKit {
 class DrawingAreaProxy;
-class FindIndicator;
 class LayerTreeContext;
 class ViewSnapshot;
 class WebContext;
+struct ActionMenuHitTestResult;
 struct ColorSpaceData;
 struct EditorState;
 struct WebPageConfiguration;
@@ -79,7 +83,8 @@ struct WebPageConfiguration;
 - (void)_setIntrinsicContentSize:(NSSize)intrinsicContentSize;
 - (NSRect)_convertToDeviceSpace:(NSRect)rect;
 - (NSRect)_convertToUserSpace:(NSRect)rect;
-- (void)_setFindIndicator:(PassRefPtr<WebKit::FindIndicator>)findIndicator fadeOut:(BOOL)fadeOut animate:(BOOL)animate;
+- (void)_setTextIndicator:(PassRefPtr<WebCore::TextIndicator>)textIndicator fadeOut:(BOOL)fadeOut;
+- (void)_setTextIndicatorAnimationProgress:(float)progress;
 
 - (void)_setAcceleratedCompositingModeRootLayer:(CALayer *)rootLayer;
 - (CALayer *)_acceleratedCompositingModeRootLayer;
@@ -123,5 +128,13 @@ struct WebPageConfiguration;
 @property (readonly) BOOL _hasFullScreenWindowController;
 @property (readonly) WKFullScreenWindowController *_fullScreenWindowController;
 - (void)_closeFullScreenWindowController;
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+- (void)_didPerformActionMenuHitTest:(const WebKit::ActionMenuHitTestResult&)hitTestResult forImmediateAction:(BOOL)forImmediateAction userData:(API::Object*)userData;
+#endif
+
+@property (nonatomic, retain, setter=_setPrimaryTrackingArea:) NSTrackingArea *_primaryTrackingArea;
+
+@property (readonly) NSWindow *_targetWindowForMovePreparation;
 
 @end

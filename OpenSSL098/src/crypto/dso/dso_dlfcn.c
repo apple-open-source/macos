@@ -355,19 +355,19 @@ static char *dlfcn_name_converter(DSO *dso, const char *filename)
 	if(transform)
 		{
 #if __APPLE__
-		/* <rdar://problem/6090756> 098 Should load versioned libraries */
+		    /* <rdar://problem/6090756> 098 Should load versioned libraries */
 
-		/* We will convert this to "%s.1.so" or "lib%s.1.so" */
-		rsize += 5;	/* The length of ".1.so" */
-		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
-			rsize += DSO_extlen; /* The length of "lib" */
-		}
+		    /* We will convert this to "%s.1.so" or "lib%s.1.so" */
+		    rsize += 5;     /* The length of ".1.so" */
+		    if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
+                        rsize += DSO_extlen; /* The length of "lib" */
+                }
 #else
-		/* We will convert this to "%s.so" or "lib%s.so" etc */
-		rsize += DSO_extlen;	/* The length of ".so" */
-		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
-			rsize += 3; /* The length of "lib" */
-		}
+	/* We will convert this to "%s.so" or "lib%s.so" etc */
+	rsize += DSO_extlen;    /* The length of ".so" */
+	if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
+	    rsize += 3; /* The length of "lib" */
+	}
 #endif
 	translated = OPENSSL_malloc(rsize);
 	if(translated == NULL)
@@ -379,12 +379,12 @@ static char *dlfcn_name_converter(DSO *dso, const char *filename)
 	if(transform)
 		{
 #if __APPLE__
-		/* <rdar://problem/6090756> 098 Should load versioned libraries */
-		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
-			snprintf(translated, rsize, "lib%s.1.so", filename);
-		else
-			snprintf(translated, rsize, "%s.1.so", filename);
-		}
+		    /* <rdar://problem/6090756> 098 Should load versioned libraries */
+		    if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
+                        snprintf(translated, rsize, "lib%s.1.so", filename);
+		    else
+                        snprintf(translated, rsize, "%s.1.so", filename);
+                }
 #else
 		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
 			sprintf(translated, "lib%s" DSO_ext, filename);

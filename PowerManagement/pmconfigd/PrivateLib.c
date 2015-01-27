@@ -2005,6 +2005,52 @@ __private_extern__ void logASLDisplayStateChange()
     }
 #endif
 }
+
+__private_extern__ void logASLPerforamceState(int perfState)
+{
+    aslmsg m;
+    char buf[128];
+
+
+    m = new_msg_pmset_log();
+    asl_set(m, kPMASLDomainKey, kPMASLDomainPerformanceEvent);
+
+    // UUID
+    if (_getUUIDString(buf, sizeof(buf))) {
+        asl_set(m, kPMASLUUIDKey, buf);
+    }
+
+   snprintf(buf, sizeof(buf), "Performance State is %d", perfState);
+
+    asl_set(m, ASL_KEY_MSG, buf);
+    asl_send(NULL, m);
+    asl_release(m);
+
+
+}
+
+__private_extern__ void logASLThermalState(int thermalState)
+{
+    aslmsg m;
+    char buf[128];
+
+
+    m = new_msg_pmset_log();
+    asl_set(m, kPMASLDomainKey, kPMASLDomainThermalEvent);
+
+    // UUID
+    if (_getUUIDString(buf, sizeof(buf))) {
+        asl_set(m, kPMASLUUIDKey, buf);
+    }
+
+   snprintf(buf, sizeof(buf), "Thermal State is %d", thermalState);
+
+    asl_set(m, ASL_KEY_MSG, buf);
+    asl_send(NULL, m);
+    asl_release(m);
+
+
+}
 #endif
 
 __private_extern__ void logASLMessagePMConnectionResponse(
@@ -2311,7 +2357,7 @@ __private_extern__ void logASLMessageIgnoredDWTEmergency(void)
     attachTCPKeepAliveKeys(m, tcpKeepAliveString, sizeof(tcpKeepAliveString));
 #endif
     
-    asl_set(m, kPMASLDomainKey, kPMASLDomainDWTEmergency);
+    asl_set(m, kPMASLDomainKey, kPMASLDomainThermalEvent);
 
     snprintf(
         strbuf,
@@ -3347,19 +3393,257 @@ static IOReturn _smcWriteKey(
 static IOReturn _smcReadKey(
     uint32_t key,
     uint8_t *outBuf,
-    uint8_t *outBufMax);
+    uint8_t *outBufMax,
+    bool byteSwap);
 
 #endif
 
-/************************************************************************/
-__private_extern__ IOReturn _getACAdapterInfo(
-    uint64_t *val)
+/* Legacy format */
+
+#define kACCRCBit               56  // size 8
+#define kACIDBit                44  // size 12
+#define kACPowerBit             36  // size 8
+#define kACRevisionBit          32  // size 4
+#define kACSerialBit            8   // size 24
+#define kACFamilyBit            0   // size 8
+
+/* New format (intro'd in Jan 2012) */
+
+//#define kACCRCBit             56   // 8 bits, same as in legacy
+#define kACCurrentIdBit         48   // 8 bits
+//#define kACCommEnableBit      45   // 1 bit; doesn't contain meaningful information
+#define kACSourceIdBit          44   // 3 bits
+//#define kACPowerBit           36   // 8 bits, same as in legacy
+#define kACVoltageIDBit         33   // 3 bits
+//#define kACSerialBit          8    // 25 bits
+//#define kACFamilyBit          0    // 8 bits, same as in legacy
+
+#define k3BitMask       0x7
+
+
+
+static void stuffInt32(CFMutableDictionaryRef d, CFStringRef k, uint32_t n)
 {
+    CFNumberRef stuffNum = NULL;
+    if ((stuffNum = CFNumberCreate(0, kCFNumberSInt32Type, &n)))
+    {
+        CFDictionarySetValue(d, k, stuffNum);
+        CFRelease(stuffNum);
+    }
+}
+
+static void stuffString(CFMutableDictionaryRef d, CFStringRef k, char *str)
+{
+    CFStringRef  strRef = NULL;
+
+    if ((strRef = CFStringCreateWithCString(0, str, kCFStringEncodingUTF8))) {
+        CFDictionarySetValue(d, k, strRef);
+        CFRelease(strRef);
+    }
+
+}
+
 #if !TARGET_OS_EMBEDDED
-    uint8_t readKeyLen = 8;
-    return _smcReadKey('ACID', (void *)val, &readKeyLen);
+static IOReturn  populateAcidData(uint64_t acBits, CFMutableDictionaryRef acDict)
+{
+    int                             j = 0;
+
+    struct AdapterAttributes{
+        uint32_t        valCommEn;
+        uint32_t        valVoltageID;
+        uint32_t        valID;
+        uint32_t        valPower;
+        uint32_t        valRevision;
+        uint32_t        valSerial;
+        uint32_t        valFamily;
+        uint32_t        valCurrent;
+        uint32_t        valSource;
+    } info;
+
+
+    // Decode SMC key
+    info.valID              = (acBits >> kACIDBit) & 0xFFF;
+    info.valFamily          = (acBits >> kACFamilyBit) & 0xFF;
+    info.valPower           = (acBits >> kACPowerBit) & 0xFF;
+    if ( (info.valSource    = (acBits >> kACSourceIdBit) & k3BitMask))
+    {
+        // New format
+        info.valSerial      = (acBits >> kACSerialBit) & 0x1FFFFFF;
+        info.valCurrent     = ((acBits >> kACCurrentIdBit) & 0xFF) * 25;
+        info.valVoltageID   = (acBits >> kACVoltageIDBit) & k3BitMask;
+    } else {
+        // Legacy format
+        info.valSerial      = (acBits >> kACSerialBit) & 0xFFFFFF;
+        info.valRevision    = (acBits >> kACRevisionBit) & 0xF;
+    }
+
+    // Publish values in dictionary
+
+    if (info.valSource) {
+        // New format
+        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), info.valCurrent);
+        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterSourceKey), info.valSource);
+
+    }
+    else {
+        // Legacy format
+        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterRevisionKey), info.valRevision);
+    }
+
+    if (0 != info.valPower) {
+        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterWattsKey), info.valPower);
+    }
+
+    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterIDKey), info.valID);
+    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterSerialNumberKey), info.valSerial);
+    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterFamilyKey), info.valFamily);
+
+    return kIOReturnSuccess;
+}
+
+#endif
+
+
+/************************************************************************/
+__private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
+{
+    IOReturn ret;
+    static bool supportsACID = false;
+
+
+#if !TARGET_OS_EMBEDDED
+    uint64_t acBits;
+    uint8_t readKeyLen;
+    CFMutableDictionaryRef          acDict = NULL;
+
+    if (supportsACID && oldACDict) {
+        /* No need to re-read the data on ACID supported systems */
+        return NULL;
+    }
+
+    readKeyLen = sizeof(acBits);
+    ret =  _smcReadKey('ACID', (void *)&acBits, &readKeyLen, false);
+    if (ret == kIOReturnSuccess) {
+        supportsACID = true;
+        acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (!acDict) {
+            return NULL;
+        }
+        ret = populateAcidData(acBits, acDict);
+    }
+    else if (ret == kIOReturnNotFound) {
+        supportsACID = false;
+
+        int32_t current, nominalV, minV, maxV, watts;
+        char  str[33];
+
+        current = nominalV = minV =  maxV = watts = 0;
+        readKeyLen = sizeof(current);
+        ret = _smcReadKey('D0IR', (void *)&current, &readKeyLen, true);
+        if ((ret != kIOReturnSuccess) || (current == 0)) {
+
+            asl_log(0,0,ASL_LEVEL_ERR, "Failed to read current rating(0x%x)\n", ret);
+            return NULL;
+        }
+
+        if (isA_CFDictionary(oldACDict)) {
+            int32_t prevCurrent;
+            CFNumberRef prevCurrentRef = NULL;
+
+            prevCurrentRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSPowerAdapterCurrentKey));
+            if (isA_CFNumber(prevCurrentRef) && 
+                CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevCurrent) &&
+                (current == prevCurrent)
+                ) {
+                /* 
+                 * There is no change in prev values and current values.
+                 * No need to read remaining keys
+                 */
+                return NULL;
+            }
+        }
+
+        acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (!acDict) {
+            return NULL;
+        }
+        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), current);
+
+        _smcReadKey('D0VR', (void *)&nominalV, &readKeyLen, true);
+        _smcReadKey('D0VM', (void *)&minV, &readKeyLen, true);
+        _smcReadKey('D0VX', (void *)&maxV, &readKeyLen, true);
+        if ((nominalV == minV) && (maxV != 0)) {
+            watts = (current * maxV)/(1000*1000);
+            stuffInt32(acDict, CFSTR(kIOPSVoltageKey), maxV);
+        }
+        else if (nominalV != 0) {
+            watts = (current * nominalV)/(1000*1000);
+            stuffInt32(acDict, CFSTR(kIOPSVoltageKey), nominalV);
+        }
+
+        if (watts) {
+            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterWattsKey), watts);
+        }
+
+
+        readKeyLen = sizeof(str);
+        bzero(str, sizeof(str));
+        ret = _smcReadKey('D0is', (void *)&str, &readKeyLen, false);
+        if (ret == kIOReturnSuccess) {
+            stuffString(acDict, CFSTR(kIOPSPowerAdapterSerialStringKey), str);
+        }
+
+        readKeyLen = sizeof(str);
+        bzero(str, sizeof(str));
+        ret = _smcReadKey('D0if', (void *)&str, &readKeyLen, false);
+        if (ret == kIOReturnSuccess) {
+            stuffString(acDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey), str);
+        }
+
+        readKeyLen = sizeof(str);
+        bzero(str, sizeof(str));
+        ret = _smcReadKey('D0ih', (void *)&str, &readKeyLen, false);
+        if (ret == kIOReturnSuccess) {
+            stuffString(acDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey), str);
+        }
+
+        readKeyLen = sizeof(str);
+        bzero(str, sizeof(str));
+        ret = _smcReadKey('D0ii', (void *)&str, &readKeyLen, false);
+        if (ret == kIOReturnSuccess) {
+            uint32_t id = 0;
+            id = strtol(str, 0, 0);
+            if (id != 0) {
+                stuffInt32(acDict, CFSTR(kIOPSPowerAdapterIDKey), id);
+            }
+
+        }
+
+        readKeyLen = sizeof(str);
+        bzero(str, sizeof(str));
+        ret = _smcReadKey('D0im', (void *)&str, &readKeyLen, false);
+        if (ret == kIOReturnSuccess) {
+            uint32_t id = 0;
+            id = strtol(str, 0, 0);
+            if (id != 0) {
+                stuffInt32(acDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey), id);
+            }
+        }
+
+        readKeyLen = sizeof(str);
+        bzero(str, sizeof(str));
+        ret = _smcReadKey('D0in', (void *)&str, &readKeyLen, false);
+        if (ret == kIOReturnSuccess) {
+            stuffString(acDict, CFSTR(kIOPSPowerAdapterNameKey), str);
+        }
+
+    }
+    return acDict;
+
 #else
-    return kIOReturnNotReadable;
+    return NULL;
 #endif
 }
 /************************************************************************/
@@ -3396,7 +3680,7 @@ __private_extern__ IOReturn _smcWakeTimerGetResults(uint16_t *mSec)
     uint8_t     size = 2;
     uint8_t     buf[2];
     IOReturn    ret;
-    ret = _smcReadKey('CLWK', buf, &size);
+    ret = _smcReadKey('CLWK', buf, &size, true);
 
     if (kIOReturnSuccess == ret) {
         *mSec = buf[0] | (buf[1] << 8);
@@ -3412,7 +3696,7 @@ bool smcSilentRunningSupport(void)
     static IOReturn    ret = kIOReturnInvalid;
 
     if (ret != kIOReturnSuccess) {
-       ret = _smcReadKey('WKTP', buf, &size);
+       ret = _smcReadKey('WKTP', buf, &size, true);
     }
 
     if (kIOReturnSuccess == ret) {
@@ -3491,7 +3775,8 @@ exit:
 static IOReturn _smcReadKey(
     uint32_t key,
     uint8_t *outBuf,
-    uint8_t *outBufMax)
+    uint8_t *outBufMax, 
+    bool byteSwap)
 {
     SMCParamStruct  stuffMeIn;
     SMCParamStruct  stuffMeOut;
@@ -3543,7 +3828,7 @@ static IOReturn _smcReadKey(
     // NOT need to be byte-swapped.
     for (i=0; i<*outBufMax; i++)
     {
-        if ('ACID' == key)
+        if (!byteSwap)
         {
             // Do not byte swap
             outBuf[i] = stuffMeOut.bytes[i];

@@ -45,6 +45,7 @@ IOHIDEventQueue * IOHIDEventQueue::withCapacity( UInt32 size )
     {
         queue->release();
         queue = 0;
+        goto exit;
     }
 
     queue->_state               = 0;
@@ -52,7 +53,8 @@ IOHIDEventQueue * IOHIDEventQueue::withCapacity( UInt32 size )
     queue->_numEntries          = size / DEFAULT_HID_ENTRY_SIZE;
     queue->_currentEntrySize    = DEFAULT_HID_ENTRY_SIZE;
     queue->_maxEntrySize        = DEFAULT_HID_ENTRY_SIZE;
-    
+   
+exit: 
     return queue;
 }
 

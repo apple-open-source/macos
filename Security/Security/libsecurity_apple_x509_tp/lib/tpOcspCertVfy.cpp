@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2004,2011-2012,2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,11 +32,15 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <security_ocspd/ocspdUtils.h>
 
+#ifndef	NDEBUG
+#include <Security/SecCertificate.h>
+#endif
+
 /*
  * Is signerCert authorized to sign OCSP responses by issuerCert? IssuerCert is
- * assumed to be (i.e., must, but we don't check that here) the signer of the 
+ * assumed to be (i.e., must, but we don't check that here) the signer of the
  * cert being verified, which is not in the loop for this op. Just a bool returned;
- * it's autoritized or it's not. 
+ * it's authorized or it's not.
  */
 static bool tpIsAuthorizedOcspSigner(
 	TPCertInfo &issuerCert,		// issuer of cert being verified
@@ -47,28 +51,67 @@ static bool tpIsAuthorizedOcspSigner(
 	bool				ourRtn = false;
 	CE_ExtendedKeyUsage *eku = NULL;
 	bool				foundEku = false;
-	
-	/* 
+
+	/*
 	 * First see if issuerCert issued signerCert (No signature vfy yet, just
 	 * subject/issuer check).
 	 */
 	if(!issuerCert.isIssuerOf(signerCert)) {
+#ifndef	NDEBUG
+		SecCertificateRef issuerRef = NULL;
+		SecCertificateRef signerRef = NULL;
+		const CSSM_DATA *issuerData = issuerCert.itemData();
+		const CSSM_DATA *signerData = signerCert.itemData();
+		crtn = SecCertificateCreateFromData(issuerData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER, &issuerRef);
+		crtn = SecCertificateCreateFromData(signerData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER, &signerRef);
+		CFStringRef issuerName = SecCertificateCopySubjectSummary(issuerRef);
+		CFStringRef signerName = SecCertificateCopySubjectSummary(signerRef);
+		if(issuerName) {
+			CFIndex maxLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(issuerName), kCFStringEncodingUTF8) + 1;
+			char* buf = (char*) malloc(maxLength);
+			if (buf) {
+				if (CFStringGetCString(issuerName, buf, (CFIndex)maxLength, kCFStringEncodingUTF8)) {
+					tpOcspDebug("tpIsAuthorizedOcspSigner: issuerCert \"%s\"", buf);
+				}
+				free(buf);
+			}
+			CFRelease(issuerName);
+		}
+		if(signerName) {
+			CFIndex maxLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(signerName), kCFStringEncodingUTF8) + 1;
+			char* buf = (char*) malloc(maxLength);
+			if (buf) {
+				if (CFStringGetCString(signerName, buf, (CFIndex)maxLength, kCFStringEncodingUTF8)) {
+					tpOcspDebug("tpIsAuthorizedOcspSigner: signerCert \"%s\"", buf);
+				}
+				free(buf);
+			}
+			CFRelease(signerName);
+		}
+		if(issuerRef) {
+			CFRelease(issuerRef);
+		}
+		if(signerRef) {
+			CFRelease(signerRef);
+		}
+#endif
+		tpOcspDebug("tpIsAuthorizedOcspSigner: signer is not issued by issuerCert");
 		return false;
 	}
-	
+
 	/* Fetch ExtendedKeyUse field from signerCert */
 	crtn = signerCert.fetchField(&CSSMOID_ExtendedKeyUsage, &fieldValue);
 	if(crtn) {
 		tpOcspDebug("tpIsAuthorizedOcspSigner: signer is issued by issuer, no EKU");
 		return false;
-	}	
+	}
 	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)fieldValue->Data;
 	if(cssmExt->format != CSSM_X509_DATAFORMAT_PARSED) {
 		tpOcspDebug("tpIsAuthorizedOcspSigner: bad extension format");
 		goto errOut;
 	}
 	eku = (CE_ExtendedKeyUsage *)cssmExt->value.parsedValue;
-	
+
 	/* Look for OID_KP_OCSPSigning */
 	for(unsigned dex=0; dex<eku->numPurposes; dex++) {
 		if(tpCompareCssmData(&eku->purposes[dex], &CSSMOID_OCSPSigning)) {
@@ -82,9 +125,9 @@ static bool tpIsAuthorizedOcspSigner(
 		goto errOut;
 	}
 
-	/* 
-	 * OK, signerCert is authorized by *someone* to sign OCSP requests, and 
-	 * it claims to be issued by issuer. Sig verify to be sure. 
+	/*
+	 * OK, signerCert is authorized by *someone* to sign OCSP requests, and
+	 * it claims to be issued by issuer. Sig verify to be sure.
 	 * FIXME this is not handling partial public keys, which would be a colossal
 	 * mess to handle in this module...so we don't.
 	 */
@@ -104,8 +147,8 @@ errOut:
 	return ourRtn;
 }
 
-/* 
- * Check ResponderID linkage between an OCSPResponse and a cert we believe to 
+/*
+ * Check ResponderID linkage between an OCSPResponse and a cert we believe to
  * be the issuer of both that response and the cert being verified. Returns
  * true if OK.
  */
@@ -116,14 +159,14 @@ bool tpOcspResponderIDCheck(
 {
 	bool shouldBeSigner = false;
 	if(ocspResp.responderIDTag() == RIT_Name) {
-		/* 
+		/*
 		 * Name inside response must == signer's SubjectName.
 		 * Note we can't use signer.subjectName(); that's normalized.
 		 */
 
 		const CSSM_DATA *respIdName = ocspResp.encResponderName();
 		CSSM_DATA *subjectName = NULL;
-		CSSM_RETURN crtn = signer.fetchField(&CSSMOID_X509V1SubjectNameStd, 
+		CSSM_RETURN crtn = signer.fetchField(&CSSMOID_X509V1SubjectNameStd,
 			&subjectName);
 		if(crtn) {
 			/* bad cert */
@@ -141,11 +184,13 @@ bool tpOcspResponderIDCheck(
 	}
 	else {
 		/* ResponderID.byKey must == SHA1(signer's public key) */
-		const CSSM_KEY *pubKey = signer.pubKey();
+		const CSSM_KEY_PTR pubKey = signer.pubKey();
 		assert(pubKey != NULL);
 		uint8 digest[CC_SHA1_DIGEST_LENGTH];
 		CSSM_DATA keyHash = {CC_SHA1_DIGEST_LENGTH, digest};
-		ocspdSha1(pubKey->KeyData.Data, (CC_LONG)pubKey->KeyData.Length, digest);
+		CSSM_DATA pubKeyBytes = {0, NULL};
+		ocspdGetPublicKeyBytes(NULL, pubKey, pubKeyBytes);
+		ocspdSha1(pubKeyBytes.Data, (CC_LONG)pubKeyBytes.Length, digest);
 		const CSSM_DATA *respKeyHash = &ocspResp.responderID().byKey;
 		if(tpCompareCssmData(&keyHash, respKeyHash)) {
 			tpOcspDebug("tpOcspResponderIDCheck: good ResponderID.byKey");
@@ -159,9 +204,9 @@ bool tpOcspResponderIDCheck(
 }
 
 /*
- * Verify the signature of an OCSP response. Caller is responsible for all other 
+ * Verify the signature of an OCSP response. Caller is responsible for all other
  * verification of the response, this is just the crypto.
- * Returns true on success. 
+ * Returns true on success.
  */
 static bool tpOcspResponseSigVerify(
 	TPVerifyContext		&vfyCtx,
@@ -172,18 +217,18 @@ static bool tpOcspResponseSigVerify(
 	const SecAsn1OCSPBasicResponse &basicResp = ocspResp.basicResponse();
 	const CSSM_OID *algOid = &basicResp.algId.algorithm;
 	CSSM_ALGORITHMS sigAlg;
-	
+
 	if(!cssmOidToAlg(algOid, &sigAlg)) {
 		tpOcspDebug("tpOcspResponseSigVerify: unknown signature algorithm");
 	}
-	
+
 	/* signer's public key from the cert */
 	const CSSM_KEY *pubKey = signer.pubKey();
-	
+
 	/* signature: on decode, length is in BITS */
 	CSSM_DATA sig = basicResp.sig;
 	sig.Length /= 8;
-	
+
 	CSSM_RETURN crtn;
 	CSSM_CC_HANDLE sigHand;
 	bool ourRtn = false;
@@ -220,14 +265,14 @@ typedef enum {
 typedef enum {
 	OCT_Local,		// LocalResponder - no checking other than signature
 	OCT_Issuer,		// it's the issuer of the cert being verified
-	OCT_Provided,	// came with response, provenance unknown 
+	OCT_Provided,	// came with response, provenance unknown
 } OcspCertType;
 
 /*
- * Did specified cert issue the OCSP response? 
+ * Did specified cert issue the OCSP response?
  *
  * This implements the algorithm described in RFC2560, section 4.2.2.2,
- * "Authorized Responders". It sees if the cert could be the issuer of the 
+ * "Authorized Responders". It sees if the cert could be the issuer of the
  * OCSP response per that algorithm; then if it could, it performs signature
  * verification.
  */
@@ -237,12 +282,12 @@ static OcspIssuerStatus tpIsOcspIssuer(
 	/* on input specify at least one of the following two */
 	const CSSM_DATA		*signerData,
 	TPCertInfo			*signer,
-	OcspCertType		certType,		// where rawCert came from 
+	OcspCertType		certType,		// where rawCert came from
 	TPCertInfo			*issuer,		// OPTIONAL, if known
 	TPCertInfo			**signerRtn)	// optionally RETURNED if at all possible
 {
 	assert((signerData != NULL) || (signer != NULL));
-	
+
 	/* get signer as TPCertInfo if caller hasn't provided */
 	TPCertInfo *tmpSigner = NULL;
 	if(signer == NULL) {
@@ -262,14 +307,14 @@ static OcspIssuerStatus tpIsOcspIssuer(
 	if(signerRtn != NULL) {
 		*signerRtn = signer;
 	}
-	
-	/* 
+
+	/*
 	 * Qualification of "this can be the signer" depends on where the
 	 * signer came from.
 	 */
 	bool shouldBeSigner = false;
 	OcspIssuerStatus ourRtn = OIS_No;
-	
+
 	switch(certType) {
 		case OCT_Local:			// caller trusts this and thinks it's the signer
 			shouldBeSigner = true;
@@ -280,12 +325,12 @@ static OcspIssuerStatus tpIsOcspIssuer(
 			break;
 		case OCT_Provided:
 		{
-			/* 
+			/*
 			 * This cert came with the response.
 			 */
 			if(issuer == NULL) {
-				/* 
-				 * careful, might not know the issuer...how would this path ever 
+				/*
+				 * careful, might not know the issuer...how would this path ever
 				 * work then? I don't think it needs to because you can NOT
 				 * do OCSP on a cert without its issuer in hand.
 				 */
@@ -300,12 +345,12 @@ static OcspIssuerStatus tpIsOcspIssuer(
 	if(!shouldBeSigner) {
 		goto errOut;
 	}
-	
+
 	/* verify the signature */
 	if(tpOcspResponseSigVerify(vfyCtx, ocspResp, *signer)) {
 		ourRtn = OIS_Good;
 	}
-	
+
 errOut:
 	if((signerRtn == NULL) && (tmpSigner != NULL)) {
 		delete tmpSigner;
@@ -317,19 +362,19 @@ errOut:
 OcspRespStatus tpVerifyOcspResp(
 	TPVerifyContext		&vfyCtx,
 	SecNssCoder			&coder,
-	TPCertInfo			*issuer,		// issuer of the related cert, may be issuer of 
-										//   reply, may not be known 
+	TPCertInfo			*issuer,		// issuer of the related cert, may be issuer of
+										//   reply, may not be known
 	OCSPResponse		&ocspResp,
-	CSSM_RETURN			&cssmErr)		// possible per-cert error 
+	CSSM_RETURN			&cssmErr)		// possible per-cert error
 {
 	OcspRespStatus	ourRtn = ORS_Unknown;
 	CSSM_RETURN		crtn;
-		
+
 	tpOcspDebug("tpVerifyOcspResp top");
-	
+
 	switch(ocspResp.responseStatus()) {
-		case RS_Success: 
-			crtn = CSSM_OK; 
+		case RS_Success:
+			crtn = CSSM_OK;
 			break;
 		case RS_MalformedRequest:
 			crtn = CSSMERR_APPLETP_OCSP_RESP_MALFORMED_REQ;
@@ -357,7 +402,7 @@ OcspRespStatus tpVerifyOcspResp(
 		return ORS_Unknown;
 	}
 	cssmErr = CSSM_OK;
-	
+
 	/* one of our main jobs is to locate the signer of the response, here */
 	TPCertInfo *signerInfo = NULL;
 	TPCertInfo *signerInfoTBD = NULL;		// if non NULL at end, we delete
@@ -366,45 +411,45 @@ OcspRespStatus tpVerifyOcspResp(
 	CSSM_BOOL verifiedToRoot;
 	CSSM_BOOL verifiedToAnchor;
 	CSSM_BOOL verifiedViaTrustSetting;
-	
+
 	const CSSM_APPLE_TP_OCSP_OPTIONS *ocspOpts = vfyCtx.ocspOpts;
 	OcspIssuerStatus issuerStat;
-	
-	/* 
+
+	/*
 	 * Set true if we ever find an apparent issuer which does not correctly
 	 * pass signature verify. If true and we never success, that's a XXX error.
 	 */
 	bool foundBadIssuer = false;
 	bool foundLocalResponder = false;
 	uint32 numSignerCerts = ocspResp.numSignerCerts();
-	
+
 	/*
-	 * This cert group, allocated by AppleTPSession::CertGroupVerify(), 
+	 * This cert group, allocated by AppleTPSession::CertGroupVerify(),
 	 * serves two functions here:
 	 *
 	 * -- it accumulates certs we get from the net (as parts of OCSP responses)
 	 *    for user in verifying OCSPResponse-related certs.
-	 *    TPCertGroup::buildCertGroup() uses this group as one of the many 
+	 *    TPCertGroup::buildCertGroup() uses this group as one of the many
 	 *    sources of certs when building a cert chain.
 	 *
-	 * -- it provides a container into which to stash TPCertInfos which 
+	 * -- it provides a container into which to stash TPCertInfos which
 	 *    persist at least as long as the TPVerifyContext; it's of type TGO_Group,
-	 *    so all of the certs added to it get freed when the group does. 
+	 *    so all of the certs added to it get freed when the group does.
 	 */
 	assert(vfyCtx.signerCerts != NULL);
-	
+
 	TPCertGroup &gatheredCerts = vfyCtx.gatheredCerts;
-	
+
 	/* set up for disposal of TPCertInfos created by TPCertGroup::buildCertGroup() */
 	TPCertGroup	certsToBeFreed(vfyCtx.alloc, TGO_Group);
-	
-	/* 
+
+	/*
 	 * First job is to find the cert which signed this response.
 	 * Give priority to caller's LocalResponderCert.
 	 */
 	if((ocspOpts != NULL) && (ocspOpts->LocalResponderCert != NULL)) {
 		TPCertInfo *responderInfo = NULL;
-		issuerStat = tpIsOcspIssuer(vfyCtx, ocspResp, 
+		issuerStat = tpIsOcspIssuer(vfyCtx, ocspResp,
 			ocspOpts->LocalResponderCert, NULL,
 			OCT_Local, issuer, &responderInfo);
 		switch(issuerStat) {
@@ -425,9 +470,9 @@ OcspRespStatus tpVerifyOcspResp(
 				break;
 		}
 	}
-	
+
 	if((signerInfo == NULL) && (numSignerCerts != 0)) {
-		/* 
+		/*
 		 * App did not specify a local responder (or provided a bad one)
 		 * and the response came with some certs. Try those.
 		 */
@@ -436,7 +481,7 @@ OcspRespStatus tpVerifyOcspResp(
 			const CSSM_DATA *certData = ocspResp.signerCert(dex);
 			if(signerInfo == NULL) {
 				/* stop trying this after we succeed... */
-				issuerStat = tpIsOcspIssuer(vfyCtx, ocspResp, 
+				issuerStat = tpIsOcspIssuer(vfyCtx, ocspResp,
 					certData, NULL,
 					OCT_Provided, issuer, &respCert);
 				switch(issuerStat) {
@@ -453,7 +498,7 @@ OcspRespStatus tpVerifyOcspResp(
 				}
 			}
 			else {
-				/* 
+				/*
 				 * At least add this cert to certGroup for verification.
 				 * OcspCert will own the TPCertInfo.
 				 */
@@ -471,13 +516,13 @@ OcspRespStatus tpVerifyOcspResp(
 			}
 		}
 	}
-	
+
 	if((signerInfo == NULL) && (issuer != NULL)) {
-		/* 
+		/*
 		 * Haven't found it yet, try the actual issuer
 		 */
-		issuerStat = tpIsOcspIssuer(vfyCtx, ocspResp, 
-			NULL, issuer, 
+		issuerStat = tpIsOcspIssuer(vfyCtx, ocspResp,
+			NULL, issuer,
 			OCT_Issuer, issuer, NULL);
 		switch(issuerStat) {
 			case OIS_BadSig:
@@ -492,7 +537,7 @@ OcspRespStatus tpVerifyOcspResp(
 				break;
 		}
 	}
-		
+
 	if(signerInfo == NULL) {
 		if((issuer != NULL) && !issuer->isStatusFatal(CSSMERR_APPLETP_OCSP_NO_SIGNER)) {
 			/* user wants to proceed without verifying! */
@@ -521,10 +566,10 @@ OcspRespStatus tpVerifyOcspResp(
 		ourRtn = ORS_Good;
 		goto errOut;
 	}
-	
-	/* 
-	 * Last remaining task is to verify the signer, and all the certs back to 
-	 * an anchor 
+
+	/*
+	 * Last remaining task is to verify the signer, and all the certs back to
+	 * an anchor
 	 */
 
 	/* start from scratch with both of these groups */
@@ -547,7 +592,7 @@ OcspRespStatus tpVerifyOcspResp(
 			vfyCtx.policyStr,
 			vfyCtx.policyStrLen,
 			kSecTrustSettingsKeyUseSignRevocation,
-			verifiedToRoot,	
+			verifiedToRoot,
 			verifiedToAnchor,
 			verifiedViaTrustSetting);
 	if(crtn) {
@@ -582,9 +627,9 @@ OcspRespStatus tpVerifyOcspResp(
 		tpOcspDebug("tpVerifyOcspResp SUCCESS; chain verified");
 		ourRtn = ORS_Good;
 	}
-	
+
 	/* FIXME policy verify? */
-	
+
 errOut:
 	delete signerInfoTBD;
 	/* any other cleanup? */

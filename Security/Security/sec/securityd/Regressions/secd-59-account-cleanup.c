@@ -102,7 +102,7 @@ static void tests(void)
     ok(peers && CFArrayGetCount(peers) == 2, "See two peers %@ (%@)", peers, error);
     CFReleaseNull(peers);
     
-    SOSFullPeerInfoRef fpiAlice = SOSAccountGetMyFullPeerInCircleNamed(alice_account, circle_name, NULL);
+    SOSFullPeerInfoRef fpiAlice = SOSAccountGetMyFullPeerInCircleNamedIfPresent(alice_account, circle_name, NULL);
     CFStringRef alice_id = CFStringCreateCopy(NULL, SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(fpiAlice)));
     
     ok(SOSAccountLeaveCircles(alice_account, &error), "Alice Leaves (%@)", error);

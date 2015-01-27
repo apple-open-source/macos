@@ -40,12 +40,13 @@ enum {
     kPMForceHighSpeed               = (1<<1),
     kPMPreventIdleSleep             = (1<<2),
     kPMPreventDisplaySleep          = (1<<3),
-    kPMPreventDiskSleep             = (1<<4)
+    kPMPreventDiskSleep             = (1<<4),
+    kPMPreventWakeOnLan             = (1<<5)
 };
 
 __private_extern__ void PMSettings_prime(void);
  
-__private_extern__ void PMSettingsSleepWakeNotification(natural_t);
+__private_extern__ void PMSettingsCapabilityChangeNotification(const struct IOPMSystemCapabilityChangeParameters * p);
 
 __private_extern__ void PMSettingsSupportedPrefsListHasChanged(void);
 

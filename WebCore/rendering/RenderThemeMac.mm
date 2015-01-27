@@ -44,6 +44,7 @@
 #import "LocalCurrentGraphicsContext.h"
 #import "LocalizedStrings.h"
 #import "MediaControlElements.h"
+#import "NSSharingServicePickerSPI.h"
 #import "Page.h"
 #import "PaintInfo.h"
 #import "RenderLayer.h"
@@ -91,19 +92,15 @@
 
 #if __has_include(<AppKit/NSServicesRolloverButtonCell.h>)
 #import <AppKit/NSServicesRolloverButtonCell.h>
+#else
+@interface NSServicesRolloverButtonCell : NSButtonCell
+@end
 #endif
 
 @interface NSServicesRolloverButtonCell (Details)
 + (NSServicesRolloverButtonCell *)serviceRolloverButtonCellForStyle:(NSSharingServicePickerStyle)style;
+- (NSRect)rectForBounds:(NSRect)bounds preferredEdge:(NSRectEdge)preferredEdge;
 @end
-
-#if __has_include(<AppKit/NSSharingService_Private.h>)
-#import <AppKit/NSSharingService_Private.h>
-#else
-typedef enum {
-    NSSharingServicePickerStyleRollover = 1
-} NSSharingServicePickerStyle;
-#endif
 
 #endif // ENABLE(SERVICE_CONTROLS)
 

@@ -1054,6 +1054,10 @@ IOReturn IOHIDSystem::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned l
              ADD_ABSOLUTETIME(&displaySleepWakeupDeadline, &gIOHIDDisplaySleepAbortThresholdAbsoluteTime);
            }
            displaySleepDrivenByPM = false; // Reset flag for next use
+
+           // Force set HID activity to idle
+           _lastTickleTime = 0;
+           thread_call_enter(_hidActivityThread);
         }
 
     }

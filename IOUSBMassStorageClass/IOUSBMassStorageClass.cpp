@@ -2576,10 +2576,21 @@ ErrorExit:
         
         // Let the clients know that the device is gone.
         driver->SendNotification_DeviceRemoved ( );
-		
+
+        // Leave behind some of evidence that there was a catastorphic failure which guided us to self termination.
+        // This needs to be done before AbortCurrentSCSITask() is called since a side effect of AbortCurrentSCSITask ( )
+        // is that didTerminate(), if it were running concurrently, would become unblocked and can close and clear our
+        // IOUSBInterface reference.
+        if  (   ( driver->GetInterfaceReference() != NULL ) &&
+                ( driver->isInactive() == false ) &&
+                ( driver->fTerminating == false ) )
+        {
+            driver->GetInterfaceReference()->setProperty ( "IOUSBMassStorageClass Detached", driver->fConsecutiveResetCount, 8 );
+        }
+        
 	}
 	
-	else 
+	else
 	{
 	
 		UInt16	timeout	= 0;
@@ -2616,17 +2627,19 @@ ErrorExit:
 	// as per the fDeviceAttached flag.
 	driver->AbortCurrentSCSITask ( );
 
+    // NOTICE: Anything done after AbortCurrentSCSITask() may occur after didTerminate() has run if driver termination
+    // begins while this reset thread is running.
+    
 	// If the maximum number of unsuccessful resets has been exceeded, then terminate ourself.
 	if ( driver->fDeviceAttached == false && ( driver->isInactive() == false ) )
 	{
 		
-        // Leave behind some of evidence that there was a catastorphic failure which guided us to self termination. 
+        // Leave some evidence in the system log indicating how many errors we saw before we had a reset that failed
+        // or that we exhausted our maximum consecutive error count.
+        // This needs to be kept after AbortCurrentSCSITask() as that method is the one responsible for incrementing
+        // fConsecutiveResetCount and we an accurate account that includes the failure that this DeviceReset() was
+        // supposed to address.
         IOLog ( "[%p](%u)/(%u) Device not responding\n", driver, driver->fConsecutiveResetCount, kMaxConsecutiveResets );
-        
-        if  ( driver->GetInterfaceReference() != NULL )
-        {
-            driver->GetInterfaceReference()->setProperty ( "IOUSBMassStorageClass Detached", driver->fConsecutiveResetCount, 8 );
-        }
         
 		driver->fResetInProgress = false;
 				

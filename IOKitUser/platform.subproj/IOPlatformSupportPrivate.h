@@ -39,8 +39,13 @@
  *              external displays, Do Not Disturb, Power Nap, TCP KeepAlive expiration, etc.)
  *              dictates that TCPKeepAlive should be on.
  */
-#define kIOPlatformTCPKeepAliveDuringSleep     CFSTR("TCPKeepAliveDuringSleep")
+#define kIOPlatformTCPKeepAliveDuringSleep      CFSTR("TCPKeepAliveDuringSleep")
 
+/*! @define     kIOPlatformDeviceEnclosureColorKey
+ *              Pass this key to <code>IOPlatformGetDeviceColor</code>
+ *              to request the device enclosure color.
+ */
+#define kIOPlatformDeviceEnclosureColorKey      CFSTR("DeviceEnclosureColor")
 
 /*!
  * @function    IOPlatformCopyFeatureDefault
@@ -115,6 +120,22 @@ Boolean IONoteToSelfSupported(void);
  * @result      true if Authenticated Restart can be used, false otherwise.
  */
 Boolean IOAuthenticatedRestartSupported(void);
+
+/*!
+ * @function    IOPlatformGetDeviceColor
+ * @abstract    Get the color for an area of a device.
+ * @discussion  This function retrieves the requested device color from a
+ *              platform specific source and reports the color's RGB values.
+ * @param       whichColor A CFStringRef indicating the requested color.
+ * @param       red Return the value of the red color component.
+ * @param       green Return the value of the green color component.
+ * @param       blue Return the value of the blue color component.
+ * @result      kIOReturnSuccess on success.
+ *              kIOReturnNotFound if the requested color was not found on the platform.
+ *              kIOReturnBadArgument if the function exited due to an invalid argument.
+ */
+IOReturn IOPlatformGetDeviceColor(  CFStringRef whichColor,
+                                    uint8_t * red, uint8_t * green, uint8_t * blue );
 
 #endif
 #endif

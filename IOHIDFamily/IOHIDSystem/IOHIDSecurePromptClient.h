@@ -78,14 +78,6 @@ public:
     IOReturn            getGatheringMethod(void * p1, void * p2, void * p3,
                                            void * p4, void * p5, void * p6 );
     
-    IOReturn            setLayoutMethod(void * p1, void * p2, void * p3,
-                                       void * p4, void * p5, void * p6 );
-    IOReturn            setLayoutGated(void * p1, void * p2, void * p3,void * p4);
-    IOReturn            setLayout(UInt32 layout);
-    
-    IOReturn            getLayoutMethod(void * p1, void * p2, void * p3,
-                                        void * p4, void * p5, void * p6 );
-
     IOReturn            confirmKeyMethod(void * p1, void * p2, void * p3,
                                          void * p4, void * p5, void * p6 );
     IOReturn            confirmKeyGated(void * p1, void * p2, void * p3,void * p4);

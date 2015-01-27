@@ -582,6 +582,8 @@ IOReturn IOAudioDevice::setPowerState(unsigned long powerStateOrdinal, IOService
     IOReturn result = IOPMAckImplied;
     
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::setPowerState(%lu, %p)\n", this, powerStateOrdinal, device);
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceSetPowerState, (uintptr_t)this, powerStateOrdinal, (uintptr_t)device, ((UInt64)currentPowerState << 32) | pendingPowerState);
+    
     if (!duringStartup) 
 	{
         if (powerStateOrdinal >= NUM_POWER_STATES) 
@@ -596,6 +598,8 @@ IOReturn IOAudioDevice::setPowerState(unsigned long powerStateOrdinal, IOService
     }
 	duringStartup = false;
     audioDebugIOLog(3, "- IOAudioDevice[%p]::setPowerState(%lu, %p) returns 0x%lX\n", this, powerStateOrdinal, device, (long unsigned int)result );
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceSetPowerState, (uintptr_t)this, currentPowerState, (uintptr_t)device, result);
+    
 	return result;
 }
 
@@ -603,6 +607,7 @@ IOReturn IOAudioDevice::setPowerState(unsigned long powerStateOrdinal, IOService
 IOReturn IOAudioDevice::_setPowerStateAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
 {
     IOReturn result = IOPMAckImplied;
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDevice_SetPowerStateAction, (uintptr_t)target, (uintptr_t)arg1, (uintptr_t)arg2, 0);
     
     if (target) {
         IOAudioDevice *audioDevice = OSDynamicCast(IOAudioDevice, target);
@@ -617,13 +622,15 @@ IOReturn IOAudioDevice::_setPowerStateAction(OSObject *target, void *arg0, void 
         }
     }
     
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDevice_SetPowerStateAction, (uintptr_t)target, (uintptr_t)arg1, (uintptr_t)arg2, result);
     return result;
 }
 
 IOReturn IOAudioDevice::setPowerStateAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
 {
     IOReturn result = IOPMAckImplied;
-    
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceSetPowerStateAction, (uintptr_t)owner, (uintptr_t)arg1, (uintptr_t)arg2, 0);
+   
     if (owner) {
         IOAudioDevice *audioDevice = OSDynamicCast(IOAudioDevice, owner);
         
@@ -632,6 +639,7 @@ IOReturn IOAudioDevice::setPowerStateAction(OSObject *owner, void *arg1, void *a
         }
     }
     
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceSetPowerStateAction, (uintptr_t)owner, (uintptr_t)arg1, (uintptr_t)arg2, result);
     return result;
 }
 
@@ -640,12 +648,14 @@ IOReturn IOAudioDevice::protectedSetPowerState(unsigned long powerStateOrdinal, 
     IOReturn result = IOPMAckImplied;
 
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::protectedSetPowerState(%lu, %p)\n", this, powerStateOrdinal, device);
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceProtectedSetPowerState, (uintptr_t)this, powerStateOrdinal, (uintptr_t)device, asyncPowerStateChangeInProgress);
     
     if (asyncPowerStateChangeInProgress) {
         waitForPendingPowerStateChange();
     }
     
     if (powerStateOrdinal == 0) {	// Sleep
+        AudioTrace(kAudioTIOAudioDevice, kTPIOAudioDeviceProtectedSetPowerState, (uintptr_t)this, getPowerState(), currentPowerState, 0);
         if (getPowerState() != kIOAudioDeviceSleep) {
             pendingPowerState = kIOAudioDeviceSleep;
 
@@ -669,6 +679,7 @@ IOReturn IOAudioDevice::protectedSetPowerState(unsigned long powerStateOrdinal, 
             }
         }
     } else if (powerStateOrdinal == 1) {	// Wake
+        AudioTrace(kAudioTIOAudioDevice, kTPIOAudioDeviceProtectedSetPowerState, (uintptr_t)this, getPowerState(), numRunningAudioEngines, 1);
         if (getPowerState() == kIOAudioDeviceSleep) {	// Need to change state if sleeping
             if (numRunningAudioEngines == 0) {
                 pendingPowerState = kIOAudioDeviceIdle;
@@ -688,12 +699,14 @@ IOReturn IOAudioDevice::protectedSetPowerState(unsigned long powerStateOrdinal, 
     }
     
     audioDebugIOLog(3, "- IOAudioDevice[%p]::protectedSetPowerState(%lu, %p) returns 0x%lX\n", this, powerStateOrdinal, device, (long unsigned int)result );
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceProtectedSetPowerState, (uintptr_t)this, powerStateOrdinal, (uintptr_t)device, result);
     return result;
 }
 
 void IOAudioDevice::waitForPendingPowerStateChange()
 {
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::waitForPendingPowerStateChange()\n", this);
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceWaitForPendingPowerStateChange, (uintptr_t)this, asyncPowerStateChangeInProgress, 0, 0);
 
     if (asyncPowerStateChangeInProgress) {
         IOCommandGate *cg;
@@ -708,6 +721,7 @@ void IOAudioDevice::waitForPendingPowerStateChange()
         }
     }
     audioDebugIOLog(3, "- IOAudioDevice[%p]::waitForPendingPowerStateChange()\n", this);
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceWaitForPendingPowerStateChange, (uintptr_t)this, asyncPowerStateChangeInProgress, 0, 0);
 	return;
 }
 
@@ -716,7 +730,8 @@ IOReturn IOAudioDevice::initiatePowerStateChange(UInt32 *microsecondsUntilComple
     IOReturn result = kIOReturnSuccess;
 
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::initiatePowerStateChange(%p) - current = %d - pending = %d\n", this, microsecondsUntilComplete, currentPowerState, pendingPowerState);
-    
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceInitiatePowerStateChange, (uintptr_t)this, currentPowerState, pendingPowerState, asyncPowerStateChangeInProgress);
+   
     if (currentPowerState != pendingPowerState) {
         UInt32 localMicsUntilComplete, *micsUntilComplete = NULL;
         
@@ -747,20 +762,22 @@ IOReturn IOAudioDevice::initiatePowerStateChange(UInt32 *microsecondsUntilComple
     }
     
     audioDebugIOLog(3, "- IOAudioDevice[%p]::initiatePowerStateChange(%p) - current = %d - pending = %d returns 0x%lX\n", this, microsecondsUntilComplete, currentPowerState, pendingPowerState, (long unsigned int)result );
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceInitiatePowerStateChange, (uintptr_t)this, currentPowerState, microsecondsUntilComplete ? *microsecondsUntilComplete : 0, result);
     return result;
 }
 
 IOReturn IOAudioDevice::completePowerStateChange()
 {
     IOReturn result = kIOReturnError;
-    IOCommandGate *cg;
+    IOCommandGate *cg = getCommandGate();
     
-    cg = getCommandGate();
-    
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceCompletePowerStateChange, (uintptr_t)this, currentPowerState, pendingPowerState, asyncPowerStateChangeInProgress);
+
     if (cg) {
         result = cg->runAction(completePowerStateChangeAction);
     }
     
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceCompletePowerStateChange, (uintptr_t)this, currentPowerState, pendingPowerState, result);
     return result;
 }
 

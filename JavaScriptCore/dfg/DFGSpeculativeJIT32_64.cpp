@@ -1688,7 +1688,26 @@ void SpeculativeJIT::compile(Node* node)
         break;
 
     case Identity: {
-        RELEASE_ASSERT_NOT_REACHED();
+        speculate(node, node->child1());
+        switch (node->child1().useKind()) {
+        case DoubleRepUse:
+        case DoubleRepRealUse: {
+            SpeculateDoubleOperand op(this, node->child1());
+            doubleResult(op.fpr(), node);
+            break;
+        }
+        case Int52RepUse: 
+        case MachineIntUse:
+        case DoubleRepMachineIntUse: {
+            RELEASE_ASSERT_NOT_REACHED();   
+            break;
+        }
+        default: {
+            JSValueOperand op(this, node->child1());
+            jsValueResult(op.tagGPR(), op.payloadGPR(), node);
+            break;
+        }
+        } // switch
         break;
     }
 
@@ -4657,9 +4676,9 @@ void SpeculativeJIT::writeBarrier(GPRReg ownerGPR, GPRReg valueTagGPR, Edge valu
     if (!isKnownCell(valueUse.node()))
         isNotCell = m_jit.branch32(JITCompiler::NotEqual, valueTagGPR, JITCompiler::TrustedImm32(JSValue::CellTag));
 
-    JITCompiler::Jump ownerNotMarkedOrAlreadyRemembered = m_jit.checkMarkByte(ownerGPR);
+    JITCompiler::Jump ownerIsRememberedOrInEden = m_jit.jumpIfIsRememberedOrInEden(ownerGPR);
     storeToWriteBarrierBuffer(ownerGPR, scratch1, scratch2);
-    ownerNotMarkedOrAlreadyRemembered.link(&m_jit);
+    ownerIsRememberedOrInEden.link(&m_jit);
 
     if (!isKnownCell(valueUse.node()))
         isNotCell.link(&m_jit);
@@ -4671,9 +4690,9 @@ void SpeculativeJIT::writeBarrier(JSCell* owner, GPRReg valueTagGPR, Edge valueU
     if (!isKnownCell(valueUse.node()))
         isNotCell = m_jit.branch32(JITCompiler::NotEqual, valueTagGPR, JITCompiler::TrustedImm32(JSValue::CellTag));
 
-    JITCompiler::Jump ownerNotMarkedOrAlreadyRemembered = m_jit.checkMarkByte(owner);
+    JITCompiler::Jump ownerIsRememberedOrInEden = m_jit.jumpIfIsRememberedOrInEden(owner);
     storeToWriteBarrierBuffer(owner, scratch1, scratch2);
-    ownerNotMarkedOrAlreadyRemembered.link(&m_jit);
+    ownerIsRememberedOrInEden.link(&m_jit);
 
     if (!isKnownCell(valueUse.node()))
         isNotCell.link(&m_jit);

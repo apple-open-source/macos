@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2004,2011-2012,2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -77,7 +77,7 @@ OCSPClientCertID::OCSPClientCertID(
 	allocCopyData(issuerPubKey, mIssuerPubKey);
 	allocCopyData(subjectSerial, mSubjectSerial);
 }
-		
+
 OCSPClientCertID::~OCSPClientCertID()
 {
 	freeData(mIssuerName);
@@ -85,7 +85,7 @@ OCSPClientCertID::~OCSPClientCertID()
 	freeData(mSubjectSerial);
 	freeData(mEncoded);
 }
-	
+
 /* preencoded DER NULL */
 static uint8 nullParam[2] = {5, 0};
 
@@ -97,11 +97,11 @@ const CSSM_DATA *OCSPClientCertID::encode()
 	if(mEncoded.Data != NULL) {
 		return &mEncoded;
 	}
-	
+
 	SecAsn1OCSPCertID	certID;
 	uint8				issuerNameHash[CC_SHA1_DIGEST_LENGTH];
 	uint8				pubKeyHash[CC_SHA1_DIGEST_LENGTH];
-	
+
 	/* algId refers to the hash we'll perform in issuer name and key */
 	certID.algId.algorithm = CSSMOID_SHA1;
 	certID.algId.parameters.Data = nullParam;
@@ -109,32 +109,33 @@ const CSSM_DATA *OCSPClientCertID::encode()
 
 	/* SHA1(issuerName) */
 	ocspdSha1(mIssuerName.Data, (CC_LONG)mIssuerName.Length, issuerNameHash);
-	/* SHA1(issuer public key) */
+
+	/* SHA1(issuer public key bytes) */
 	ocspdSha1(mIssuerPubKey.Data, (CC_LONG)mIssuerPubKey.Length, pubKeyHash);
-	
+
 	/* build the CertID from those components */
 	certID.issuerNameHash.Data = issuerNameHash;
 	certID.issuerNameHash.Length = CC_SHA1_DIGEST_LENGTH;
 	certID.issuerPubKeyHash.Data = pubKeyHash;
-	certID.issuerPubKeyHash.Length = CC_SHA1_DIGEST_LENGTH;	
+	certID.issuerPubKeyHash.Length = CC_SHA1_DIGEST_LENGTH;
 	certID.serialNumber = mSubjectSerial;
-	
+
 	/* encode */
 	SecAsn1CoderRef coder;
 	SecAsn1CoderCreate(&coder);
-	
+
 	CSSM_DATA tmp = {0, NULL};
 	SecAsn1EncodeItem(coder, &certID, kSecAsn1OCSPCertIDTemplate, &tmp);
 	allocCopyData(tmp, mEncoded);
 	SecAsn1CoderRelease(coder);
 	return &mEncoded;
 }
-		
+
 /*
  * Does this object refer to the same cert as specified SecAsn1OCSPCertID?
- * This is the main purpose of this class's existence; this function works 
+ * This is the main purpose of this class's existence; this function works
  * even if specified SecAsn1OCSPCertID uses a different hash algorithm
- * than we do, since we keep copies of our basic components. 
+ * than we do, since we keep copies of our basic components.
  *
  * Returns true if compare successful.
  */
@@ -152,7 +153,7 @@ bool OCSPClientCertID::compareToExist(
 	const CSSM_OID *alg = &exist.algId.algorithm;
 	uint8 digest[OCSPD_MAX_DIGEST_LEN];
 	CSSM_DATA digestData = {0, digest};
-	
+
 	if(ocspdCompareCssmData(alg, &CSSMOID_SHA1)) {
 		hf = ocspdSha1;
 		digestData.Length = CC_SHA1_DIGEST_LENGTH;
@@ -169,7 +170,7 @@ bool OCSPClientCertID::compareToExist(
 	else {
 		return false;
 	}
-	
+
 	/* generate digests using exist's hash algorithm */
 	hf(mIssuerName.Data, (CC_LONG)mIssuerName.Length, digest);
 	if(!ocspdCompareCssmData(&digestData, &exist.issuerNameHash)) {
@@ -179,7 +180,7 @@ bool OCSPClientCertID::compareToExist(
 	if(!ocspdCompareCssmData(&digestData, &exist.issuerPubKeyHash)) {
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -189,7 +190,7 @@ bool OCSPClientCertID::compareToExist(
 	SecAsn1CoderRef coder;
 	SecAsn1OCSPCertID certID;
 	bool brtn = false;
-	
+
 	SecAsn1CoderCreate(&coder);
 	memset(&certID, 0, sizeof(certID));
 	if(SecAsn1DecodeData(coder, &exist, kSecAsn1OCSPCertIDTemplate, &certID)) {
@@ -216,7 +217,7 @@ OCSPSingleResponse::OCSPSingleResponse(
 		mExtensions(NULL)
 {
 	assert(resp != NULL);
-	
+
 	SecAsn1CoderCreate(&mCoder);
 	if((resp->certStatus.Data == NULL) || (resp->certStatus.Length == 0)) {
 		ocspdErrorLog("OCSPSingleResponse: bad certStatus\n");
@@ -227,7 +228,7 @@ OCSPSingleResponse::OCSPSingleResponse(
 		/* decode further to get SecAsn1OCSPRevokedInfo */
 		SecAsn1OCSPCertStatus certStatus;
 		memset(&certStatus, 0, sizeof(certStatus));
-		if(SecAsn1DecodeData(mCoder, &resp->certStatus, 
+		if(SecAsn1DecodeData(mCoder, &resp->certStatus,
 				kSecAsn1OCSPCertStatusRevokedTemplate, &certStatus)) {
 			ocspdErrorLog("OCSPSingleResponse: err decoding certStatus\n");
 			CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
@@ -249,7 +250,7 @@ OCSPSingleResponse::OCSPSingleResponse(
 		mNextUpdate = genTimeToCFAbsTime(resp->nextUpdate);
 	}
 	mExtensions = new OCSPExtensions(resp->singleExtensions);
-	ocspdDebug("OCSPSingleResponse: status %d reason %d", (int)mCertStatus, 
+	ocspdDebug("OCSPSingleResponse: status %d reason %d", (int)mCertStatus,
 		(int)mCrlReason);
 }
 
@@ -293,7 +294,7 @@ CFAbsoluteTime OCSPSingleResponse::archiveCutoff()
 OCSPResponse::OCSPResponse(
 	const CSSM_DATA &resp,
 	CFTimeInterval defaultTTL)		// default time-to-live in seconds
-		: mLatestNextUpdate(NULL_TIME), 
+		: mLatestNextUpdate(NULL_TIME),
 		  mExpireTime(NULL_TIME),
 		  mExtensions(NULL)
 {
@@ -305,12 +306,12 @@ OCSPResponse::OCSPResponse(
 	mResponderIdTag = (SecAsn1OCSPResponderIDTag)0;		// invalid
 	mEncResponderName.Data = NULL;
 	mEncResponderName.Length = 0;
-	
+
 	if(SecAsn1DecodeData(mCoder, &resp, kSecAsn1OCSPResponseTemplate, &mTopResp)) {
 		ocspdErrorLog("OCSPResponse: decode failure at top level\n");
 		CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
 	}
-	
+
 	/* remainder is valid only on RS_Success */
 	if((mTopResp.responseStatus.Data == NULL) ||
 	   (mTopResp.responseStatus.Length == 0)) {
@@ -318,7 +319,7 @@ OCSPResponse::OCSPResponse(
 		CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
 	}
 	if(mTopResp.responseStatus.Data[0] != RS_Success) {
-		/* not a failure of our constructor; this object is now useful, but 
+		/* not a failure of our constructor; this object is now useful, but
 		 * only for this one byte of status info */
 		return;
 	}
@@ -332,16 +333,16 @@ OCSPResponse::OCSPResponse(
 		ocspdErrorLog("OCSPResponse: unknown responseType\n");
 		CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
 	}
-	
+
 	/* decode the SecAsn1OCSPBasicResponse */
 	if(SecAsn1DecodeData(mCoder, &mTopResp.responseBytes->response,
 			kSecAsn1OCSPBasicResponseTemplate, &mBasicResponse)) {
 		ocspdErrorLog("OCSPResponse: decode failure at SecAsn1OCSPBasicResponse\n");
 		CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
 	}
-	
+
 	/* signature and cert evaluation done externally */
-	
+
 	/* decode the SecAsn1OCSPResponseData */
 	if(SecAsn1DecodeData(mCoder, &mBasicResponse.tbsResponseData,
 			kSecAsn1OCSPResponseDataTemplate, &mResponseData)) {
@@ -352,17 +353,17 @@ OCSPResponse::OCSPResponse(
 		ocspdErrorLog("OCSPResponse: bad responderID\n");
 		CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
 	}
-		
+
 	/* choice processing for ResponderID */
 	mResponderIdTag = (SecAsn1OCSPResponderIDTag)
 		(mResponseData.responderID.Data[0] & SEC_ASN1_TAGNUM_MASK);
 	const SecAsn1Template *templ;
 	switch(mResponderIdTag) {
-		case RIT_Name: 
-			templ = kSecAsn1OCSPResponderIDAsNameTemplate; 
+		case RIT_Name:
+			templ = kSecAsn1OCSPResponderIDAsNameTemplate;
 			break;
-		case RIT_Key: 
-			templ = kSecAsn1OCSPResponderIDAsKeyTemplate; 
+		case RIT_Key:
+			templ = kSecAsn1OCSPResponderIDAsKeyTemplate;
 			break;
 		default:
 			ocspdErrorLog("OCSPResponse: bad responderID tag\n");
@@ -372,14 +373,14 @@ OCSPResponse::OCSPResponse(
 		ocspdErrorLog("OCSPResponse: decode failure at responderID\n");
 		CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
 	}
-	
+
 	/* check temporal validity */
 	if(!calculateValidity(defaultTTL)) {
 		/* Whoops, abort */
 		CssmError::throwMe(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
 	}
-	
-	/* 
+
+	/*
 	 * Individual responses looked into when we're asked for a specific one
 	 * via singleResponse()
 	 */
@@ -428,8 +429,8 @@ const CSSM_DATA *OCSPResponse::signerCert(uint32 dex)
 	return mBasicResponse.certs[dex];
 }
 
-/* 
- * Obtain a OCSPSingleResponse for a given "smart" CertID. 
+/*
+ * Obtain a OCSPSingleResponse for a given "smart" CertID.
  */
 OCSPSingleResponse *OCSPResponse::singleResponseFor(OCSPClientCertID &matchCertID)
 {
@@ -453,7 +454,7 @@ OCSPSingleResponse *OCSPResponse::singleResponseFor(OCSPClientCertID &matchCertI
 }
 
 /*
- * If responderID is of form RIT_Name, return the encoded version of the 
+ * If responderID is of form RIT_Name, return the encoded version of the
  * NSS_Name (for comparison with issuer's subjectName). Evaluated lazily,
  * once, in mCoder space.
  */
@@ -474,8 +475,8 @@ const CSSM_DATA *OCSPResponse::encResponderName()
 	return &mEncResponderName;
 }
 
-/* 
- * Obtain a OCSPSingleResponse for a given raw encoded CertID. 
+/*
+ * Obtain a OCSPSingleResponse for a given raw encoded CertID.
  */
 OCSPSingleResponse *OCSPResponse::singleResponseFor(const CSSM_DATA &matchCertID)
 {
@@ -506,29 +507,29 @@ OCSPSingleResponse *OCSPResponse::singleResponseFor(const CSSM_DATA &matchCertID
 
 }
 
-/* 
+/*
  * Calculate temporal validity; set mLatestNextUpdate and mExpireTime. Only
- * called from constructor. Returns true if valid, else returns false. 
+ * called from constructor. Returns true if valid, else returns false.
  */
 bool OCSPResponse::calculateValidity(CFTimeInterval defaultTTL)
 {
 	mLatestNextUpdate = NULL_TIME;
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-	
+
 	unsigned numResponses = ocspdArraySize((const void **)mResponseData.responses);
 	for(unsigned dex=0; dex<numResponses; dex++) {
 		SecAsn1OCSPSingleResponse *resp = mResponseData.responses[dex];
-		
-		/* 
-		 * First off, a thisUpdate later than 'now' invalidates the whole response. 
+
+		/*
+		 * First off, a thisUpdate later than 'now' invalidates the whole response.
 		 */
 		CFAbsoluteTime thisUpdate = genTimeToCFAbsTime(&resp->thisUpdate);
 		if(thisUpdate > now) {
 			ocspdErrorLog("OCSPResponse::calculateValidity: thisUpdate not passed\n");
 			return false;
 		}
-		
-		/* 
+
+		/*
 		 * Accumulate latest nextUpdate
 		 */
 		if(resp->nextUpdate != NULL) {
@@ -538,7 +539,7 @@ bool OCSPResponse::calculateValidity(CFTimeInterval defaultTTL)
 			}
 		}
 	}
-	
+
 	CFAbsoluteTime defaultExpire = now + defaultTTL;
 	if(mLatestNextUpdate == NULL_TIME) {
 		/* absolute expire time = current time plus default TTL */

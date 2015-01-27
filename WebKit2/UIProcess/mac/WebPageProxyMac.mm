@@ -408,6 +408,14 @@ void WebPageProxy::performDictionaryLookupAtLocation(const WebCore::FloatPoint& 
     process().send(Messages::WebPage::PerformDictionaryLookupAtLocation(point), m_pageID);
 }
 
+void WebPageProxy::performDictionaryLookupOfCurrentSelection()
+{
+    if (!isValid())
+        return;
+
+    process().send(Messages::WebPage::PerformDictionaryLookupOfCurrentSelection(), m_pageID);
+}
+
 // Complex text input support for plug-ins.
 void WebPageProxy::sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput)
 {
@@ -442,9 +450,9 @@ void WebPageProxy::setSmartInsertDeleteEnabled(bool isSmartInsertDeleteEnabled)
     process().send(Messages::WebPage::SetSmartInsertDeleteEnabled(isSmartInsertDeleteEnabled), m_pageID);
 }
 
-void WebPageProxy::didPerformDictionaryLookup(const AttributedString& text, const DictionaryPopupInfo& dictionaryPopupInfo)
+void WebPageProxy::didPerformDictionaryLookup(const DictionaryPopupInfo& dictionaryPopupInfo)
 {
-    m_pageClient.didPerformDictionaryLookup(text, dictionaryPopupInfo);
+    m_pageClient.didPerformDictionaryLookup(dictionaryPopupInfo);
 }
     
 void WebPageProxy::registerWebProcessAccessibilityToken(const IPC::DataReference& data)
@@ -635,21 +643,8 @@ void WebPageProxy::openPDFFromTemporaryFolderWithNativeApplication(const String&
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
 void WebPageProxy::showTelephoneNumberMenu(const String& telephoneNumber, const WebCore::IntPoint& point)
 {
-    NSArray *menuItems = menuItemsForTelephoneNumber(telephoneNumber);
-
-    Vector<WebContextMenuItemData> items;
-    for (NSMenuItem *item in menuItems) {
-        RetainPtr<NSMenuItem> retainedItem = item;
-        std::function<void()> handler = [retainedItem]() {
-            NSMenuItem *item = retainedItem.get();
-            [[item target] performSelector:[item action] withObject:item];
-        };
-        
-        items.append(WebContextMenuItemData(ContextMenuItem(item), handler));
-    }
-    
-    ContextMenuContextData contextData(TelephoneNumberContext);
-    internalShowContextMenu(point, contextData, items, ContextMenuClientEligibility::NotEligibleForClient, nullptr);
+    RetainPtr<NSMenu> menu = menuForTelephoneNumber(telephoneNumber);
+    m_pageClient.showPlatformContextMenu(menu.get(), point);
 }
 #endif
 

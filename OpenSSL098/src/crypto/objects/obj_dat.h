@@ -2353,7 +2353,7 @@ const static ASN1_OBJECT nid_objs[NUM_NID]={
 {"dmdName","dmdName",NID_dmdName,3,&(lvalues[5820]),0},
 };
 
-const static ASN1_OBJECT *const sn_objs[NUM_SN]={
+const static ASN1_OBJECT *sn_objs[NUM_SN]={
 &(nid_objs[364]),/* "AD_DVCS" */
 &(nid_objs[419]),/* "AES-128-CBC" */
 &(nid_objs[421]),/* "AES-128-CFB" */
@@ -3242,7 +3242,7 @@ const static ASN1_OBJECT *const sn_objs[NUM_SN]={
 &(nid_objs[160]),/* "x509Crl" */
 };
 
-const static ASN1_OBJECT *const ln_objs[NUM_LN]={
+const static ASN1_OBJECT *ln_objs[NUM_LN]={
 &(nid_objs[363]),/* "AD Time Stamping" */
 &(nid_objs[405]),/* "ANSI X9.62" */
 &(nid_objs[368]),/* "Acceptable OCSP Responses" */
@@ -4131,7 +4131,7 @@ const static ASN1_OBJECT *const ln_objs[NUM_LN]={
 &(nid_objs[125]),/* "zlib compression" */
 };
 
-const static ASN1_OBJECT *const obj_objs[NUM_OBJ]={
+const static ASN1_OBJECT *obj_objs[NUM_OBJ]={
 &(nid_objs[ 0]),/* OBJ_undef                        0 */
 &(nid_objs[393]),/* OBJ_joint_iso_ccitt              OBJ_joint_iso_itu_t */
 &(nid_objs[404]),/* OBJ_ccitt                        OBJ_itu_t */

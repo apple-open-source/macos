@@ -75,7 +75,6 @@ public:
     void setLayerHostingMode(LayerHostingMode);
 
 #if PLATFORM(COCOA)
-    void platformViewStateDidChange(WebCore::ViewState::Flags changed);
     void setDeviceScaleFactor(float);
     void windowAndViewFramesChanged(const WebCore::FloatRect& windowFrameInScreenCoordinates, const WebCore::FloatRect& viewFrameInWindowCoordinates);
     bool sendComplexTextInput(uint64_t pluginComplexTextInputIdentifier, const String& textInput);
@@ -110,7 +109,7 @@ public:
 
     PassRefPtr<WebCore::SharedBuffer> liveResourceData() const;
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
-    WebCore::AudioHardwareActivityType audioHardwareActivity() const;
+    virtual WebCore::AudioHardwareActivityType audioHardwareActivity() const override;
 
 private:
     PluginView(PassRefPtr<WebCore::HTMLPlugInElement>, PassRefPtr<Plugin>, const Plugin::Parameters& parameters);

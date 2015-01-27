@@ -300,6 +300,7 @@ public:
 
     // Pass 0 as the GraphicsLayer to detatch the root layer.
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) = 0;
+    virtual void attachViewOverlayGraphicsLayer(Frame*, GraphicsLayer*) = 0;
     // Sets a flag to specify that the next time content is drawn to the window,
     // the changes appear on the screen in synchrony with updates to GraphicsLayers.
     virtual void setNeedsOneShotDrawingSynchronization() = 0;
@@ -309,8 +310,6 @@ public:
     // Returns whether or not the client can render the composited layer,
     // regardless of the settings.
     virtual bool allowsAcceleratedCompositing() const { return true; }
-    // Supply a layer that will added as an overlay over other document layers (scrolling with the document).
-    virtual GraphicsLayer* documentOverlayLayerForFrame(Frame&) { return nullptr; }
 
     enum CompositingTrigger {
         ThreeDTransformTrigger = 1 << 0,
@@ -410,8 +409,6 @@ public:
     virtual bool isPointerLocked() { return false; }
 #endif
 
-    virtual void logDiagnosticMessage(const String& message, const String& description, const String& status) { UNUSED_PARAM(message); UNUSED_PARAM(description); UNUSED_PARAM(status); }
-
     virtual FloatSize minimumWindowSize() const { return FloatSize(100, 100); };
 
     virtual bool isEmptyChromeClient() const { return false; }
@@ -433,6 +430,16 @@ public:
     virtual bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const { return false; }
     virtual bool unwrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const { return false; }
 #endif
+
+#if ENABLE(TELEPHONE_NUMBER_DETECTION) && PLATFORM(MAC)
+    virtual void handleTelephoneNumberClick(const String&, const WebCore::IntPoint&) { }
+#endif
+#if ENABLE(SERVICE_CONTROLS)
+    virtual void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>&, const WebCore::IntPoint&) { }
+    virtual bool hasRelevantSelectionServices(bool /* isTextOnly */) const { return false; }
+#endif
+
+    virtual bool shouldDispatchFakeMouseMoveEvents() const { return true; }
 
 protected:
     virtual ~ChromeClient() { }

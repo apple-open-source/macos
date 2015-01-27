@@ -1259,7 +1259,6 @@ EOO
 		  $description = "\@#$http_vendor:$version#\@$what; DLL for library $name.  Build for EMX -Zmtd";
 		}
 
-	if ($ENV{"DEBUG_BUILD"}) { $libname .= "_DEBUG"; } # APPLE-SPECIFIC hack to force debug build
 	print OUT <<"EOF";
 ;
 ; Definition file for the DLL version of the $name library from OpenSSL

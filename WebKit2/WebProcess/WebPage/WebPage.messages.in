@@ -22,7 +22,7 @@
 
 messages -> WebPage LegacyReceiver {
     SetInitialFocus(bool forward, bool isKeyboardEventValid, WebKit::WebKeyboardEvent event)
-    SetViewState(unsigned viewState, bool wantsDidUpdateViewState)
+    SetViewState(unsigned viewState, bool wantsDidUpdateViewState, Vector<uint64_t> callbackIDs)
     SetLayerHostingMode(unsigned layerHostingMode)
 
     SetSessionID(WebCore::SessionID sessionID)
@@ -157,6 +157,10 @@ messages -> WebPage LegacyReceiver {
 #if PLATFORM(COCOA)
     # Dictionary support.
     PerformDictionaryLookupAtLocation(WebCore::FloatPoint point)
+#endif
+
+#if PLATFORM(MAC)
+    PerformDictionaryLookupOfCurrentSelection()
 #endif
 
     PreferencesDidChange(WebKit::WebPreferencesStore store)
@@ -382,4 +386,15 @@ messages -> WebPage LegacyReceiver {
     GetBytecodeProfile(uint64_t callbackID)
     
     TakeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options, uint64_t callbackID)
+
+#if PLATFORM(MAC)
+    PerformActionMenuHitTestAtLocation(WebCore::FloatPoint location, bool forImmediateAction)
+    SelectLastActionMenuRange()
+    FocusAndSelectLastActionMenuHitTestResult()
+    DataDetectorsDidPresentUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
+    DataDetectorsDidChangeUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
+    DataDetectorsDidHideUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
+#endif
+
+    SetShouldDispatchFakeMouseMoveEvents(bool shouldDispatchFakeMouseMoveEvents)
 }

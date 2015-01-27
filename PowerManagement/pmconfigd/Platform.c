@@ -27,10 +27,13 @@
 #include "Platform.h"
 #include "PrivateLib.h"
 #include "PMSettings.h"
+#include "SystemLoad.h"
 
 __private_extern__ CFAbsoluteTime   get_SleepFromUserWakeTime();
 
 __private_extern__ TCPKeepAliveStruct   *gTCPKeepAlive = NULL;
+
+static  bool    pushConnectionActive = false;
 
 #define kTCPWakeQuotaCountDefault               20
 #define kTCPWakeQuotaIntervalSecDefault         3ULL*60ULL*60ULL
@@ -60,6 +63,9 @@ static void lazyAllocTCPKeepAlive(void)
             {
                 CFNumberGetValue(expirationTimeout, kCFNumberLongType, &gTCPKeepAlive->overrideSec);
             }
+            else {
+                gTCPKeepAlive->overrideSec = kTCPKeepAliveExpireSecs; // set to a default value
+            }
             gTCPKeepAlive->state = kActive;
         }
         else {
@@ -69,6 +75,18 @@ static void lazyAllocTCPKeepAlive(void)
     }
 
     return;
+}
+
+__private_extern__ CFTimeInterval getTcpkaTurnOffTime( )
+{
+
+    if ((!gTCPKeepAlive) || (gTCPKeepAlive->state != kActive) ||
+        (gTCPKeepAlive->ts_turnoff == 0)) 
+        return 0;
+
+    // Add additional 60 secs, just to make sure dispatch timer is expired 
+    // when system wakes up for turning off
+    return (gTCPKeepAlive->ts_turnoff + 60);
 }
 
 __private_extern__ void cancelTCPKeepAliveExpTimer( )
@@ -93,6 +111,7 @@ __private_extern__ void startTCPKeepAliveExpTimer( )
                                 dispatch_release(gTCPKeepAlive->expiration);
                                 gTCPKeepAlive->expiration = 0;
                                 gTCPKeepAlive->state = kActive;
+                                gTCPKeepAlive->ts_turnoff = 0;
                            }
                            });
     }
@@ -100,8 +119,10 @@ __private_extern__ void startTCPKeepAliveExpTimer( )
         dispatch_suspend(gTCPKeepAlive->expiration);
     }
 
+    gTCPKeepAlive->ts_turnoff = CFAbsoluteTimeGetCurrent() + gTCPKeepAlive->overrideSec;
+
     dispatch_source_set_timer(gTCPKeepAlive->expiration,
-                              dispatch_walltime(NULL, kTCPKeepAliveExpireSecs * NSEC_PER_SEC),
+                              dispatch_walltime(NULL, gTCPKeepAlive->overrideSec * NSEC_PER_SEC),
                               DISPATCH_TIME_FOREVER, 0);
     dispatch_resume(gTCPKeepAlive->expiration);
 
@@ -110,6 +131,8 @@ __private_extern__ void startTCPKeepAliveExpTimer( )
 __private_extern__
 tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
 {
+    tcpKeepAliveStates_et   state = kInactive;
+
     lazyAllocTCPKeepAlive();
     
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
@@ -118,14 +141,107 @@ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
         return kNotSupported;
     }
 
-    if (buf) {
-        if (gTCPKeepAlive->state == kActive)
-            snprintf(buf, buflen, "active");
-        else
-            snprintf(buf, buflen, "inactive");
+    if ((gTCPKeepAlive->state == kActive) && pushConnectionActive) {
+        state = kActive;
+        if (buf) snprintf(buf, buflen, "active");
     }
-    return gTCPKeepAlive->state;
+    else {
+        state = kInactive;
+        if (buf) snprintf(buf, buflen, "inactive");
+    }
+    return state;
 
 }
 
+__private_extern__ long getTCPKeepAliveOverrideSec( )
+{
+    if (gTCPKeepAlive)
+        return gTCPKeepAlive->overrideSec;
+
+    return 0;
+}
+
+__private_extern__ void enableTCPKeepAlive()
+{
+    if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
+        return;
+    cancelTCPKeepAliveExpTimer();
+    gTCPKeepAlive->state = kActive;
+
+}
+
+
+__private_extern__ void disableTCPKeepAlive()
+{
+    if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
+        return;
+    cancelTCPKeepAliveExpTimer();
+    gTCPKeepAlive->state = kInactive;
+
+}
+
+/* 
+ * Evaluate TCP Keep Alive(Tcpka) expiration timer for Power source change
+ * No expiration timer when on AC power source
+ */
+__private_extern__ void evalTcpkaForPSChange()
+{
+    static int  prevPwrSrc = -1;
+    int         pwrSrc;
+
+    if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
+        return;
+
+    if (getSessionUserActivity() == true) {
+        // If user is active in this wake session, there's nothing to be done here
+        // This case is handled when system is going to sleep
+        return;
+    }
+
+    pwrSrc = _getPowerSource();
+
+    if (pwrSrc == prevPwrSrc)
+        return; // If power source hasn't changed, there is nothing to do
+
+    prevPwrSrc = pwrSrc;
+
+
+
+    if (_getPowerSource() == kBatteryPowered) 
+        startTCPKeepAliveExpTimer();
+    else {
+        cancelTCPKeepAliveExpTimer();
+        if (gTCPKeepAlive->state == kInactive)
+            gTCPKeepAlive->state = kActive;
+    }
+
+}
+
+__private_extern__ void setPushConnectionState(bool active)
+{
+    pushConnectionActive = active;
+}
+
+__private_extern__ bool getPushConnectionState()
+{
+    return pushConnectionActive;
+}
+/*
+ * Returns if WakeOnLan feature is allowed(true/false).
+ * Checks if user has enabled it and also if thermal state allows it.
+ */
+__private_extern__ bool getWakeOnLanState()
+{
+    uint32_t thermalState = getSystemThermalState();
+    int64_t value = 0;
+
+    if ((thermalState == kIOPMThermalLevelWarning) || (thermalState == kIOPMThermalLevelTrap))
+        return false;
+
+    if ((GetPMSettingNumber(CFSTR(kIOPMWakeOnLANKey), &value) == kIOReturnSuccess) &&
+        (value == 1)) 
+        return true;
+
+    return false;
+}
 

@@ -49,6 +49,7 @@
 #import "WebPlugin.h"
 #import "WebQuotaManager.h"
 #import "WebSecurityOriginInternal.h"
+#import "WebSelectionServiceController.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
@@ -924,6 +925,11 @@ void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graph
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
+void WebChromeClient::attachViewOverlayGraphicsLayer(Frame*, GraphicsLayer*)
+{
+    // FIXME: If we want view-relative page overlays in Legacy WebKit, this would be the place to hook them up.
+}
+
 void WebChromeClient::setNeedsOneShotDrawingSynchronization()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -1035,4 +1041,17 @@ bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<
 
     return unwrapSerializedCryptoKey(masterKey, wrappedKey, key);
 }
+#endif
+
+#if ENABLE(SERVICE_CONTROLS)
+void WebChromeClient::handleSelectionServiceClick(WebCore::FrameSelection& selection, const Vector<String>& telephoneNumbers, const WebCore::IntPoint& point)
+{
+    [m_webView _selectionServiceController].handleSelectionServiceClick(selection, telephoneNumbers, point);
+}
+
+bool WebChromeClient::hasRelevantSelectionServices(bool isTextOnly) const
+{
+    return [m_webView _selectionServiceController].hasRelevantSelectionServices(isTextOnly);
+}
+
 #endif

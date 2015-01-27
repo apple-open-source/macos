@@ -641,34 +641,70 @@ static void pptp_get_router_address(CFStringRef serviceID)
 {
     CFStringRef		routerAddress = NULL;
     CFStringRef     ipv4Key = NULL;
+    CFMutableArrayRef ipv4Keys = NULL;
     CFDictionaryRef ipv4Dict = NULL;
+    CFIndex         n;
 
-    if (serviceID == NULL) {
+    warning("pptp_get_router_address\n");
+
+    ipv4Keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (serviceID == NULL || ipv4Keys == NULL) {
         goto done;
     }
-    warning("pptp_get_router_address\n");
+
+    ipv4Key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                          kSCDynamicStoreDomainSetup,
+                                                          serviceID,
+                                                          kSCEntNetIPv4);
+    if (!ipv4Key) {
+        goto done;
+    }
+    CFArrayAppendValue(ipv4Keys, ipv4Key);
+    CFRelease(ipv4Key);
+
     ipv4Key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
                                                           kSCDynamicStoreDomainState,
                                                           serviceID,
                                                           kSCEntNetIPv4);
-    if (ipv4Key == NULL) {
+    if (!ipv4Key) {
         goto done;
     }
+    CFArrayAppendValue(ipv4Keys, ipv4Key);
+    CFRelease(ipv4Key);
 
-    ipv4Dict = SCDynamicStoreCopyValue(NULL, ipv4Key);
+    ipv4Dict = SCDynamicStoreCopyMultiple(NULL, ipv4Keys, NULL);
     if (ipv4Dict == NULL) {
+        warning("pptp_get_router_address: could not get router address\n");
         goto done;
     }
 
-    routerAddress = CFDictionaryGetValue(ipv4Dict, kSCPropNetIPv4Router);
-    if (routerAddress) {
-        CFStringGetCString(routerAddress, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
-        warning("pptp_get_router_address %s\n", routeraddress);
+    n = CFDictionaryGetCount(ipv4Dict);
+    if (n <= 0) {
+        warning("pptp_get_router_address: empty router address dictionary\n");
+        goto done;
+    } else {
+        CFDictionaryRef dict;
+        int i;
+
+        // Try to retrieve router info from system config first, and from the current network state next if not found
+        n = CFArrayGetCount(ipv4Keys);
+        for (i = 0; i < n; i++) {
+            ipv4Key = CFArrayGetValueAtIndex(ipv4Keys, i);
+            dict = CFDictionaryGetValue(ipv4Dict, ipv4Key);
+            if (dict && (CFGetTypeID(dict) == CFDictionaryGetTypeID())) {
+                routerAddress = CFDictionaryGetValue(dict, kSCPropNetIPv4Router);
+                if (routerAddress) {
+                    CFStringGetCString(routerAddress, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
+                    warning("pptp_get_router_address %s from dict %d\n", routeraddress, i);
+                    goto done;
+                }
+            }
+        }
     }
 
 done:
-    if (ipv4Key) {
-        CFRelease(ipv4Key);
+    if (ipv4Keys) {
+        CFRelease(ipv4Keys);
     }
     if (ipv4Dict) {
         CFRelease(ipv4Dict);

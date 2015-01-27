@@ -80,6 +80,7 @@ ScriptExecutionContext::ScriptExecutionContext()
     , m_reasonForSuspendingActiveDOMObjects(static_cast<ActiveDOMObject::ReasonForSuspension>(-1))
     , m_activeDOMObjectsAreStopped(false)
     , m_activeDOMObjectAdditionForbidden(false)
+    , m_timerNestingLevel(0)
 #if !ASSERT_DISABLED
     , m_inScriptExecutionContextDestructor(false)
     , m_activeDOMObjectRemovalForbidden(false)
@@ -169,6 +170,10 @@ void ScriptExecutionContext::destroyedMessagePort(MessagePort& messagePort)
         || (isWorkerGlobalScope() && currentThread() == toWorkerGlobalScope(this)->thread().threadID()));
 
     m_messagePorts.remove(&messagePort);
+}
+
+void ScriptExecutionContext::didLoadResourceSynchronously(const ResourceRequest&)
+{
 }
 
 bool ScriptExecutionContext::canSuspendActiveDOMObjects()
@@ -416,8 +421,8 @@ PublicURLManager& ScriptExecutionContext::publicURLManager()
 void ScriptExecutionContext::adjustMinimumTimerInterval(double oldMinimumTimerInterval)
 {
     if (minimumTimerInterval() != oldMinimumTimerInterval) {
-        for (auto* timer : m_timeouts.values())
-            timer->adjustMinimumTimerInterval(oldMinimumTimerInterval);
+        for (auto& timer : m_timeouts.values())
+            timer->updateTimerIntervalIfNecessary();
     }
 }
 
@@ -433,7 +438,7 @@ double ScriptExecutionContext::minimumTimerInterval() const
 
 void ScriptExecutionContext::didChangeTimerAlignmentInterval()
 {
-    for (auto* timer : m_timeouts.values())
+    for (auto& timer : m_timeouts.values())
         timer->didChangeAlignmentInterval();
 }
 

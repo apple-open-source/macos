@@ -139,7 +139,6 @@ exit:
 SOSFullPeerInfoRef SOSFullPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
                                         const uint8_t** der_p, const uint8_t *der_end) {
     SOSFullPeerInfoRef fpi = CFTypeAllocate(SOSFullPeerInfo, struct __OpaqueSOSFullPeerInfo, allocator);
-    SecKeyRef device_key = NULL;
     
     const uint8_t *sequence_end;
     
@@ -149,18 +148,12 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErro
     require_quiet(fpi->peer_info != NULL, fail);
 
     *der_p = der_decode_data(allocator, kCFPropertyListImmutable, &fpi->key_ref, error, *der_p, sequence_end);
-    
-    OSStatus result = SecKeyFindWithPersistentRef(fpi->key_ref, &device_key);
-
-    require_quiet(result == errSecSuccess, fail);
     require_quiet(*der_p != NULL, fail);
     
-    CFReleaseNull(device_key);
     return fpi;
 
 fail:
     CFReleaseNull(fpi);
-    CFReleaseNull(device_key);
     return NULL;
 }
 
@@ -236,7 +229,11 @@ fail:
 
 
 bool SOSFullPeerInfoValidate(SOSFullPeerInfoRef peer, CFErrorRef* error) {
-    return true;
+    SecKeyRef device_key = NULL;
+    OSStatus result = SecKeyFindWithPersistentRef(peer->key_ref, &device_key);
+    CFReleaseNull(device_key);
+    if(result == errSecSuccess) return true;
+    return false;
 }
 
 bool SOSFullPeerInfoPurgePersistentKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error) {

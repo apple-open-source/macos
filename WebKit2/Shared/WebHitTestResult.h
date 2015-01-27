@@ -52,6 +52,11 @@ public:
         bool isContentEditable;
         WebCore::IntRect elementBoundingBox;
         bool isScrollbar;
+        bool isSelected;
+        bool isTextNode;
+        bool isOverTextInsideFormControlElement;
+        bool allowsCopy;
+        bool isDownloadableMedia;
 
         Data();
         explicit Data(const WebCore::HitTestResult&);
@@ -78,6 +83,16 @@ public:
     WebCore::IntRect elementBoundingBox() const { return m_data.elementBoundingBox; }
 
     bool isScrollbar() const { return m_data.isScrollbar; }
+
+    bool isSelected() const { return m_data.isSelected; }
+
+    bool isTextNode() const { return m_data.isTextNode; }
+
+    bool isOverTextInsideFormControlElement() const { return m_data.isOverTextInsideFormControlElement; }
+
+    bool allowsCopy() const { return m_data.allowsCopy; }
+
+    bool isDownloadableMedia() const { return m_data.isDownloadableMedia; }
 
 private:
     explicit WebHitTestResult(const WebHitTestResult::Data& hitTestResultData)
