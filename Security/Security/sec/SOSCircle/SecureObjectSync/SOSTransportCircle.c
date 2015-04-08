@@ -21,7 +21,7 @@ SOSTransportCircleRef SOSTransportCircleCreateForSubclass(size_t size, SOSAccoun
     return tpt;
 }
 
-static CFStringRef SOSTransportCircleCopyDescription(CFTypeRef aObj) {
+static CFStringRef SOSTransportCircleCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
     SOSTransportCircleRef t = (SOSTransportCircleRef) aObj;
     
     return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SOSTransportCircle@%p\n>"), t);

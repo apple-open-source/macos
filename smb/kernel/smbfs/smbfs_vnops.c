@@ -8604,11 +8604,12 @@ smbfs_pack_vap(struct smbmount *smp, struct smbfs_fctx *ctx,
     if (VATTR_IS_ACTIVE(vap, va_flags)) {
         uint32_t va_flags = 0;
         
-        if (ctx->f_attr.fa_attr & SMB_EFA_HIDDEN) {
-            /*
-             * Dont have to special case whether root vnode is hidden or not.
-             * root volume doesn't show up in a readdirattr, I think?
-             */
+        /*
+         * The server has it marked as hidden, set the new UF_HIDDEN bit. Never
+         * mark the root volume as hidden.
+         */
+        if ((ctx->f_attr.fa_attr & SMB_EFA_HIDDEN) &&
+            (ctx->f_attr.fa_ino != smp->sm_root_ino)) {
             va_flags |= UF_HIDDEN;
         }
         

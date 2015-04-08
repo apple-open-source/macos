@@ -109,7 +109,7 @@ struct _OpaqueSecOTAPKI
 
 CFGiblisFor(SecOTAPKI)
 
-static CF_RETURNS_RETAINED CFStringRef SecOTAPKICopyDescription(CFTypeRef cf)
+static CF_RETURNS_RETAINED CFStringRef SecOTAPKICopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 {
     SecOTAPKIRef otapkiRef = (SecOTAPKIRef)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTAPKIRef: version %d>"), otapkiRef->_assetVersion);

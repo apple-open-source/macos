@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
- * Copyright (C) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2015 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -43,9 +43,11 @@
 #include "RenderTableCell.h"
 #include "RenderText.h"
 #include "RenderView.h"
+#include "Settings.h"
 #include "SimpleLineLayoutFunctions.h"
 #include "VerticalPositionCache.h"
 #include "VisiblePosition.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -704,8 +706,7 @@ void RenderBlockFlow::layoutBlockChild(RenderBox& child, MarginInfo& marginInfo,
             previousFloatLogicalBottom = std::max(previousFloatLogicalBottom, oldLogicalTop + childBlockFlow->lowestFloatLogicalBottom());
     }
 
-    if (!child.needsLayout())
-        child.markForPaginationRelayoutIfNeeded();
+    child.markForPaginationRelayoutIfNeeded();
 
     bool childHadLayout = child.everHadLayout();
     bool childNeededLayout = child.needsLayout();
@@ -743,8 +744,7 @@ void RenderBlockFlow::layoutBlockChild(RenderBox& child, MarginInfo& marginInfo,
         if (childBlockFlow) {
             if (!child.avoidsFloats() && childBlockFlow->containsFloats())
                 childBlockFlow->markAllDescendantsWithFloatsForLayout();
-            if (!child.needsLayout())
-                child.markForPaginationRelayoutIfNeeded();
+            child.markForPaginationRelayoutIfNeeded();
         }
     }
 
@@ -1542,8 +1542,7 @@ LayoutUnit RenderBlockFlow::adjustBlockChildForPagination(LayoutUnit logicalTopA
         if (childRenderBlock) {
             if (!child.avoidsFloats() && childRenderBlock->containsFloats())
                 toRenderBlockFlow(childRenderBlock)->markAllDescendantsWithFloatsForLayout();
-            if (!child.needsLayout())
-                child.markForPaginationRelayoutIfNeeded();
+            child.markForPaginationRelayoutIfNeeded();
         }
 
         // Our guess was wrong. Make the child lay itself out again.
@@ -1620,6 +1619,15 @@ static inline LayoutUnit calculateMinimumPageHeight(RenderStyle* renderStyle, Ro
     return lineBottom - lineTop;
 }
 
+static inline bool needsAppleMailPaginationQuirk(RootInlineBox& lineBox)
+{
+    bool appleMailPaginationQuirkEnabled = lineBox.renderer().document().settings()->appleMailPaginationQuirkEnabled();
+    if (appleMailPaginationQuirkEnabled && lineBox.renderer().element() && lineBox.renderer().element()->idForStyleResolution() == AtomicString("messageContentContainer", AtomicString::ConstructFromLiteral))
+        return true;
+
+    return false;
+}
+    
 void RenderBlockFlow::adjustLinePositionForPagination(RootInlineBox* lineBox, LayoutUnit& delta, bool& overflowsRegion, RenderFlowThread* flowThread)
 {
     // FIXME: For now we paginate using line overflow. This ensures that lines don't overlap at all when we
@@ -1654,11 +1662,28 @@ void RenderBlockFlow::adjustLinePositionForPagination(RootInlineBox* lineBox, La
     bool hasUniformPageLogicalHeight = !flowThread || flowThread->regionsHaveUniformLogicalHeight();
     // If lineHeight is greater than pageLogicalHeight, but logicalVisualOverflow.height() still fits, we are
     // still going to add a strut, so that the visible overflow fits on a single page.
-    if (!pageLogicalHeight || (hasUniformPageLogicalHeight && logicalVisualOverflow.height() > pageLogicalHeight)
-        || !hasNextPage(logicalOffset))
+    if (!pageLogicalHeight || !hasNextPage(logicalOffset)) {
         // FIXME: In case the line aligns with the top of the page (or it's slightly shifted downwards) it will not be marked as the first line in the page.
         // From here, the fix is not straightforward because it's not easy to always determine when the current line is the first in the page.
         return;
+    }
+
+    if (hasUniformPageLogicalHeight && logicalVisualOverflow.height() > pageLogicalHeight) {
+        // We are so tall that we are bigger than a page. Before we give up and just leave the line where it is, try drilling into the
+        // line and computing a new height that excludes anything we consider "blank space". We will discard margins, descent, and even overflow. If we are
+        // able to fit with the blank space and overflow excluded, we will give the line its own page with the highest non-blank element being aligned with the
+        // top of the page.
+        // FIXME: We are still honoring gigantic margins, which does leave open the possibility of blank pages caused by this heuristic. It remains to be seen whether or not
+        // this will be a real-world issue. For now we don't try to deal with this problem.
+        logicalOffset = intMaxForLayoutUnit;
+        logicalBottom = intMinForLayoutUnit;
+        lineBox->computeReplacedAndTextLineTopAndBottom(logicalOffset, logicalBottom);
+        lineHeight = logicalBottom - logicalOffset;
+        if (logicalOffset == intMaxForLayoutUnit || lineHeight > pageLogicalHeight)
+            return; // Give up. We're genuinely too big even after excluding blank space and overflow.
+        pageLogicalHeight = pageLogicalHeightForOffset(logicalOffset);
+    }
+    
     LayoutUnit remainingLogicalHeight = pageRemainingLogicalHeightForOffset(logicalOffset, ExcludePageBoundary);
     overflowsRegion = (lineHeight > remainingLogicalHeight);
 
@@ -1681,9 +1706,14 @@ void RenderBlockFlow::adjustLinePositionForPagination(RootInlineBox* lineBox, La
         LayoutUnit pageLogicalHeightAtNewOffset = hasUniformPageLogicalHeight ? pageLogicalHeight : pageLogicalHeightForOffset(logicalOffset + remainingLogicalHeight);
         setPageBreak(logicalOffset, lineHeight - remainingLogicalHeight);
         if (((lineBox == firstRootBox() && totalLogicalHeight < pageLogicalHeightAtNewOffset) || (!style().hasAutoOrphans() && style().orphans() >= lineIndex))
-            && !isOutOfFlowPositioned() && !isTableCell())
-            setPaginationStrut(remainingLogicalHeight + std::max<LayoutUnit>(0, logicalOffset));
-        else {
+            && !isOutOfFlowPositioned() && !isTableCell()) {
+            auto firstRootBox = this->firstRootBox();
+            auto firstRootBoxOverflowRect = firstRootBox->logicalVisualOverflowRect(firstRootBox->lineTop(), firstRootBox->lineBottom());
+            auto firstLineUpperOverhang = std::max(-firstRootBoxOverflowRect.y(), LayoutUnit());
+            if (needsAppleMailPaginationQuirk(*lineBox))
+                return;
+            setPaginationStrut(remainingLogicalHeight + logicalOffset + firstLineUpperOverhang);
+        } else {
             delta += remainingLogicalHeight;
             lineBox->setPaginationStrut(remainingLogicalHeight);
             lineBox->setIsFirstAfterPageBreak(true);
@@ -1829,25 +1859,34 @@ LayoutUnit RenderBlockFlow::nextPageLogicalTop(LayoutUnit logicalOffset, PageBou
 
 LayoutUnit RenderBlockFlow::pageLogicalTopForOffset(LayoutUnit offset) const
 {
+    // Unsplittable objects clear out the pageLogicalHeight in the layout state as a way of signaling that no
+    // pagination should occur. Therefore we have to check this first and bail if the value has been set to 0.
+    LayoutUnit pageLogicalHeight = view().layoutState()->m_pageLogicalHeight;
+    if (!pageLogicalHeight)
+        return 0;
+
     LayoutUnit firstPageLogicalTop = isHorizontalWritingMode() ? view().layoutState()->m_pageOffset.height() : view().layoutState()->m_pageOffset.width();
     LayoutUnit blockLogicalTop = isHorizontalWritingMode() ? view().layoutState()->m_layoutOffset.height() : view().layoutState()->m_layoutOffset.width();
 
     LayoutUnit cumulativeOffset = offset + blockLogicalTop;
     RenderFlowThread* flowThread = flowThreadContainingBlock();
-    if (!flowThread) {
-        LayoutUnit pageLogicalHeight = view().layoutState()->pageLogicalHeight();
-        if (!pageLogicalHeight)
-            return 0;
+    if (!flowThread)
         return cumulativeOffset - roundToInt(cumulativeOffset - firstPageLogicalTop) % roundToInt(pageLogicalHeight);
-    }
     return firstPageLogicalTop + flowThread->pageLogicalTopForOffset(cumulativeOffset - firstPageLogicalTop);
 }
 
 LayoutUnit RenderBlockFlow::pageLogicalHeightForOffset(LayoutUnit offset) const
 {
+    // Unsplittable objects clear out the pageLogicalHeight in the layout state as a way of signaling that no
+    // pagination should occur. Therefore we have to check this first and bail if the value has been set to 0.
+    LayoutUnit pageLogicalHeight = view().layoutState()->m_pageLogicalHeight;
+    if (!pageLogicalHeight)
+        return 0;
+    
+    // Now check for a flow thread.
     RenderFlowThread* flowThread = flowThreadContainingBlock();
     if (!flowThread)
-        return view().layoutState()->m_pageLogicalHeight;
+        return pageLogicalHeight;
     return flowThread->pageLogicalHeightForOffset(offset + offsetFromLogicalTopOfFirstPage());
 }
 
@@ -2407,13 +2446,11 @@ bool RenderBlockFlow::positionNewFloats()
 
         estimateRegionRangeForBoxChild(childBox);
 
+        childBox.markForPaginationRelayoutIfNeeded();
+        childBox.layoutIfNeeded();
+        
         LayoutState* layoutState = view().layoutState();
         bool isPaginated = layoutState->isPaginated();
-        if (isPaginated && !childBox.needsLayout())
-            childBox.markForPaginationRelayoutIfNeeded();
-        
-        childBox.layoutIfNeeded();
-
         if (isPaginated) {
             // If we are unsplittable and don't fit, then we need to move down.
             // We include our margins as part of the unsplittable area.
@@ -2982,7 +3019,7 @@ GapRects RenderBlockFlow::inlineSelectionGaps(RenderBlock& rootBlock, const Layo
         LayoutUnit selHeight = curr->selectionHeightAdjustedForPrecedingBlock();
 
         if (!containsStart && !lastSelectedLine &&
-            selectionState() != SelectionStart && selectionState() != SelectionBoth)
+            selectionState() != SelectionStart && selectionState() != SelectionBoth && !isRubyBase())
             result.uniteCenter(blockSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, lastLogicalTop, lastLogicalLeft, lastLogicalRight, selTop, cache, paintInfo));
         
         LayoutRect logicalRect(curr->logicalLeft(), selTop, curr->logicalWidth(), selTop + selHeight);

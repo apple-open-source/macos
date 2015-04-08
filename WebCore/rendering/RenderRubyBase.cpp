@@ -38,6 +38,8 @@ namespace WebCore {
 
 RenderRubyBase::RenderRubyBase(Document& document, PassRef<RenderStyle> style)
     : RenderBlockFlow(document, WTF::move(style))
+    , m_initialOffset(0)
+    , m_isAfterExpansion(true)
 {
     setInline(false);
 }
@@ -143,7 +145,13 @@ ETextAlign RenderRubyBase::textAlignmentForLine(bool /* endsWithSoftBreak */) co
 
 void RenderRubyBase::adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const
 {
-    int maxPreferredLogicalWidth = this->maxPreferredLogicalWidth();
+    if (rubyRun()->hasOverrideWidth() && firstRootBox() && !firstRootBox()->nextRootBox()) {
+        logicalLeft += m_initialOffset;
+        logicalWidth -= 2 * m_initialOffset;
+        return;
+    }
+
+    LayoutUnit maxPreferredLogicalWidth = rubyRun() && rubyRun()->hasOverrideWidth() ? rubyRun()->overrideLogicalContentWidth() : this->maxPreferredLogicalWidth();
     if (maxPreferredLogicalWidth >= logicalWidth)
         return;
 
@@ -152,6 +160,13 @@ void RenderRubyBase::adjustInlineDirectionLineBounds(int expansionOpportunityCou
 
     logicalLeft += inset / 2;
     logicalWidth -= inset;
+}
+
+void RenderRubyBase::cachePriorCharactersIfNeeded(const LazyLineBreakIterator& lineBreakIterator)
+{
+    auto* run = rubyRun();
+    if (run)
+        run->setCachedPriorCharacters(lineBreakIterator.lastCharacter(), lineBreakIterator.secondToLastCharacter());
 }
 
 } // namespace WebCore

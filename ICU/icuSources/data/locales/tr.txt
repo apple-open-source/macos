@@ -801,6 +801,20 @@ tr{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Muharrem",
+                        "Safer",
+                        "Rebiülevvel",
+                        "Rebiülahir",
+                        "Cemaziyelevvel",
+                        "Cemaziyelahir",
+                        "Recep",
+                        "Şaban",
+                        "Ramazan",
+                        "Şevval",
+                        "Zilkade",
+                        "Zilhicce",
+                    }
                     narrow{
                         "1",
                         "2",

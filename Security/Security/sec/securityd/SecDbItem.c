@@ -496,7 +496,7 @@ static bool SecDbItemGetBoolValue(SecDbItemRef item, const SecDbAttr *desc, bool
     return true;
 }
 
-static CFStringRef SecDbItemCopyDescription(CFTypeRef cf) {
+static CFStringRef SecDbItemCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
 #if 0 //defined(DEBUG) && DEBUG != 0
     SecDbItemRef item = (SecDbItemRef)cf;
     CFMutableStringRef desc = CFStringCreateMutable(CFGetAllocator(cf), 0);

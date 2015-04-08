@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -148,7 +148,7 @@ Trust::~Trust()
 	if (mSearchLibs) {
 		delete mSearchLibs;
 	}
-    
+
     mPolicies = NULL;
 }
 
@@ -307,13 +307,16 @@ void Trust::evaluate(bool disableEV)
 		context.actionData() = localActionCData;
 	}
 
+	bool hasSSLPolicy = policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL);
+	bool hasEAPPolicy = policySpecified(mPolicies, CSSMOID_APPLE_TP_EAP);
+
 	if (!mAnchors) {
 		// always check trust settings if caller did not provide explicit trust anchors
 		actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
 	}
 
 	if (mNetworkPolicy == useNetworkDefault) {
-		if (policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL)) {
+		if (hasSSLPolicy) {
 			// enable network cert fetch for SSL only: <rdar://7422356>
 			actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
 		}
@@ -330,7 +333,6 @@ void Trust::evaluate(bool disableEV)
 	CFMutableArrayRef allPolicies = NULL;
 	uint32 numRevocationAdded = 0;
 	bool requirePerCert = (actionDataP->ActionFlags & CSSM_TP_ACTION_REQUIRE_REV_PER_CERT);
-	bool avoidRevChecks = (policySpecified(mPolicies, CSSMOID_APPLE_TP_EAP));
 
 	// If a new unified revocation policy was explicitly specified,
 	// convert into old-style individual OCSP and CRL policies.
@@ -354,16 +356,16 @@ void Trust::evaluate(bool disableEV)
 		allPolicies = NULL; // use only mPolicies
 		isEVCandidate = false;
 	}
-	else if ((isEVCandidate && !avoidRevChecks) || requirePerCert) {
+	else if (isEVCandidate || requirePerCert) {
 		// force revocation checking for this evaluation
 		secdebug("evTrust", "Trust::evaluate() forcing OCSP/CRL revocation check");
-		allPolicies = forceRevocationPolicies(numRevocationAdded,
-			context.allocator, requirePerCert);
+		allPolicies = forceRevocationPolicies(true, requirePerCert,
+			numRevocationAdded, context.allocator, requirePerCert);
 	}
-	else if(!(revocationPolicySpecified(mPolicies)) && !avoidRevChecks) {
+	else if(!(revocationPolicySpecified(mPolicies))) {
 		// none specified in mPolicies; try preferences
-		allPolicies = addPreferenceRevocationPolicies(numRevocationAdded,
-			context.allocator);
+		allPolicies = addPreferenceRevocationPolicies(!(hasSSLPolicy || hasEAPPolicy),
+			!(hasSSLPolicy || hasEAPPolicy), numRevocationAdded, context.allocator);
 	}
 	if (allPolicies == NULL) {
 		// use mPolicies; no revocation checking will be performed

@@ -21,7 +21,7 @@ bool SOSTransportKeyParameterHandleNewAccount(SOSTransportKeyParameterRef transp
     return transport->setToNewAccount(transport);
 }
 
-static CFStringRef SOSTransportKeyParameterCopyDescription(CFTypeRef aObj) {
+static CFStringRef SOSTransportKeyParameterCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
     SOSTransportKeyParameterRef t = (SOSTransportKeyParameterRef) aObj;
     
     return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SOSTransportKeyParameter@%p\n>"), t);

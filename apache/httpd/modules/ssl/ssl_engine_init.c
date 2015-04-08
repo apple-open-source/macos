@@ -41,6 +41,79 @@
 #define KEYTYPES "RSA or DSA"
 #endif
 
+/*
+ * Grab well-defined DH parameters from OpenSSL, see the get_rfc*
+ * functions in <openssl/bn.h> for all available primes.
+ */
+static DH *make_dh_params(BIGNUM *(*prime)(BIGNUM *), const char *gen)
+{
+    DH *dh = DH_new();
+
+    if (!dh) {
+        return NULL;
+    }
+    dh->p = prime(NULL);
+    BN_dec2bn(&dh->g, gen);
+    if (!dh->p || !dh->g) {
+        DH_free(dh);
+        return NULL;
+    }
+    return dh;
+}
+
+/* Storage and initialization for DH parameters. */
+static struct dhparam {
+    BIGNUM *(*const prime)(BIGNUM *); /* function to generate... */
+    DH *dh;                           /* ...this, used for keys.... */
+    const unsigned int min;           /* ...of length >= this. */
+} dhparams[] = {
+    { get_rfc3526_prime_8192, NULL, 6145 },
+    { get_rfc3526_prime_6144, NULL, 4097 },
+    { get_rfc3526_prime_4096, NULL, 3073 },
+    { get_rfc3526_prime_3072, NULL, 2049 },
+    { get_rfc3526_prime_2048, NULL, 1025 },
+    { get_rfc2409_prime_1024, NULL, 0 }
+};
+
+static void init_dh_params(void)
+{
+    unsigned n;
+
+    for (n = 0; n < sizeof(dhparams)/sizeof(dhparams[0]); n++)
+        dhparams[n].dh = make_dh_params(dhparams[n].prime, "2");
+}
+
+static void free_dh_params(void)
+{
+    unsigned n;
+
+    /* DH_free() is a noop for a NULL parameter, so these are harmless
+     * in the (unexpected) case where these variables are already
+     * NULL. */
+    for (n = 0; n < sizeof(dhparams)/sizeof(dhparams[0]); n++) {
+        DH_free(dhparams[n].dh);
+        dhparams[n].dh = NULL;
+    }
+}
+
+/* Hand out the same DH structure though once generated as we leak
+ * memory otherwise and freeing the structure up after use would be
+ * hard to track and in fact is not needed at all as it is safe to
+ * use the same parameters over and over again security wise (in
+ * contrast to the keys itself) and code safe as the returned structure
+ * is duplicated by OpenSSL anyway. Hence no modification happens
+ * to our copy. */
+DH *modssl_get_dh_params(unsigned keylen)
+{
+    unsigned n;
+
+    for (n = 0; n < sizeof(dhparams)/sizeof(dhparams[0]); n++)
+        if (keylen >= dhparams[n].min)
+            return dhparams[n].dh;
+        
+    return NULL; /* impossible to reach. */
+}
+
 static void ssl_add_version_components(apr_pool_t *p,
                                        server_rec *s)
 {
@@ -117,13 +190,16 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
         sc->vhost_id = ssl_util_vhostid(p, s);
         sc->vhost_id_len = strlen(sc->vhost_id);
 
-        if (ap_get_server_protocol(s) &&
-            strcmp("https", ap_get_server_protocol(s)) == 0) {
+        /* Default to enabled if SSLEngine is not set explicitly, and
+         * the protocol is https. */
+        if (ap_get_server_protocol(s) 
+            && strcmp("https", ap_get_server_protocol(s)) == 0
+            && sc->enabled == SSL_ENABLED_UNSET) {
             sc->enabled = SSL_ENABLED_TRUE;
         }
 
-        /* If sc->enabled is UNSET, then SSL is optional on this vhost  */
-        /* Fix up stuff that may not have been set */
+        /* Fix up stuff that may not have been set.  If sc->enabled is
+         * UNSET, then SSL is disabled on this vhost.  */
         if (sc->enabled == SSL_ENABLED_UNSET) {
             sc->enabled = SSL_ENABLED_FALSE;
         }
@@ -255,6 +331,8 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
     ssl_add_version_components(p, base_server);
 
     SSL_init_app_data2_idx(); /* for SSL_get_app_data2() at request time */
+
+    init_dh_params();
 
     return OK;
 }
@@ -891,6 +969,8 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
          i++) {
         key_id = apr_psprintf(ptemp, "%s:%d", vhost_id, i);
 
+        ERR_clear_error();
+
         /* first the certificate (public key) */
         if (mctx->cert_chain) {
             if ((SSL_CTX_use_certificate_file(mctx->ssl_ctx, certfile,
@@ -913,9 +993,11 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
         }
 
         /* and second, the private key */
-        keyfile = APR_ARRAY_IDX(mctx->pks->key_files, i, const char *);
-        if (keyfile == NULL)
+        if (i < mctx->pks->key_files->nelts) {
+            keyfile = APR_ARRAY_IDX(mctx->pks->key_files, i, const char *);
+        } else {
             keyfile = certfile;
+        }
 
         ERR_clear_error();
 
@@ -1368,6 +1450,10 @@ static apr_status_t ssl_init_server_ctx(server_rec *s,
     }
 #endif
 
+    SSL_CTX_set_timeout(sc->server->ssl_ctx,
+                        sc->session_cache_timeout == UNSET ?
+                        SSL_SESSION_CACHE_TIMEOUT : sc->session_cache_timeout);
+
     return APR_SUCCESS;
 }
 
@@ -1404,13 +1490,16 @@ apr_status_t ssl_init_ConfigureServer(server_rec *s,
 
 apr_status_t ssl_init_CheckServers(server_rec *base_server, apr_pool_t *p)
 {
-    server_rec *s, *ps;
+    server_rec *s;
     SSLSrvConfigRec *sc;
+#ifndef HAVE_TLSEXT
+    server_rec *ps;
     apr_hash_t *table;
     const char *key;
     apr_ssize_t klen;
 
     BOOL conflict = FALSE;
+#endif
 
     /*
      * Give out warnings when a server has HTTPS configured
@@ -1438,11 +1527,11 @@ apr_status_t ssl_init_CheckServers(server_rec *base_server, apr_pool_t *p)
         }
     }
 
+#ifndef HAVE_TLSEXT
     /*
      * Give out warnings when more than one SSL-aware virtual server uses the
-     * same IP:port. This doesn't work because mod_ssl then will always use
-     * just the certificate/keys of one virtual host (which one cannot be said
-     * easily - but that doesn't matter here).
+     * same IP:port and an OpenSSL version without support for TLS extensions
+     * (SNI in particular) is used.
      */
     table = apr_hash_make(p);
 
@@ -1460,17 +1549,10 @@ apr_status_t ssl_init_CheckServers(server_rec *base_server, apr_pool_t *p)
         klen = strlen(key);
 
         if ((ps = (server_rec *)apr_hash_get(table, key, klen))) {
-#ifndef HAVE_TLSEXT
-            int level = APLOG_WARNING;
-            const char *problem = "conflict";
-#else
-            int level = APLOG_DEBUG;
-            const char *problem = "overlap";
-#endif
-            ap_log_error(APLOG_MARK, level, 0, base_server,
-                         "Init: SSL server IP/port %s: "
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server,
+                         "Init: SSL server IP/port conflict: "
                          "%s (%s:%d) vs. %s (%s:%d)",
-                         problem, ssl_util_vhostid(p, s),
+                         ssl_util_vhostid(p, s),
                          (s->defn_name ? s->defn_name : "unknown"),
                          s->defn_line_number,
                          ssl_util_vhostid(p, ps),
@@ -1484,17 +1566,14 @@ apr_status_t ssl_init_CheckServers(server_rec *base_server, apr_pool_t *p)
     }
 
     if (conflict) {
-#ifndef HAVE_TLSEXT
         ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(01917)
-                     "Init: You should not use name-based "
-                     "virtual hosts in conjunction with SSL!!");
-#else
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(02292)
-                     "Init: Name-based SSL virtual hosts only "
-                     "work for clients with TLS server name indication "
-                     "support (RFC 4366)");
-#endif
+                     "Init: Name-based SSL virtual hosts require "
+                     "an OpenSSL version with support for TLS extensions "
+                     "(RFC 6066 - Server Name Indication / SNI), "
+                     "but the currently used library version (%s) is "
+                     "lacking this feature", SSLeay_version(SSLEAY_VERSION));
     }
+#endif
 
     return APR_SUCCESS;
 }
@@ -1687,6 +1766,8 @@ apr_status_t ssl_init_ModuleKill(void *data)
 
         ssl_init_ctx_cleanup(sc->server);
     }
+
+    free_dh_params();
 
     return APR_SUCCESS;
 }

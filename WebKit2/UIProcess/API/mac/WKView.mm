@@ -94,6 +94,7 @@
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/Region.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/SoftLinking.h>
 #import <WebCore/TextAlternativeWithRange.h>
@@ -264,6 +265,7 @@ struct WKViewInterpretKeyEventsParameters {
     BOOL _automaticallyAdjustsContentInsets;
     RetainPtr<WKActionMenuController> _actionMenuController;
     RetainPtr<WKImmediateActionController> _immediateActionController;
+    RetainPtr<NSImmediateActionGestureRecognizer> _immediateActionGestureRecognizer;
 #endif
 
 #if WK_API_ENABLED
@@ -2567,6 +2569,11 @@ static void* keyValueObservingContext = &keyValueObservingContext;
         }
 
         [self _accessibilityRegisterUIProcessTokens];
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+        if (_data->_immediateActionGestureRecognizer && ![[self gestureRecognizers] containsObject:_data->_immediateActionGestureRecognizer.get()] && !_data->_ignoresNonWheelEvents)
+            [self addGestureRecognizer:_data->_immediateActionGestureRecognizer.get()];
+#endif
     } else {
         ViewState::Flags viewStateChanges = ViewState::WindowIsActive | ViewState::IsVisible;
         if ([self isDeferringViewInWindowChanges])
@@ -2579,6 +2586,11 @@ static void* keyValueObservingContext = &keyValueObservingContext;
         _data->_flagsChangedEventMonitor = nil;
 
         [self _dismissContentRelativeChildWindows];
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+        if (_data->_immediateActionGestureRecognizer)
+            [self removeGestureRecognizer:_data->_immediateActionGestureRecognizer.get()];
+#endif
     }
 
     _data->_page->setIntrinsicDeviceScaleFactor([self _intrinsicDeviceScaleFactor]);
@@ -2846,6 +2858,13 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     if (_data->_ignoresNonWheelEvents)
         return;
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    if (_data->_immediateActionGestureRecognizer) {
+        [super quickLookWithEvent:event];
+        return;
+    }
+#endif
+
     NSPoint locationInViewCoordinates = [self convertPoint:[event locationInWindow] fromView:nil];
     _data->_page->performDictionaryLookupAtLocation(FloatPoint(locationInViewCoordinates.x, locationInViewCoordinates.y));
 }
@@ -2887,6 +2906,8 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
 - (void)_processDidExit
 {
+    [self _notifyInputContextAboutDiscardedComposition];
+
     if (_data->_layerHostingView)
         [self _setAcceleratedCompositingModeRootLayer:nil];
 
@@ -3103,8 +3124,8 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     if (!_data->_textIndicatorWindow)
         _data->_textIndicatorWindow = std::make_unique<TextIndicatorWindow>(self);
 
-    NSRect contentRect = [self.window convertRectToScreen:[self convertRect:textIndicator->textBoundingRectInWindowCoordinates() toView:nil]];
-    _data->_textIndicatorWindow->setTextIndicator(textIndicator, NSRectToCGRect(contentRect), fadeOut);
+    NSRect textBoundingRectInScreenCoordinates = [self.window convertRectToScreen:[self convertRect:textIndicator->textBoundingRectInRootViewCoordinates() toView:nil]];
+    _data->_textIndicatorWindow->setTextIndicator(textIndicator, NSRectToCGRect(textBoundingRectInScreenCoordinates), fadeOut);
 }
 
 - (void)_setTextIndicatorAnimationProgress:(float)progress
@@ -3619,11 +3640,12 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
         self.actionMenu.autoenablesItems = NO;
     }
 
-    if (Class gestureClass = NSClassFromString(@"NSImmediateActionGestureRecognizer")) {
-        RetainPtr<NSImmediateActionGestureRecognizer> recognizer = adoptNS([(NSImmediateActionGestureRecognizer *)[gestureClass alloc] initWithTarget:nil action:NULL]);
-        _data->_immediateActionController = adoptNS([[WKImmediateActionController alloc] initWithPage:*_data->_page view:self recognizer:recognizer.get()]);
-        [recognizer setDelegate:_data->_immediateActionController.get()];
-        [self addGestureRecognizer:recognizer.get()];
+    // FIXME: We should not permanently disable this for iBooks. rdar://problem/19585689
+    Class gestureClass = NSClassFromString(@"NSImmediateActionGestureRecognizer");
+    if (gestureClass && !applicationIsIBooks()) {
+        _data->_immediateActionGestureRecognizer = adoptNS([(NSImmediateActionGestureRecognizer *)[gestureClass alloc] initWithTarget:nil action:NULL]);
+        _data->_immediateActionController = adoptNS([[WKImmediateActionController alloc] initWithPage:*_data->_page view:self recognizer:_data->_immediateActionGestureRecognizer.get()]);
+        [_data->_immediateActionGestureRecognizer setDelegate:_data->_immediateActionController.get()];
     }
 #endif
 
@@ -3773,6 +3795,11 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
 - (void)saveBackForwardSnapshotForCurrentItem
 {
     _data->_page->recordNavigationSnapshot();
+}
+
+- (void)saveBackForwardSnapshotForItem:(WKBackForwardListItemRef)item
+{
+    _data->_page->recordNavigationSnapshot(*toImpl(item));
 }
 
 - (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef pageGroupRef:(WKPageGroupRef)pageGroupRef
@@ -4097,6 +4124,13 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
 
     _data->_ignoresNonWheelEvents = ignoresNonWheelEvents;
     _data->_page->setShouldDispatchFakeMouseMoveEvents(!ignoresNonWheelEvents);
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    if (ignoresNonWheelEvents)
+        [self removeGestureRecognizer:_data->_immediateActionGestureRecognizer.get()];
+    else if (NSGestureRecognizer *immediateActionRecognizer = _data->_immediateActionGestureRecognizer.get())
+        [self addGestureRecognizer:immediateActionRecognizer];
+#endif
 }
 
 - (BOOL)_ignoresNonWheelEvents
@@ -4318,65 +4352,26 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
 - (void)_dismissContentRelativeChildWindows
 {
     // FIXME: We don't know which panel we are dismissing, it may not even be in the current page (see <rdar://problem/13875766>).
-    if (Class lookupDefinitionModuleClass = getLULookupDefinitionModuleClass())
-        [lookupDefinitionModuleClass hideDefinition];
-
-    DDActionsManager *actionsManager = [getDDActionsManagerClass() sharedManager];
-    if ([actionsManager respondsToSelector:@selector(requestBubbleClosureUnanchorOnFailure:)])
-        [actionsManager requestBubbleClosureUnanchorOnFailure:YES];
-
+    if ([[self window] isKeyWindow]
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-    [_data->_immediateActionController hidePreview];
+    || [_data->_immediateActionController hasActiveImmediateAction]
 #endif
+    ) {
+        if (Class lookupDefinitionModuleClass = getLULookupDefinitionModuleClass())
+            [lookupDefinitionModuleClass hideDefinition];
+
+        DDActionsManager *actionsManager = [getDDActionsManagerClass() sharedManager];
+        if ([actionsManager respondsToSelector:@selector(requestBubbleClosureUnanchorOnFailure:)])
+            [actionsManager requestBubbleClosureUnanchorOnFailure:YES];
+    }
 
     [self _setTextIndicator:nullptr fadeOut:NO];
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    [_data->_immediateActionController dismissContentRelativeChildWindows];
+#endif
+
     static_cast<PageClient&>(*_data->_pageClient).dismissCorrectionPanel(ReasonForDismissingAlternativeTextIgnored);
-}
-
-- (NSView *)_viewForPreviewingURL:(NSURL *)url initialFrameSize:(NSSize)initialFrameSize
-{
-    return nil;
-}
-
-- (NSString *)_titleForPreviewOfURL:(NSURL *)url
-{
-    return nil;
-}
-
-- (void)_setPreviewTitle:(NSString *)previewTitle
-{
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-    [_data->_immediateActionController setPreviewTitle:previewTitle];
-#endif
-}
-
-- (void)_setPreviewLoading:(BOOL)loading
-{
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-    [_data->_immediateActionController setPreviewLoading:loading];
-#endif
-}
-
-- (void)_setPreviewOverrideImage:(NSImage *)image
-{
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-    [_data->_immediateActionController setPreviewOverrideImage:image];
-#endif
-}
-
-- (void)_finishPreviewingURL:(NSURL *)url withPreviewView:(NSView *)previewView
-{
-}
-
-- (void)_handleClickInPreviewView:(NSView *)previewView URL:(NSURL *)url
-{
-    [[NSWorkspace sharedWorkspace] openURL:url];
-}
-
-- (BOOL)_shouldUseStandardQuickLookPreview
-{
-    return YES;
 }
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000

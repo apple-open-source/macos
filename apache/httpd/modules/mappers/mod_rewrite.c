@@ -2633,7 +2633,7 @@ static apr_status_t rewritelock_remove(void *data)
         apr_global_mutex_destroy(rewrite_mapr_lock_acquire);
         rewrite_mapr_lock_acquire = NULL;
     }
-    return(0);
+    return APR_SUCCESS;
 }
 
 
@@ -4161,6 +4161,7 @@ static int apply_rewrite_rule(rewriterule_entry *p, rewrite_ctx *ctx)
                     r->filename));
 
         r->filename = apr_pstrcat(r->pool, "proxy:", r->filename, NULL);
+        apr_table_setn(r->notes, "rewrite-proxy", "1");
         return 1;
     }
 

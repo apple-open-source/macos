@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>core - Serveur Apache HTTP</title>
+<title>core - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -127,8 +127,6 @@ d'acceptation</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible depuis la version 2.3.3 sous Windows et 2.1.5
-sur les autres plates-formes.</td></tr>
 </table>
     <p>Cette directive permet d'effectuer une optimisation de la socket
     d'écoute d'un type de protocole en fonction du système
@@ -695,6 +693,7 @@ dans la réponse HTTP</td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible depuis la version 2.4.2 du serveur HTTP Apache</td></tr>
 </table>
     <p>La directive <code class="directive">DefaultRuntimeDir</code> permet de
     définir le répertoire dans lequel le serveur va créer les différents
@@ -1470,7 +1469,6 @@ personnalisation des réponses</a></li>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible depuis la version 2.3.9 d'Apache</td></tr>
 </table>
     <p>La directive <code class="directive">ErrorLogFormat</code> permet de
     spécifier quelles informations supplémentaires vont être enregistrées
@@ -1873,9 +1871,9 @@ spécifiés sous la forme d'expressions rationnelles</td></tr>
     nommées) sont ignorées. Vous devez utiliser à la place des groupes
     nommés.</p>
 
-<pre class="prettyprint lang-config">&lt;FileMatch ^(?&lt;sitename&gt;[^/]+)&gt;
+<pre class="prettyprint lang-config">&lt;FilesMatch ^(?&lt;sitename&gt;[^/]+)&gt;
     require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
-&lt;/FileMatch&gt;</pre>
+&lt;/FilesMatch&gt;</pre>
 
 
 
@@ -2033,7 +2031,7 @@ requête</td></tr>
     <p>serait satisfaite pour les requêtes HTTP/1.0 sans en-tête
     <var>Host:</var>. Les expressions peuvent contenir différents
     opérateurs de type shell pour la comparaison de chaînes
-    (<code>=</code>, <code>!=</code>, <code>&lt;</code>, ...), la
+    (<code>==</code>, <code>!=</code>, <code>&lt;</code>, ...), la
     comparaison d'entiers (<code>-eq</code>, <code>-ne</code>, ...), ou
     à usages divers (<code>-n</code>, <code>-z</code>, <code>-f</code>,
     ...). Les expressions rationnelles sont aussi supportées,</p>
@@ -2331,8 +2329,6 @@ avant de fermer une connexion persistante</td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>La spécification d'une valeur en millisecondes est
-possible depuis les versions 2.3.2 et supérieures d'Apache httpd</td></tr>
 </table>
     <p>Le nombre de secondes pendant lesquelles Apache httpd va attendre une
     requête avant de fermer la connexion. Le délai peut être défini en

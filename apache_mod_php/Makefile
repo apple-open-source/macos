@@ -1,6 +1,6 @@
 #
 # Apple wrapper Makefile for PHP
-# Copyright (c) 2008-2014 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2015 Apple Inc. All Rights Reserved.
 ##
 #
 
@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Commands
-Submission      = 93
+Submission      = 94
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
@@ -80,11 +80,11 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.5.14
+AEP_Version	= 5.5.20
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  \
 			MacOSX_build.patch \
-			iconv.patch pear.patch phar.patch
+			iconv.patch pear.patch phar.patch 
 AEP_ConfigDir	= $(ETCDIR)
 AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1

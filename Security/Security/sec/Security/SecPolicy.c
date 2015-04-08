@@ -454,7 +454,7 @@ static CFHashCode SecPolicyHash(CFTypeRef cf) {
 	return CFHash(policy->_oid) + CFHash(policy->_options);
 }
 
-static CFStringRef SecPolicyCopyDescription(CFTypeRef cf) {
+static CFStringRef SecPolicyCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
 	SecPolicyRef policy = (SecPolicyRef) cf;
     CFMutableStringRef desc = CFStringCreateMutable(kCFAllocatorDefault, 0);
     CFStringRef typeStr = CFCopyTypeIDDescription(CFGetTypeID(cf));

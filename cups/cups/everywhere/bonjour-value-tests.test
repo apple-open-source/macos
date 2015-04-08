@@ -1,5 +1,5 @@
 #
-# "$Id: bonjour-value-tests.test 12131 2014-08-28 23:38:16Z msweet $"
+# "$Id: bonjour-value-tests.test 12183 2014-10-01 13:02:28Z msweet $"
 #
 # IPP Everywhere Printer Self-Certification Manual 1.0: Section 5: Bonjour Tests.
 #
@@ -15,7 +15,8 @@
 #
 # Usage:
 #
-#   ./ipptool -tI printer-uri -d ADMINURL=url -d UUID=uuid bonjour-value-tests.test
+#   (run from within ippfind)
+#   ippfind ... -x ipptool -t "{}" bonjour-value-tests.test ";"
 #
 
 FILE-ID "org.pwg.ipp-everywhere.20140826.bonjour"
@@ -37,10 +38,10 @@ FILE-ID "org.pwg.ipp-everywhere.20140826.bonjour"
 	STATUS successful-ok
 
 	# What attributes do we expect?
-	EXPECT printer-more-info OF-TYPE uri IN-GROUP printer-attributes-tag COUNT 1 WITH-VALUE "$ADMINURL"
-	EXPECT printer-uuid OF-TYPE uri IN-GROUP printer-attributes-tag COUNT 1 WITH-VALUE "urn:uuid:$UUID"
+	EXPECT printer-more-info OF-TYPE uri IN-GROUP printer-attributes-tag COUNT 1 WITH-VALUE "$ENV[IPPFIND_TXT_ADMINURL]"
+	EXPECT printer-uuid OF-TYPE uri IN-GROUP printer-attributes-tag COUNT 1 WITH-VALUE "urn:uuid:$ENV[IPPFIND_TXT_UUID]"
 }
 
 #
-# End of "$Id: bonjour-value-tests.test 12131 2014-08-28 23:38:16Z msweet $".
+# End of "$Id: bonjour-value-tests.test 12183 2014-10-01 13:02:28Z msweet $".
 #

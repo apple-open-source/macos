@@ -879,6 +879,8 @@ exit:
 
 void AppleSmartBattery::handlePollingFinished(bool visitedEntirePath)
 {
+    uint64_t now, nsec;
+
     if (fBatteryReadAllTimer) {
         fBatteryReadAllTimer->cancelTimeout();
     }
@@ -907,6 +909,22 @@ void AppleSmartBattery::handlePollingFinished(bool visitedEntirePath)
         }
 
         rebuildLegacyIOBatteryInfo();
+        if (acAttach_ts) {
+            clock_get_uptime(&now);
+            SUB_ABSOLUTETIME(&now, &acAttach_ts);
+            absolutetime_to_nanoseconds(now, &nsec);
+            if (nsec < (60 * NSEC_PER_SEC)) {
+                // In some cases, power adapter information is available thru multiple updates
+                // from SMC(19657502). As power adapter info is not populated to registry, we are 
+                // force setting the 'settingsChangedSinceUpdate' to make sure notifications are 
+                // sent to clients.
+                settingsChangedSinceUpdate = true;
+            }
+            else {
+                // Zero this out to avoid time comparisions every time
+                acAttach_ts = 0;
+            }
+        }
         updateStatus();
     }
 
@@ -1064,12 +1082,14 @@ bool AppleSmartBattery::transactionCompletion(
 
             // Tell IOPMrootDomain on ac connect/disconnect
             IOPMrootDomain *rd = getPMRootDomain();
-            if (rd && (new_ac_connected != fACConnected))
+            if (new_ac_connected != fACConnected)
             {
                 if (new_ac_connected) {
-                    rd->receivePowerNotification(kIOPMSetACAdaptorConnected | kIOPMSetValue);
+                    clock_get_uptime(&acAttach_ts);
+                    if (rd) rd->receivePowerNotification(kIOPMSetACAdaptorConnected | kIOPMSetValue);
                 } else {
-                    rd->receivePowerNotification(kIOPMSetACAdaptorConnected);
+                    acAttach_ts = 0;
+                    if (rd) rd->receivePowerNotification(kIOPMSetACAdaptorConnected);
                 }
             }
 

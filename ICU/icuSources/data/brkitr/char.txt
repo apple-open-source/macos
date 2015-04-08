@@ -1,5 +1,5 @@
 #
-#   Copyright (C) 2002-2013, International Business Machines Corporation and others.
+#   Copyright (C) 2002-2015, International Business Machines Corporation and others.
 #       All Rights Reserved.
 #
 #   file:  char.txt 
@@ -19,47 +19,58 @@ $Control     = [\p{Grapheme_Cluster_Break = Control}];
 $Extend      = [\p{Grapheme_Cluster_Break = Extend}];
 $SpacingMark = [\p{Grapheme_Cluster_Break = SpacingMark}];
 
-$RI_A        = \U0001F1E6;  # Trail ERTU
-$RI_B        = \U0001F1E7;  # Trail EGR
-$RI_C        = \U0001F1E8;  # Trail AHLNZ
+$RI_A        = \U0001F1E6;  # Trail ETU
+$RI_B        = \U0001F1E7;  # Trail ER
+$RI_C        = \U0001F1E8;  # Trail AHLNO
 $RI_D        = \U0001F1E9;  # Trail EK
-$RI_E        = \U0001F1EA;  # Trail GS
+$RI_E        = \U0001F1EA;  # Trail S
 $RI_F        = \U0001F1EB;  # Trail IR
-$RI_G        = \U0001F1EC;  # Trail BR
-$RI_H        = \U0001F1ED;  # Trail KU
-$RI_I        = \U0001F1EE;  # Trail DLNT
+$RI_G        = \U0001F1EC;  # Trail B
+$RI_H        = \U0001F1ED;  # Trail K
+$RI_I        = \U0001F1EE;  # Trail DELNT
 $RI_J        = \U0001F1EF;  # Trail OP
 $RI_K        = \U0001F1F0;  # Trail R
-$RI_L        = \U0001F1F1;  # Trail B
 $RI_M        = \U0001F1F2;  # Trail OXY
-$RI_N        = \U0001F1F3;  # Trail LO
-$RI_P        = \U0001F1F5;  # Trail LT
-$RI_R        = \U0001F1F7;  # Trail OU
-$RI_S        = \U0001F1F8;  # Trail AEGK
-$RI_T        = \U0001F1F9;  # Trail HRW
-$RI_U        = \U0001F1FA;  # Trail AS
+$RI_N        = \U0001F1F3;  # Trail LOZ
+$RI_P        = \U0001F1F5;  # Trail HLRT
+$RI_R        = \U0001F1F7;  # Trail U
+$RI_S        = \U0001F1F8;  # Trail AEG
+$RI_T        = \U0001F1F9;  # Trail R
+$RI_U        = \U0001F1FA;  # Trail S
 $RI_V        = \U0001F1FB;	# Trail N
+$RI_Z        = \U0001F1FF;	# Trail A
+# unused trail values, safe as addl lead: C F J M Q V W
+# unused lead values, safe as addl trail: L O Q W X Y
 
-$RI_A_End    = [\U0001F1EA \U0001F1F7 \U0001F1F9 \U0001F1FA];  	# ERTU
-$RI_B_End    = [\U0001F1EA \U0001F1EC \U0001F1F7];              # EGR
-$RI_C_End    = [\U0001F1E6 \U0001F1ED \U0001F1F1 \U0001F1F3 \U0001F1FF]; # AHLNZ
+$RI_A_End    = [\U0001F1EA \U0001F1F9 \U0001F1FA];  	        # ETU
+$RI_B_End    = [\U0001F1EA \U0001F1F7];                         # ER
+$RI_C_End    = [\U0001F1E6 \U0001F1ED \U0001F1F1 \U0001F1F3 \U0001F1F4]; # AHLNO
 $RI_D_End    = [\U0001F1EA \U0001F1F0];                         # EK
-$RI_E_End    = [\U0001F1EC \U0001F1F8];                         # GS
+$RI_E_End    = \U0001F1F8;                                      # S
 $RI_F_End    = [\U0001F1EE \U0001F1F7];                         # IR
-$RI_G_End    = [\U0001F1E7 \U0001F1F7];                         # BR
-$RI_H_End    = [\U0001F1F0 \U0001F1FA];                         # KU
-$RI_I_End    = [\U0001F1E9 \U0001F1F1 \U0001F1F3 \U0001F1F9];	# DLNT
-$RI_J_End    = [\U0001F1F4 \U0001F1F5];                         # OP
+$RI_G_End    = \U0001F1E7;                                      # B
+$RI_H_End    = \U0001F1F0;                                      # K
+$RI_I_End    = [\U0001F1E9 \U0001F1EA \U0001F1F1 \U0001F1F3 \U0001F1F9]; # DELNT
+$RI_J_End    = [\U0001F1F5 \U0001F1F4];                         # OP
 $RI_K_End    = \U0001F1F7;                                      # R
-$RI_L_End    = \U0001F1E7;                                      # B
 $RI_M_End    = [\U0001F1F4 \U0001F1FD \U0001F1FE];              # OXY
-$RI_N_End    = [\U0001F1F1 \U0001F1F4];                         # LO
-$RI_P_End    = [\U0001F1F1 \U0001F1F9];                         # LT
-$RI_R_End    = [\U0001F1F4 \U0001F1FA];                         # OU
-$RI_S_End    = [\U0001F1E6 \U0001F1EA \U0001F1EC \U0001F1F0];   # AEGK
-$RI_T_End    = [\U0001F1ED \U0001F1F7 \U0001F1FC];              # HRW
-$RI_U_End    = [\U0001F1E6 \U0001F1F8];                         # AS
+$RI_N_End    = [\U0001F1F1 \U0001F1F4 \U0001F1FF];              # LOZ
+$RI_P_End    = [\U0001F1ED \U0001F1F1 \U0001F1F7 \U0001F1F9];   # HLRT
+$RI_R_End    = \U0001F1FA;                                      # U
+$RI_S_End    = [\U0001F1E6 \U0001F1EA \U0001F1EC];              # AEG
+$RI_T_End    = \U0001F1F7;                                      # R
+$RI_U_End    = \U0001F1F8;                                      # S
 $RI_V_End    = \U0001F1F3;                                      # N
+$RI_Z_End    = \U0001F1E6;                                      # A
+
+# Special character classes for people & body part emoji:
+# Subsets of $Extend:
+$ZWJ = \u200D;
+$EmojiVar = [\uFE0F];
+# The following are subsets of \p{Grapheme_Cluster_Break = Other} which is not otherwise used here
+$EmojiForSeqs = [\u2764 \U0001F466-\U0001F469 \U0001F48B];
+$EmojiForMods = [\u261D \u270A-\u270C \U0001F385 \U0001F3C3-\U0001F3C4 \U0001F3C7 \U0001F3CA \U0001F442-\U0001F443 \U0001F446-\U0001F450 \U0001F466-\U0001F469 \U0001F46E-\U0001F478 \U0001F47C \U0001F481-\U0001F483 \U0001F485-\U0001F487 \U0001F4AA \U0001F596 \U0001F645-\U0001F647 \U0001F64B-\U0001F64F \U0001F6A3 \U0001F6B4-\U0001F6B6 \U0001F6C0];
+$EmojiMods = [\U0001F3FB-\U0001F3FF];
 
 #
 # Korean Syllable Definitions
@@ -94,7 +105,6 @@ $RI_H $RI_H_End;
 $RI_I $RI_I_End;
 $RI_J $RI_J_End;
 $RI_K $RI_K_End;
-$RI_L $RI_L_End;
 $RI_M $RI_M_End;
 $RI_N $RI_N_End;
 $RI_P $RI_P_End;
@@ -103,11 +113,17 @@ $RI_S $RI_S_End;
 $RI_T $RI_T_End;
 $RI_U $RI_U_End;
 $RI_V $RI_V_End;
+$RI_Z $RI_Z_End;
 
 [^$Control $CR $LF] $Extend;
 
 [^$Control $CR $LF] $SpacingMark;
 # TODO: Restore if the Prepend set becomes non-empty again: $Prepend [^$Control $CR $LF];
+
+# Special forward rules for people & body part emoji:
+# don't break $ZWJ from subsequent $EmojiForSeqs; don't break between relevant emoji and $EmojiMods
+$ZWJ $EmojiForSeqs;
+$EmojiForMods $EmojiVar? $EmojiMods;
 
 
 ## -------------------------------------------------
@@ -129,7 +145,6 @@ $RI_H_End $RI_H;
 $RI_I_End $RI_I;
 $RI_J_End $RI_J;
 $RI_K_End $RI_K;
-$RI_L_End $RI_L;
 $RI_M_End $RI_M;
 $RI_N_End $RI_N;
 $RI_P_End $RI_P;
@@ -138,11 +153,16 @@ $RI_S_End $RI_S;
 $RI_T_End $RI_T;
 $RI_U_End $RI_U;
 $RI_V_End $RI_V;
+$RI_Z_End $RI_Z;
 
 $Extend      [^$Control $CR $LF];
 $SpacingMark [^$Control $CR $LF];
 # TODO: Restore if the Prepend set becomes non-empty again: [^$Control $CR $LF] $Prepend;
 
+# Special reverse rules for people & body part emoji:
+# don't break $ZWJ from subsequent $EmojiForSeqs; don't break between relevant emoji and $EmojiMods
+$EmojiForSeqs $ZWJ;
+$EmojiMods $EmojiVar? $EmojiForMods;
 
 ## -------------------------------------------------
 #  We don't logically need safe char break rules, but if we don't provide any at all
@@ -151,9 +171,11 @@ $SpacingMark [^$Control $CR $LF];
 
 !!safe_reverse;
 $LF $CR;
+[$EmojiVar $EmojiMods]+ $EmojiForMods;
 
 ## -------------------------------------------------
 
 !!safe_forward;
 $CR $LF;
+$EmojiForMods [$EmojiVar $EmojiMods]+;
 

@@ -43,6 +43,9 @@ typedef enum {
 
     kEvenCompactDataMessage = 0x20,
     kOddCompactDataMessage = 0x21,
+    
+    kEvenCompactDataMessageWithHashes = 0x30,
+    kOddCompactDataMessageWithHashes = 0x31,
 
     kInvalidMessage = 0xFF
 } OTRMessageType;

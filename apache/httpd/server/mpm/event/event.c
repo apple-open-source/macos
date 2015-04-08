@@ -83,6 +83,7 @@
 #include "http_config.h"        /* for read_config */
 #include "http_core.h"          /* for get_remote_host */
 #include "http_connection.h"
+#include "http_protocol.h"
 #include "ap_mpm.h"
 #include "mpm_common.h"
 #include "ap_listen.h"
@@ -185,6 +186,8 @@ static int mpm_state = AP_MPMQ_STARTING;
 
 static apr_thread_mutex_t *timeout_mutex;
 
+module AP_MODULE_DECLARE_DATA mpm_event_module;
+
 struct event_conn_state_t {
     /** APR_RING of expiration timeouts */
     APR_RING_ENTRY(event_conn_state_t) timeout_list;
@@ -192,6 +195,13 @@ struct event_conn_state_t {
     apr_time_t expiration_time;
     /** connection record this struct refers to */
     conn_rec *c;
+    /** request record (if any) this struct refers to */
+    request_rec *r;
+    /** is the current conn_rec suspended?  (disassociated with
+     * a particular MPM thread; for suspend_/resume_connection
+     * hooks)
+     */
+    int suspended;
     /** memory pool to allocate from */
     apr_pool_t *p;
     /** bucket allocator */
@@ -620,7 +630,7 @@ static apr_status_t decrement_connection_count(void *cs_)
  * Previously this was initiated in sig_term() and restart() signal handlers,
  * but we want to be able to start a shutdown/restart from other sources --
  * e.g. on Win32, from the service manager. Now the service manager can
- * call ap_start_shutdown() or ap_start_restart() as appropiate.  Note that
+ * call ap_start_shutdown() or ap_start_restart() as appropriate.  Note that
  * these functions can also be called by the child processes, since global
  * variables are no longer used to pass on the required action to the parent.
  *
@@ -789,6 +799,7 @@ static int start_lingering_close_common(event_conn_state_t *cs)
     }
     apr_atomic_inc32(&lingering_count);
     apr_thread_mutex_lock(timeout_mutex);
+    cs->c->sbh = NULL;
     TO_QUEUE_APPEND(*q, cs);
     cs->pfd.reqevents = (
             cs->pub.sense == CONN_SENSE_WANT_WRITE ? APR_POLLOUT :
@@ -875,6 +886,57 @@ static int stop_lingering_close(event_conn_state_t *cs)
     return 0;
 }
 
+static void notify_suspend(event_conn_state_t *cs)
+{
+    ap_run_suspend_connection(cs->c, cs->r);
+    cs->suspended = 1;
+}
+
+static void notify_resume(event_conn_state_t *cs)
+{
+    cs->suspended = 0;
+    ap_run_resume_connection(cs->c, cs->r);
+}
+
+/*
+ * This runs before any non-MPM cleanup code on the connection;
+ * if the connection is currently suspended as far as modules
+ * know, provide notification of resumption.
+ */
+static apr_status_t ptrans_pre_cleanup(void *dummy)
+{
+    event_conn_state_t *cs = dummy;
+
+    if (cs->suspended) {
+        notify_resume(cs);
+    }
+    return APR_SUCCESS;
+}
+
+/*
+ * event_pre_read_request() and event_request_cleanup() track the
+ * current r for a given connection.
+ */
+static apr_status_t event_request_cleanup(void *dummy)
+{
+    conn_rec *c = dummy;
+    event_conn_state_t *cs = ap_get_module_config(c->conn_config,
+                                                  &mpm_event_module);
+
+    cs->r = NULL;
+    return APR_SUCCESS;
+}
+
+static void event_pre_read_request(request_rec *r, conn_rec *c)
+{
+    event_conn_state_t *cs = ap_get_module_config(c->conn_config,
+                                                  &mpm_event_module);
+
+    cs->r = r;
+    apr_pool_cleanup_register(r->pool, c, event_request_cleanup,
+                              apr_pool_cleanup_null);
+}
+
 /*
  * process one connection in the worker
  */
@@ -905,6 +967,7 @@ static void process_socket(apr_thread_t *thd, apr_pool_t * p, apr_socket_t * soc
         apr_atomic_inc32(&connection_count);
         apr_pool_cleanup_register(c->pool, cs, decrement_connection_count,
                                   apr_pool_cleanup_null);
+        ap_set_module_config(c->conn_config, &mpm_event_module, cs);
         c->current_thread = thd;
         cs->c = c;
         c->cs = &(cs->pub);
@@ -915,6 +978,7 @@ static void process_socket(apr_thread_t *thd, apr_pool_t * p, apr_socket_t * soc
         pt->type = PT_CSD;
         pt->baton = cs;
         cs->pfd.client_data = pt;
+        apr_pool_pre_cleanup_register(p, cs, ptrans_pre_cleanup);
         TO_QUEUE_ELEM_INIT(cs);
 
         ap_update_vhost_given_ip(c);
@@ -946,6 +1010,7 @@ static void process_socket(apr_thread_t *thd, apr_pool_t * p, apr_socket_t * soc
     else {
         c = cs->c;
         c->sbh = sbh;
+        notify_resume(cs);
         c->current_thread = thd;
     }
 
@@ -998,6 +1063,7 @@ read_request:
              * event thread poll for writeability.
              */
             cs->expiration_time = ap_server_conf->timeout + apr_time_now();
+            notify_suspend(cs);
             apr_thread_mutex_lock(timeout_mutex);
             TO_QUEUE_APPEND(write_completion_q, cs);
             cs->pfd.reqevents = (
@@ -1022,8 +1088,8 @@ read_request:
     }
 
     if (cs->pub.state == CONN_STATE_LINGER) {
-        if (!start_lingering_close_blocking(cs))
-            return;
+        start_lingering_close_blocking(cs);
+        notify_suspend(cs);
     }
     else if (cs->pub.state == CONN_STATE_CHECK_REQUEST_LINE_READABLE) {
         /* It greatly simplifies the logic to use a single timeout value here
@@ -1037,6 +1103,7 @@ read_request:
         cs->expiration_time = ap_server_conf->keep_alive_timeout +
                               apr_time_now();
         c->sbh = NULL;
+        notify_suspend(cs);
         apr_thread_mutex_lock(timeout_mutex);
         TO_QUEUE_APPEND(keepalive_q, cs);
 
@@ -1050,19 +1117,12 @@ read_request:
                          "process_socket: apr_pollset_add failure");
             AP_DEBUG_ASSERT(rc == APR_SUCCESS);
         }
-        return;
     }
     else if (cs->pub.state == CONN_STATE_SUSPENDED) {
         apr_atomic_inc32(&suspended_count);
+        c->sbh = NULL;
+        notify_suspend(cs);
     }
-    /*
-     * Prevent this connection from writing to our connection state after it
-     * is no longer associated with this thread. This would happen if the EOR
-     * bucket is destroyed from the listener thread due to a connection abort
-     * or timeout.
-     */
-    c->sbh = NULL;
-    return;
 }
 
 /* conns_this_child has gone to zero or below.  See if the admin coded
@@ -1565,7 +1625,7 @@ static void * APR_THREAD_FUNC listener_thread(apr_thread_t * thd, void *dummy)
                         disable_listensocks(process_slot);
                     listeners_disabled = 1;
                     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ap_server_conf,
-                                 "All workers busy, not accepting new conns"
+                                 "All workers busy, not accepting new conns "
                                  "in this process");
                 }
                 else if (  (int)apr_atomic_read32(&connection_count)
@@ -3171,6 +3231,7 @@ static void event_hooks(apr_pool_t * p)
     ap_hook_mpm_query(event_query, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_mpm_register_timed_callback(event_register_timed_callback, NULL, NULL,
                                         APR_HOOK_MIDDLE);
+    ap_hook_pre_read_request(event_pre_read_request, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_mpm_get_name(event_get_name, NULL, NULL, APR_HOOK_MIDDLE);
 }
 

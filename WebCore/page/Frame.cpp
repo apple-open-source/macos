@@ -515,7 +515,7 @@ void Frame::scrollOverflowLayer(RenderLayer* layer, const IntRect& visibleRect, 
     selection().updateAppearance();
 }
 
-void Frame::overflowAutoScrollTimerFired(Timer<Frame>*)
+void Frame::overflowAutoScrollTimerFired(Timer*)
 {
     if (!eventHandler().mousePressed() || checkOverflowScroll(PerformOverflowScroll) == OverflowScrollNone) {
         if (m_overflowAutoScrollTimer.isActive())
@@ -802,18 +802,6 @@ void Frame::willDetachPage()
 void Frame::disconnectOwnerElement()
 {
     if (m_ownerElement) {
-        // We use the ownerElement's document to retrieve the cache, because the contentDocument for this
-        // frame is already detached (and can't access the top level AX cache).
-        // However, we pass in the current document to clearTextMarkerNodesInUse so we can identify the
-        // nodes inside this document that need to be removed from the cache.
-        
-        // We don't clear the AXObjectCache here because we don't want to clear the top level cache
-        // when a sub-frame is removed.
-#if HAVE(ACCESSIBILITY)
-        if (AXObjectCache* cache = m_ownerElement->document().existingAXObjectCache())
-            cache->clearTextMarkerNodesInUse(document());
-#endif
-        
         m_ownerElement->clearContentFrame();
         if (m_page)
             m_page->decrementSubframeCount();
@@ -859,6 +847,11 @@ PassRefPtr<Range> Frame::rangeForPoint(const IntPoint& framePoint)
     VisiblePosition position = visiblePositionForPoint(framePoint);
     if (position.isNull())
         return 0;
+
+    Position deepPosition = position.deepEquivalent();
+    Text* containerText = deepPosition.containerText();
+    if (!containerText || !containerText->renderer() || containerText->renderer()->style().userSelect() == SELECT_NONE)
+        return nullptr;
 
     VisiblePosition previous = position.previous();
     if (previous.isNotNull()) {

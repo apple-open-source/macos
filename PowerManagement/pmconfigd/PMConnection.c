@@ -2180,6 +2180,7 @@ static void PMConnectionPowerCallBack(
         }
         gMachineStateRevertible = true;
 
+        gPowerState = kDarkWakeState;
         CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, 
                 ^{ configAssertionType(kInteractivePushServiceType, false); });
         CFRunLoopWakeUp(_getPMRunLoop());

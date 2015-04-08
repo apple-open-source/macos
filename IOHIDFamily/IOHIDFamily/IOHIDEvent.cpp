@@ -1197,7 +1197,7 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
     UInt32                      total       = 0;
     UInt32                      offset      = 0;
 
-    if ( !bytes || !size )
+    if ( !bytes || !size || ( sizeof(IOHIDSystemQueueElement) > size ) )
         return NULL;
 
     queueElement    = (IOHIDSystemQueueElement *)bytes;
@@ -1205,7 +1205,11 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
 
     for (index=0; index<queueElement->eventCount && offset<total; index++)
     {
+        if ( (queueElement->attributeLength + offset) > total )
+            break;
         IOHIDEventData *    eventData   = (IOHIDEventData *)(queueElement->payload + queueElement->attributeLength + offset);
+        if ( eventData->type >= kIOHIDEventTypeCount )
+            break;
         IOHIDEvent *        event       = IOHIDEvent::withType(eventData->type);
 
         if ( !event )
@@ -1222,6 +1226,9 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
             //Append event here;
             event->release();
         }
+        
+        if ( ((UInt32) (offset + eventData->size) ) <= offset )
+            break;
         offset += eventData->size;
     }
 

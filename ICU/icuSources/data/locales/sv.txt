@@ -1056,6 +1056,20 @@ sv{
             }
             monthNames{
                 format{
+                    abbreviated{
+                        "muharram",
+                        "safar",
+                        "rabi’ al-awwal",
+                        "rabi’ al-akhir",
+                        "jumada-l-ula",
+                        "jumada-l-akhira",
+                        "rajab",
+                        "sha’ban",
+                        "ramadan",
+                        "shawwal",
+                        "dhu-l-ga’da",
+                        "dhu-l-hijja",
+                    }
                     wide{
                         "muharram",
                         "safar",
@@ -1072,6 +1086,20 @@ sv{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Muharram",
+                        "Safar",
+                        "Rabi’ al-awwal",
+                        "Rabi’ al-akhir",
+                        "Jumada-l-ula",
+                        "Jumada-l-akhira",
+                        "Rajab",
+                        "Sha’ban",
+                        "Ramadan",
+                        "Shawwal",
+                        "Dhu-l-ga’da",
+                        "Dhu-l-hijja",
+                    }
                     wide{
                         "Muharram",
                         "Safar",

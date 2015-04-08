@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Expressions in Apache HTTP Server - Apache HTTP Server</title>
+<title>Expressions in Apache HTTP Server - Apache HTTP Server Version 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -144,11 +144,12 @@ listfunction ::= listfuncname "<strong>(</strong>" word "<strong>)</strong>"</pr
 
     <table class="bordered"><tr class="header"><th>Name</th></tr>
 <tr><td><code>HTTP_ACCEPT</code></td></tr>
-<tr class="odd"><td><code>HTTP_FORWARDED</code></td></tr>
-<tr><td><code>HTTP_HOST</code></td></tr>
-<tr class="odd"><td><code>HTTP_PROXY_CONNECTION</code></td></tr>
-<tr><td><code>HTTP_REFERER</code></td></tr>
-<tr class="odd"><td><code>HTTP_USER_AGENT</code></td></tr>
+<tr class="odd"><td><code>HTTP_COOKIE</code></td></tr>
+<tr><td><code>HTTP_FORWARDED</code></td></tr>
+<tr class="odd"><td><code>HTTP_HOST</code></td></tr>
+<tr><td><code>HTTP_PROXY_CONNECTION</code></td></tr>
+<tr class="odd"><td><code>HTTP_REFERER</code></td></tr>
+<tr><td><code>HTTP_USER_AGENT</code></td></tr>
 </table>
 
     <p>Other request related variables</p>
@@ -162,7 +163,7 @@ listfunction ::= listfuncname "<strong>(</strong>" word "<strong>)</strong>"</pr
 <tr><td><code>REQUEST_URI</code></td>
         <td>The path part of the request's URI</td></tr>
 <tr class="odd"><td><code>DOCUMENT_URI</code></td>
-        <td>Same as REQUEST_URI</td></tr>
+        <td>Same as <code>REQUEST_URI</code></td></tr>
 <tr><td><code>REQUEST_FILENAME</code></td>
         <td>The full local filesystem path to the file or script matching the
             request, if this has already been determined by the server at the
@@ -238,6 +239,10 @@ listfunction ::= listfuncname "<strong>(</strong>" word "<strong>)</strong>"</pr
 <tr><td><code>CONN_REMOTE_ADDR</code></td>
         <td>The peer IP address of the connection (see the
             <code class="module"><a href="./mod/mod_remoteip.html">mod_remoteip</a></code> module)</td></tr>
+<tr class="odd"><td><code>CONTEXT_PREFIX</code></td>
+        <td /></tr>
+<tr><td><code>CONTEXT_DOCUMENT_ROOT</code></td>
+        <td /></tr>
 </table>
 
     <p>Misc variables</p>

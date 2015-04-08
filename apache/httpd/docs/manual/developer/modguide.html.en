@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Developing modules for the Apache HTTP Server 2.4 - Apache HTTP Server</title>
+<title>Developing modules for the Apache HTTP Server 2.4 - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -1210,7 +1210,7 @@ our first step is to make a function for creating new, blank
 configurations. We do so by creating the function we just referenced in 
 our name tag as the Per-directory configuration handler:</p>
 
-<pre class="prettyprint lang-c">void* example_create_dir_conf(apr_pool_t* pool, char* context) {
+<pre class="prettyprint lang-c">void* create_dir_conf(apr_pool_t* pool, char* context) {
     context = context ? context : "(undefined context)";
     example_config *cfg = apr_pcalloc(pool, sizeof(example_config));
     if(cfg) {

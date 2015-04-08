@@ -79,6 +79,7 @@
 #include "RenderMathMLBlock.h"
 #include "RenderMathMLFraction.h"
 #include "RenderMathMLOperator.h"
+#include "RenderMathMLRoot.h"
 #include "RenderMenuList.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGShape.h"
@@ -254,7 +255,7 @@ AccessibilityObject* AccessibilityRenderObject::lastChild() const
 
 static inline RenderInline* startOfContinuations(RenderObject* r)
 {
-    if (r->isInlineElementContinuation())
+    if (r->isInlineElementContinuation() && r->node() && r->node()->renderer() && r->node()->renderer()->isRenderInline())
         return toRenderInline(r->node()->renderer());
 
     // Blocks with a previous continuation always have a next continuation
@@ -1172,6 +1173,9 @@ bool AccessibilityRenderObject::computeAccessibilityIsIgnored() const
     ASSERT(m_initialized);
 #endif
 
+    if (!m_renderer)
+        return true;
+    
     // Check first if any of the common reasons cause this element to be ignored.
     // Then process other use cases that need to be applied to all the various roles
     // that AccessibilityRenderObjects take on.
@@ -1200,7 +1204,7 @@ bool AccessibilityRenderObject::computeAccessibilityIsIgnored() const
         return accessibilityIgnoreAttachment();
     
     // ignore popup menu items because AppKit does
-    if (ancestorsOfType<RenderMenuList>(*m_renderer).first())
+    if (m_renderer && ancestorsOfType<RenderMenuList>(*m_renderer).first())
         return true;
 
     // find out if this element is inside of a label element.
@@ -3613,27 +3617,26 @@ AccessibilityObject* AccessibilityRenderObject::mathRadicandObject()
 {
     if (!isMathRoot())
         return 0;
-    
-    const auto& children = this->children();
-    if (children.size() < 1)
-        return 0;
-    
-    // The radicand is the value being rooted and must be listed first.
-    return children[0].get();
+    RenderMathMLRoot* root = &toRenderMathMLRoot(*m_renderer);
+    AccessibilityObject* rootRadicandWrapper = axObjectCache()->getOrCreate(root->baseWrapper());
+    if (!rootRadicandWrapper)
+        return nullptr;
+    AccessibilityObject* rootRadicand = rootRadicandWrapper->children().first().get();
+    ASSERT(rootRadicand && children().contains(rootRadicand));
+    return rootRadicand;
 }
 
 AccessibilityObject* AccessibilityRenderObject::mathRootIndexObject()
 {
     if (!isMathRoot())
         return 0;
-    
-    const auto& children = this->children();
-    if (children.size() != 2)
+    RenderMathMLRoot* root = &toRenderMathMLRoot(*m_renderer);
+    AccessibilityObject* rootIndexWrapper = axObjectCache()->getOrCreate(root->indexWrapper());
+    if (!rootIndexWrapper)
         return 0;
-
-    // The index in a root is the value which determines if it's a square, cube, etc, root
-    // and must be listed second.
-    return children[1].get();
+    AccessibilityObject* rootIndex = rootIndexWrapper->children().first().get();
+    ASSERT(rootIndex && children().contains(rootIndex));
+    return rootIndex;
 }
 
 AccessibilityObject* AccessibilityRenderObject::mathNumeratorObject()

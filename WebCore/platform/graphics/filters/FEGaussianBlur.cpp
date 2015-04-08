@@ -5,6 +5,7 @@
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) 2010 Igalia, S.L.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) 2015 Apple, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,6 +33,10 @@
 #include "GraphicsContext.h"
 #include "TextStream.h"
 
+#if HAVE(ACCELERATE)
+#include <Accelerate/Accelerate.h>
+#endif
+
 #include <runtime/JSCInlines.h>
 #include <runtime/TypedArrayInlines.h>
 #include <runtime/Uint8ClampedArray.h>
@@ -46,6 +51,34 @@ static inline float gaussianKernelFactor()
 static const int gMaxKernelSize = 500;
 
 namespace WebCore {
+
+inline void kernelPosition(int blurIteration, unsigned& radius, int& deltaLeft, int& deltaRight)
+{
+    // Check http://www.w3.org/TR/SVG/filters.html#feGaussianBlurElement for details.
+    switch (blurIteration) {
+    case 0:
+        if (!(radius % 2)) {
+            deltaLeft = radius / 2 - 1;
+            deltaRight = radius - deltaLeft;
+        } else {
+            deltaLeft = radius / 2;
+            deltaRight = radius - deltaLeft;
+        }
+        break;
+    case 1:
+        if (!(radius % 2)) {
+            deltaLeft++;
+            deltaRight--;
+        }
+        break;
+    case 2:
+        if (!(radius % 2)) {
+            deltaRight++;
+            radius++;
+        }
+        break;
+    }
+}
 
 FEGaussianBlur::FEGaussianBlur(Filter* filter, float x, float y, EdgeModeType edgeMode)
     : FilterEffect(filter)
@@ -264,15 +297,51 @@ inline void boxBlur(const Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* d
     }
 }
 
-inline void FEGaussianBlur::platformApplyGeneric(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize)
+#if HAVE(ACCELERATE)
+inline void accelerateBoxBlur(const Uint8ClampedArray* src, Uint8ClampedArray* dst, unsigned kernelSize, int stride, int effectWidth, int effectHeight)
 {
-    int stride = 4 * paintSize.width();
+    // We must always use an odd radius.
+    if (kernelSize % 2 != 1)
+        kernelSize += 1;
+
+    vImage_Buffer effectInBuffer;
+    effectInBuffer.data = src->data();
+    effectInBuffer.width = effectWidth;
+    effectInBuffer.height = effectHeight;
+    effectInBuffer.rowBytes = stride;
+
+    vImage_Buffer effectOutBuffer;
+    effectOutBuffer.data = dst->data();
+    effectOutBuffer.width = effectWidth;
+    effectOutBuffer.height = effectHeight;
+    effectOutBuffer.rowBytes = stride;
+
+    // Determine the size of a temporary buffer by calling the function first with a special flag. vImage will return
+    // the size needed, or an error (which are all negative).
+    size_t tmpBufferSize = vImageBoxConvolve_ARGB8888(&effectInBuffer, &effectOutBuffer, 0, 0, 0, kernelSize, kernelSize, 0, kvImageEdgeExtend | kvImageGetTempBufferSize);
+    if (tmpBufferSize <= 0)
+        return;
+
+    void* tmpBuffer = fastMalloc(tmpBufferSize);
+    vImageBoxConvolve_ARGB8888(&effectInBuffer, &effectOutBuffer, tmpBuffer, 0, 0, kernelSize, kernelSize, 0, kvImageEdgeExtend);
+    vImageBoxConvolve_ARGB8888(&effectOutBuffer, &effectInBuffer, tmpBuffer, 0, 0, kernelSize, kernelSize, 0, kvImageEdgeExtend);
+    vImageBoxConvolve_ARGB8888(&effectInBuffer, &effectOutBuffer, tmpBuffer, 0, 0, kernelSize, kernelSize, 0, kvImageEdgeExtend);
+    WTF::fastFree(tmpBuffer);
+
+    // The final result should be stored in src.
+    if (dst == src) {
+        ASSERT(src->length() == dst->length());
+        memcpy(dst->data(), src->data(), src->length());
+    }
+}
+#endif
+
+inline void standardBoxBlur(Uint8ClampedArray* src, Uint8ClampedArray* dst, unsigned kernelSizeX, unsigned kernelSizeY, int stride, IntSize& paintSize, bool isAlphaImage, EdgeModeType edgeMode)
+{
     int dxLeft = 0;
     int dxRight = 0;
     int dyLeft = 0;
     int dyRight = 0;
-    Uint8ClampedArray* src = srcPixelArray;
-    Uint8ClampedArray* dst = tmpPixelArray;
 
     for (int i = 0; i < 3; ++i) {
         if (kernelSizeX) {
@@ -281,9 +350,9 @@ inline void FEGaussianBlur::platformApplyGeneric(Uint8ClampedArray* srcPixelArra
             if (!isAlphaImage())
                 boxBlurNEON(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height());
             else
-                boxBlur(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height(), true, m_edgeMode);
+                boxBlur(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height(), true, edgeMode);
 #else
-            boxBlur(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height(), isAlphaImage(), m_edgeMode);
+            boxBlur(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height(), isAlphaImage, edgeMode);
 #endif
             std::swap(src, dst);
         }
@@ -294,20 +363,33 @@ inline void FEGaussianBlur::platformApplyGeneric(Uint8ClampedArray* srcPixelArra
             if (!isAlphaImage())
                 boxBlurNEON(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width());
             else
-                boxBlur(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width(), true, m_edgeMode);
+                boxBlur(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width(), true, edgeMode);
 #else
-            boxBlur(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width(), isAlphaImage(), m_edgeMode);
+            boxBlur(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width(), isAlphaImage, edgeMode);
 #endif
             std::swap(src, dst);
         }
     }
 
-    // The final result should be stored in srcPixelArray.
-    if (dst == srcPixelArray) {
+    // The final result should be stored in src.
+    if (dst == src) {
         ASSERT(src->length() == dst->length());
         memcpy(dst->data(), src->data(), src->length());
     }
+}
 
+inline void FEGaussianBlur::platformApplyGeneric(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize)
+{
+    int stride = 4 * paintSize.width();
+
+#if HAVE(ACCELERATE)
+    if (kernelSizeX == kernelSizeY && (m_edgeMode == EDGEMODE_NONE || m_edgeMode == EDGEMODE_DUPLICATE)) {
+        accelerateBoxBlur(srcPixelArray, tmpPixelArray, kernelSizeX, stride, paintSize.width(), paintSize.height());
+        return;
+    }
+#endif
+
+    standardBoxBlur(srcPixelArray, tmpPixelArray, kernelSizeX, kernelSizeY, stride, paintSize, isAlphaImage(), m_edgeMode);
 }
 
 void FEGaussianBlur::platformApplyWorker(PlatformApplyParameters* parameters)
@@ -319,6 +401,7 @@ void FEGaussianBlur::platformApplyWorker(PlatformApplyParameters* parameters)
 
 inline void FEGaussianBlur::platformApply(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize)
 {
+#if !HAVE(ACCELERATE)
     int scanline = 4 * paintSize.width();
     int extraHeight = 3 * kernelSizeY * 0.5f;
     int optimalThreadNumber = (paintSize.width() * paintSize.height()) / (s_minimalRectDimension + extraHeight * paintSize.width());
@@ -380,27 +463,30 @@ inline void FEGaussianBlur::platformApply(Uint8ClampedArray* srcPixelArray, Uint
         }
         // Fallback to single threaded mode.
     }
+#endif
 
     // The selection here eventually should happen dynamically on some platforms.
     platformApplyGeneric(srcPixelArray, tmpPixelArray, kernelSizeX, kernelSizeY, paintSize);
 }
 
+static int clampedToKernelSize(float value)
+{
+    // Limit the kernel size to 500. A bigger radius won't make a big difference for the result image but
+    // inflates the absolute paint rect too much. This is compatible with Firefox' behavior.
+    unsigned size = std::max<unsigned>(2, static_cast<unsigned>(floorf(value * gaussianKernelFactor() + 0.5f)));
+    return clampTo<int>(std::min(size, static_cast<unsigned>(gMaxKernelSize)));
+}
+    
 IntSize FEGaussianBlur::calculateUnscaledKernelSize(const FloatPoint& stdDeviation)
 {
     ASSERT(stdDeviation.x() >= 0 && stdDeviation.y() >= 0);
     IntSize kernelSize;
 
-    // Limit the kernel size to 500. A bigger radius won't make a big difference for the result image but
-    // inflates the absolute paint rect too much. This is compatible with Firefox' behavior.
-    if (stdDeviation.x()) {
-        int size = std::max<unsigned>(2, static_cast<unsigned>(floorf(stdDeviation.x() * gaussianKernelFactor() + 0.5f)));
-        kernelSize.setWidth(std::min(size, gMaxKernelSize));
-    }
+    if (stdDeviation.x())
+        kernelSize.setWidth(clampedToKernelSize(stdDeviation.x()));
 
-    if (stdDeviation.y()) {
-        int size = std::max<unsigned>(2, static_cast<unsigned>(floorf(stdDeviation.y() * gaussianKernelFactor() + 0.5f)));
-        kernelSize.setHeight(std::min(size, gMaxKernelSize));
-    }
+    if (stdDeviation.y())
+        kernelSize.setHeight(clampedToKernelSize(stdDeviation.y()));
 
     return kernelSize;
 }

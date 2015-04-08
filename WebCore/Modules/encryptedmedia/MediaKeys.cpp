@@ -85,7 +85,7 @@ MediaKeys::~MediaKeys()
 
 PassRefPtr<MediaKeySession> MediaKeys::createSession(ScriptExecutionContext* context, const String& type, Uint8Array* initData, ExceptionCode& ec)
 {
-    // From <http://dvcs.w3.org/hg/html-media/raw-file/tip/encrypted-media/encrypted-media.html#dom-createsession>:
+    // From <http://www.w3.org/TR/2014/WD-encrypted-media-20140218/#dom-createsession>:
     // The createSession(type, initData) method must run the following steps:
     // Note: The contents of initData are container-specific Initialization Data.
 
@@ -144,7 +144,13 @@ bool MediaKeys::isTypeSupported(const String& keySystem, const String& mimeType)
 
 void MediaKeys::setMediaElement(HTMLMediaElement* element)
 {
+    if (m_mediaElement && m_mediaElement->player())
+        m_mediaElement->player()->setCDMSession(nullptr);
+
     m_mediaElement = element;
+
+    if (m_mediaElement && m_mediaElement->player() && !m_sessions.isEmpty())
+        m_mediaElement->player()->setCDMSession(m_sessions.last()->session());
 }
 
 MediaPlayer* MediaKeys::cdmMediaPlayer(const CDM*) const

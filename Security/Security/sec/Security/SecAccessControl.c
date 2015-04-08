@@ -53,7 +53,7 @@ struct __SecAccessControl {
     CFMutableDictionaryRef dict;
 };
 
-static CFStringRef SecAccessControlCopyDescription(CFTypeRef cf) {
+static CFStringRef SecAccessControlCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SecAccessControlRef access_control = (SecAccessControlRef)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SecAccessControlRef: %p>"), access_control);
 }

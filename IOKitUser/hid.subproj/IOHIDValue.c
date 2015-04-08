@@ -245,7 +245,7 @@ CFIndex IOHIDValueGetIntegerValue(IOHIDValueRef event)
 {    
     uint64_t value = 0;
     IOHIDElementRef element = event->element;
-    __IOHIDValueConvertByteToLongWord(IOHIDValueGetBytePtr(event), &value, event->length, IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0);
+    __IOHIDValueConvertByteToLongWord(IOHIDValueGetBytePtr(event), &value, MIN(event->length, sizeof(value)), IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0);
     return (CFIndex)value;
 }
 

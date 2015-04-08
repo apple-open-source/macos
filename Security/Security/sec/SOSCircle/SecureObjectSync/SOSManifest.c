@@ -209,7 +209,7 @@ CFDataRef SOSManifestGetDigest(SOSManifestRef m, CFErrorRef *error) {
     return m->digest;
 }
 
-static CFStringRef SOSManifestCopyDescription(CFTypeRef cf) {
+static CFStringRef SOSManifestCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SOSManifestRef m = (SOSManifestRef)cf;
     CFMutableStringRef desc = CFStringCreateMutable(0, 0);
     CFStringAppendFormat(desc, NULL, CFSTR("<[%zu]"), SOSManifestGetCount(m));

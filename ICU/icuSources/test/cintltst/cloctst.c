@@ -46,6 +46,8 @@ static void TestDisplayNameBrackets(void);
 
 static void TestUnicodeDefines(void);
 
+static void TestGetAppleParent(void);
+
 void PrintDataTable();
 
 /*---------------------------------------------------
@@ -248,6 +250,7 @@ void addLocaleTest(TestNode** root)
     TESTCASE(TestUnicodeDefines);
     TESTCASE(TestEnglishExemplarCharacters);
     TESTCASE(TestDisplayNameBrackets);
+    TESTCASE(TestGetAppleParent);
 }
 
 
@@ -5876,4 +5879,78 @@ static void TestUnicodeDefines(void) {
   TEST_UNICODE_DEFINE(ULOC_KEYWORD_SEPARATOR, ULOC_KEYWORD_SEPARATOR_UNICODE);
   TEST_UNICODE_DEFINE(ULOC_KEYWORD_ASSIGN, ULOC_KEYWORD_ASSIGN_UNICODE);
   TEST_UNICODE_DEFINE(ULOC_KEYWORD_ITEM_SEPARATOR, ULOC_KEYWORD_ITEM_SEPARATOR_UNICODE);
+}
+
+/* Apple-specific, test for Apple-specific function ualoc_getAppleParent */
+static const char* localesAndAppleParent[] = {
+    "en",               "root",
+    "en-US",            "en",
+    "en-CA",            "en",
+    "en-001",           "en",
+    "en_001",           "en",
+    "en-GB",            "en_001",
+    "en_GB",            "en_001",
+    "en-IN",            "en_GB",
+    "en-AU",            "en_GB",
+    "es",               "root",
+    "es-ES",            "es",
+    "es-419",           "es",
+    "es_419",           "es",
+    "es-MX",            "es_419",
+    "es-AR",            "es_419",
+    "fr",               "root",
+    "fr-CA",            "fr",
+    "fr-CH",            "fr",
+    "haw",              "root",
+    "nl",               "root",
+    "nl-BE",            "nl",
+    "pt",               "root",
+    "pt-BR",            "pt",
+    "pt-PT",            "pt",
+    "pt-MO",            "pt_PT",
+    "sr",               "root",
+    "sr-Cyrl",          "sr",
+    "sr-Latn",          "root",
+    "tlh",              "root",
+    "zh_CN",            "root",
+    "zh-CN",            "root",
+    "zh",               "zh_CN",
+    "zh-Hans",          "zh",
+    "zh_TW",            "root",
+    "zh-TW",            "root",
+    "zh-Hant",          "zh_TW",
+    "zh_Hant",          "zh_TW",
+    "zh-Hant-HK",       "zh_Hant",
+    "zh_Hant_HK",       "zh_Hant",
+    "zh-Hant-MO",       "zh_Hant_HK",
+    "zh-Hans-HK",       "zh_Hans",
+    "root",             "root",
+    "en-Latn",          "en",
+    "en-Latn-US",       "en_Latn",
+    "en_US_POSIX",      "en_US",
+    "en_Latn_US_POSIX", "en_Latn_US",
+    "en-u-ca-hebrew",   "root",
+    "en@calendar=hebrew", "root",
+    "en_@calendar=hebrew", "root",
+    "en-",              "root",
+    "en_",              "root",
+    "Default@2x",       "root",
+    "default",          "root",
+    NULL /* terminator */
+};
+
+static void TestGetAppleParent() {
+    const char **localesPtr = localesAndAppleParent;
+    const char * locale;
+    while ((locale = *localesPtr++) != NULL) {
+        const char * expectParent = *localesPtr++;
+        UErrorCode status = U_ZERO_ERROR;
+        char getParent[ULOC_FULLNAME_CAPACITY];
+        int32_t plen = ualoc_getAppleParent(locale, getParent, ULOC_FULLNAME_CAPACITY, &status);
+        if (U_FAILURE(status)) {
+            log_err("FAIL: ualoc_getAppleParent input \"%s\", status %s\n", locale, u_errorName(status));
+        } else if (uprv_strcmp(expectParent, getParent) != 0) {
+            log_err("FAIL: ualoc_getAppleParent input \"%s\", expected parent \"%s\", got parent \"%s\"\n", locale, expectParent, getParent);
+        }
+    }
 }

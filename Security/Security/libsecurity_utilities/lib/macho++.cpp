@@ -286,6 +286,9 @@ uint32_t MachOBase::flags() const
 const load_command *MachOBase::nextCommand(const load_command *command) const
 {
 	using LowLevelMemoryUtilities::increment;
+	/* Do not try and increment by 0, or it will loop forever */
+	if (flip(command->cmdsize) == 0)
+		UnixError::throwMe(ENOEXEC);
 	command = increment<const load_command>(command, flip(command->cmdsize));
 	if (command >= mEndCommands)	// end of load commands
 		return NULL;

@@ -4084,10 +4084,14 @@ static void show_power_adapter(void)
         printf(" AdapterID = 0x%04x\n", val); 
     }
 
-    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterManufacturerIDKey));
-    if (valNum) {
-        CFNumberGetValue(valNum, kCFNumberIntType, &val);
-        printf(" Manufacturer ID = 0x%04x\n", val); 
+    valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterManufacturerIDKey));
+    if (valStr) {
+        bzero(buf, sizeof(buf));
+        CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
+        if (buf[0]) {
+            printf(" Manufacturer = %s\n", buf); 
+        }
+
     }
 
     valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterFamilyKey));

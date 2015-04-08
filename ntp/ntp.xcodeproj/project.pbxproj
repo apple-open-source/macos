@@ -336,6 +336,8 @@
 		72C36DFE11AF825B0092FF93 /* os.c in Sources */ = {isa = PBXBuildFile; fileRef = 72C36D0411AF825B0092FF93 /* os.c */; };
 		72C36E0311AF825B0092FF93 /* stdtime.c in Sources */ = {isa = PBXBuildFile; fileRef = 72C36D0911AF825B0092FF93 /* stdtime.c */; };
 		72C36E0511AF825B0092FF93 /* syslog.c in Sources */ = {isa = PBXBuildFile; fileRef = 72C36D0B11AF825B0092FF93 /* syslog.c */; };
+		72D6DD9F1A6F729A0038889C /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D6DD9E1A6F729A0038889C /* libcrypto.dylib */; };
+		72D6DDA01A6F72C10038889C /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D6DD9E1A6F729A0038889C /* libcrypto.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1255,6 +1257,7 @@
 		72C36D0411AF825B0092FF93 /* os.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = os.c; sourceTree = "<group>"; };
 		72C36D0911AF825B0092FF93 /* stdtime.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stdtime.c; sourceTree = "<group>"; };
 		72C36D0B11AF825B0092FF93 /* syslog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = syslog.c; sourceTree = "<group>"; };
+		72D6DD9E1A6F729A0038889C /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = usr/lib/libcrypto.dylib; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1270,6 +1273,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72D6DDA01A6F72C10038889C /* libcrypto.dylib in Frameworks */,
 				638D02491900D15700FB7C6E /* libCrashReporterClient.a in Frameworks */,
 				72C36A9611AF6F380092FF93 /* libopts.a in Frameworks */,
 				7278F51311AF699100E31601 /* libntp.a in Frameworks */,
@@ -1296,6 +1300,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72D6DD9F1A6F729A0038889C /* libcrypto.dylib in Frameworks */,
 				72A3F2E111B06CB000B951F0 /* libntp.a in Frameworks */,
 				72A3F2E211B06CB000B951F0 /* libopts.a in Frameworks */,
 			);
@@ -2078,6 +2083,7 @@
 		7278F37E11AF67FC00E31601 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				72D6DD9E1A6F729A0038889C /* libcrypto.dylib */,
 				638D02451900D09000FB7C6E /* libCrashReporterClient.a */,
 				72A3F33A11B06E8F00B951F0 /* libedit.dylib */,
 				7278F36C11AF65E100E31601 /* libresolv.dylib */,
@@ -3542,7 +3548,7 @@
 				ONLY_ACTIVE_ARCH = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = YES;
 				PROVISIONING_PROFILE = "";
-				SDKROOT = "";
+				SDKROOT = macosx.internal;
 				USE_HEADERMAP = NO;
 			};
 			name = Release;
@@ -3702,6 +3708,7 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = All;
+				SDKROOT = macosx.internal;
 				ZERO_LINK = NO;
 			};
 			name = Release;

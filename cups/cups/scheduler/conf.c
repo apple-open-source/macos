@@ -1,5 +1,5 @@
 /*
- * "$Id: conf.c 12148 2014-09-03 15:32:26Z msweet $"
+ * "$Id: conf.c 12561 2015-03-23 20:22:46Z msweet $"
  *
  * Configuration routines for the CUPS scheduler.
  *
@@ -407,7 +407,7 @@ cupsdDefaultAuthType(void)
   * to use it...
   */
 
-  if (gss_init_sec_context == NULL)
+  if (&gss_init_sec_context == NULL)
     return (default_auth_type = CUPSD_AUTH_BASIC);
 #  endif /* __APPLE__ */
 
@@ -2976,7 +2976,9 @@ read_cupsd_conf(cups_file_t *fp)	/* I - File to read from */
 
         if (lis)
 	{
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
 	  if (!lis->on_demand)
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
 	  {
 	    httpAddrString(&lis->address, temp, sizeof(temp));
 	    cupsdLogMessage(CUPSD_LOG_WARN,
@@ -4093,5 +4095,5 @@ set_policy_defaults(cupsd_policy_t *pol)/* I - Policy */
 
 
 /*
- * End of "$Id: conf.c 12148 2014-09-03 15:32:26Z msweet $".
+ * End of "$Id: conf.c 12561 2015-03-23 20:22:46Z msweet $".
  */

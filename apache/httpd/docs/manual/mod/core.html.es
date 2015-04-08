@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>core - Servidor HTTP Apache</title>
+<title>core - Servidor HTTP Apache Versión 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -594,6 +594,7 @@ headers</td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexto:</a></th><td>server config</td></tr>
 <tr><th><a href="directive-dict.html#Status">Estado:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Módulo:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilidad:</a></th><td>Available in Apache 2.4.2 and later</td></tr>
 </table><p>The documentation for this directive has
             not been translated yet. Please have a look at the English
             version.</p><h3>Consulte también</h3>

@@ -217,8 +217,7 @@ readboot(dosfs, boot)
 	boot->ClusterOffset = (boot->RootDirEnts * 32 + boot->BytesPerSec - 1)
 	    / boot->BytesPerSec
 	    + boot->ResSectors
-	    + boot->FATs * boot->FATsecs
-	    - CLUST_FIRST * boot->SecPerClust;
+	    + boot->FATs * boot->FATsecs;
 
 	if (boot->Sectors) {
 		boot->HugeSectors = 0;
@@ -232,7 +231,7 @@ readboot(dosfs, boot)
          * it is also the number of valid FAT entries).  It is meant to be used
          * for looping over cluster numbers, or range checking cluster numbers.
          */
-	boot->NumClusters = (boot->NumSectors - boot->ClusterOffset) / boot->SecPerClust;
+	boot->NumClusters = CLUST_FIRST + (boot->NumSectors - boot->ClusterOffset) / boot->SecPerClust;
 
         /* Since NumClusters is off by two, use constants that are off by two also. */
 	if (boot->flags&FAT32)
@@ -270,7 +269,7 @@ readboot(dosfs, boot)
 		boot->NumClusters = boot->NumFatEntries;
 		if (ask(0, "Fix total sectors")) {
 			/* Need to recompute sectors based on clusters */
-			boot->NumSectors = (boot->NumClusters * boot->SecPerClust) + boot->ClusterOffset;
+			boot->NumSectors = ((boot->NumClusters - CLUST_FIRST) * boot->SecPerClust) + boot->ClusterOffset;
 			if (boot->Sectors) {
 				boot->Sectors = boot->NumSectors;
 				block[19] = boot->NumSectors & 0xFF;

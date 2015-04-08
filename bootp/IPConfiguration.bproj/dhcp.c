@@ -1961,13 +1961,11 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	   *
 	   * We remove the IP address if any of the following are true:
 	   * - we're not connected to a network (link status is inactive)
-	   * - we woke from hibernation
 	   * - we're on a different Wi-Fi network (the SSID changed)
 	   * - we're not on the same ethernet network
 	   */
 	  link_status = service_link_status(service_p);
 	  if ((link_status.valid && link_status.active == FALSE)
-	      || (wake_data->flags & kWakeFlagsFromHibernation) != 0
 	      || (if_is_wireless(if_p) 
 		  && (wake_data->flags & kWakeFlagsSSIDChanged) != 0)
 	      || (if_is_wireless(if_p) == FALSE
@@ -1976,16 +1974,6 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      service_remove_address(service_p);
 	      service_publish_failure(service_p,
 				      ipconfig_status_media_inactive_e);
-	      if ((wake_data->flags & kWakeFlagsFromHibernation) != 0) {
-		  /*
-		   * wake from hibernation is the same as a reboot case, so
-		   * simulate that by removing all but the last lease, and 
-		   * mark the lease as tentative.
-		   */
-		  my_log(LOG_DEBUG, "DHCP %s: wake from hibernation",
-			 if_name(if_p));
-		  DHCPLeaseListRemoveAllButLastLease(&dhcp->lease_list);
-	      }
 	      dhcp_check_link(service_p, event_id);
 	  }
 	  else {

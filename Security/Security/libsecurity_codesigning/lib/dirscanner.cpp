@@ -183,7 +183,9 @@ bool DirValidator::Rule::matchTarget(const char *path, const char *target) const
 	regex_t re;
 	if (::regcomp(&re, pattern.c_str(), REG_EXTENDED | REG_NOSUB))
 		MacOSError::throwMe(errSecCSInternalError);
-	switch (::regexec(&re, target, 0, NULL, 0)) {
+	int rv = ::regexec(&re, target, 0, NULL, 0);
+	::regfree(&re);
+	switch (rv) {
 	case 0:
 		return true;
 	case REG_NOMATCH:

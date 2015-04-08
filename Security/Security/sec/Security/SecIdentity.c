@@ -47,7 +47,7 @@ struct __SecIdentity {
 CFGiblisWithHashFor(SecIdentity)
 
 /* Static functions. */
-static CFStringRef SecIdentityCopyDescription(CFTypeRef cf) {
+static CFStringRef SecIdentityCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SecIdentityRef identity = (SecIdentityRef)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR("<SecIdentityRef: %p>"), identity);

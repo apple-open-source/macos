@@ -31,23 +31,18 @@
 #import <wtf/RetainPtr.h>
 
 @class DDActionContext;
+@class QLPreviewMenuItem;
 @class WebView;
-
-namespace WebCore {
-class Range;
-class TextIndicator;
-}
 
 @interface WebImmediateActionController : NSObject <NSImmediateActionGestureRecognizerDelegate> {
 @private
     WebView *_webView;
     WebImmediateActionType _type;
     WebCore::HitTestResult _hitTestResult;
-    NSImmediateActionGestureRecognizer *_immediateActionRecognizer;
+    RetainPtr<NSImmediateActionGestureRecognizer> _immediateActionRecognizer;
 
+    RetainPtr<QLPreviewMenuItem> _currentQLPreviewMenuItem;
     RetainPtr<DDActionContext> _currentActionContext;
-    RefPtr<WebCore::Range> _currentDetectedDataRange;
-    RefPtr<WebCore::TextIndicator> _currentDetectedDataTextIndicator;
     BOOL _isShowingTextIndicator;
     BOOL _hasActivatedActionContext;
 }
@@ -56,6 +51,9 @@ class TextIndicator;
 - (void)webViewClosed;
 
 - (void)webView:(WebView *)webView willHandleMouseDown:(NSEvent *)event;
+- (void)webView:(WebView *)webView didHandleScrollWheel:(NSEvent *)event;
+
+- (NSImmediateActionGestureRecognizer *)immediateActionRecognizer;
 
 @end
 

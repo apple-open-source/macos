@@ -94,6 +94,7 @@ private:
 	CFRef<CFURLRef> mTimestampService;		// URL for Timestamp server
     bool mWantTimeStamp;          // use a Timestamp server
     bool mNoTimeStampCerts;       // don't request certificates with timestamping request
+	LimitedAsync *mLimitedAsync;	// limited async workers for verification
 };
 
 

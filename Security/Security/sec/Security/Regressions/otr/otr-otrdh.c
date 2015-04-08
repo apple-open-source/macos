@@ -26,17 +26,40 @@
 
 #include <Security/SecOTRMath.h>
 #include <Security/SecOTRDHKey.h>
+#include <utilities/SecCFWrappers.h>
 
 int otr_otrdh(int argc, char *const * argv)
 {
-    plan_tests(4);
+    plan_tests(7);
     
     SecOTRFullDHKeyRef aliceFull = SecOTRFullDHKCreate(kCFAllocatorDefault);
     SecOTRPublicDHKeyRef alicePublic = SecOTRPublicDHKCreateFromFullKey(kCFAllocatorDefault, aliceFull);
     
     SecOTRFullDHKeyRef bobFull = SecOTRFullDHKCreate(kCFAllocatorDefault);
     SecOTRPublicDHKeyRef bobPublic = SecOTRPublicDHKCreateFromFullKey(kCFAllocatorDefault, bobFull);
-    
+
+    SecOTRPublicDHKeyRef aliceCompactDeserialized = NULL;
+    SecOTRPublicDHKeyRef aliceDeserialized = NULL;
+
+    CFMutableDataRef aliceCompactSerialized = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    SecFDHKAppendCompactPublicSerialization(aliceFull, aliceCompactSerialized);
+    size_t aliceCompactLength = CFDataGetLength(aliceCompactSerialized);
+    const uint8_t *aliceCompactSerializationStart = CFDataGetMutableBytePtr(aliceCompactSerialized);
+
+    aliceCompactDeserialized = SecOTRPublicDHKCreateFromCompactSerialization(kCFAllocatorDefault, &aliceCompactSerializationStart, &aliceCompactLength);
+    ok(CFEqualSafe(aliceCompactDeserialized, alicePublic), "Compact serialized compare to created");
+
+
+    CFMutableDataRef aliceSerialized = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    SecFDHKAppendPublicSerialization(aliceFull, aliceSerialized);
+    size_t aliceLength = CFDataGetLength(aliceSerialized);
+    const uint8_t *aliceSerializationStart = CFDataGetMutableBytePtr(aliceSerialized);
+
+    aliceDeserialized = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &aliceSerializationStart, &aliceLength);
+    ok(CFEqualSafe(aliceDeserialized, alicePublic), "Serialized compare to created");
+
+    ok(CFEqualSafe(aliceCompactDeserialized, aliceDeserialized), "Serialized compared to compact serailized");
+
     uint8_t aliceMessageKeys[2][kOTRMessageKeyBytes];
     uint8_t aliceMacKeys[2][kOTRMessageMacKeyBytes];
     
@@ -56,6 +79,11 @@ int otr_otrdh(int argc, char *const * argv)
     ok(0 == memcmp(aliceMessageKeys[1], bobMessageKeys[0], sizeof(aliceMessageKeys[1])), "Mac Keys don't match!!");
     ok(0 == memcmp(aliceMacKeys[0], bobMacKeys[1], sizeof(aliceMacKeys[0])), "Mac Keys don't match!!");
     ok(0 == memcmp(aliceMacKeys[1], bobMacKeys[0], sizeof(aliceMacKeys[1])), "Mac Keys don't match!!");
-    
+    CFReleaseNull(aliceCompactSerialized);
+    CFReleaseNull(aliceSerialized);
+    CFReleaseNull(aliceFull);
+    CFReleaseNull(alicePublic);
+    CFReleaseNull(bobFull);
+    CFReleaseNull(bobPublic);
     return 0;
 }

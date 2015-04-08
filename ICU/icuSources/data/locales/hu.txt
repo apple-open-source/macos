@@ -1085,6 +1085,20 @@ hu{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Moh.",
+                        "Saf.",
+                        "Rébi I",
+                        "Rébi II",
+                        "Dsem. I",
+                        "Dsem. II",
+                        "Red.",
+                        "Sab.",
+                        "Ram.",
+                        "Sev.",
+                        "Dsül k.",
+                        "Dsül h.",
+                    }
                     narrow{
                         "1",
                         "2",

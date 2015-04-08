@@ -292,7 +292,7 @@ SSLDisposeContext				(SSLContextRef context)
 	return errSecSuccess;
 }
 
-CFStringRef SSLContextCopyDescription(CFTypeRef arg)
+CFStringRef SSLContextCopyFormatDescription(CFTypeRef arg, CFDictionaryRef formatOptions)
 {
     SSLContext* ctx = (SSLContext*) arg;
 

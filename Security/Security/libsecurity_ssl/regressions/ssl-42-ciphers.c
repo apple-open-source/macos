@@ -191,7 +191,7 @@ typedef struct {
     SSLContextRef st;
     bool is_server;
     bool is_dtls;
-    bool client_side_auth;
+    int client_side_auth;
     bool dh_anonymous;
     int comm;
     CFArrayRef certs;
@@ -322,7 +322,7 @@ static unsigned char dn[] = {
 };
 static unsigned int dn_len = 96;
 
-static SSLContextRef make_ssl_ref(bool server, bool client_side_auth, bool dh_anonymous,
+static SSLContextRef make_ssl_ref(bool server, int client_side_auth, bool dh_anonymous,
     bool dtls, int sock, CFArrayRef certs, SSLProtocol proto)
 {
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, dtls?kSSLDatagramType:kSSLStreamType);
@@ -468,7 +468,9 @@ static void *securetransport_ssl_thread(void *arg)
             CFRelease(DNs);
 
             require_string(ssl->client_side_auth, out, "errSSLClientCertRequested in run not testing that");
-            require_noerr(SSLSetCertificate(ctx, ssl->certs), out);
+            if(ssl->client_side_auth==1) { // Don't set a client cert in mode 2.
+                require_noerr(SSLSetCertificate(ctx, ssl->certs), out);
+            }
         } else if (ortn == errSSLWouldBlock) {
             require_action(ssl_state==kSSLHandshake, out, ortn = -1);
         }
@@ -563,7 +565,7 @@ out:
 
 
 static ssl_test_handle *
-ssl_test_handle_create(uint32_t session_id, bool resume, bool server, bool client_side_auth, bool dh_anonymous, bool dtls,
+ssl_test_handle_create(uint32_t session_id, bool resume, bool server, int client_side_auth, bool dh_anonymous, bool dtls,
     int comm, CFArrayRef certs, SSLProtocol proto)
 {
     ssl_test_handle *handle = calloc(1, sizeof(ssl_test_handle));
@@ -597,7 +599,7 @@ tests(void)
 
     for (p=0; p<nprotos; p++)
     for (d=0;d<2; d++)  /* dtls or not dtls */
-    for (k=0; k<2; k++)
+        for (k=0; k<3; k++) /* client side auth mode: 0: server doesn't request , 1: server request, client provide, 2: server request, client does not provide */
     {
         for (i=0; ciphers[i].cipher != (SSLCipherSuite)(-1); i++)
         for (l = 0; l<2; l++) {
@@ -612,7 +614,7 @@ tests(void)
 
                 ssl_test_handle *server, *client;
 
-                bool client_side_auth = (k);
+                int client_side_auth = (k);
 
                 uint32_t session_id = (k+1) << 16 | (i+1);
                 //fprintf(stderr, "session_id: %d\n", session_id);
@@ -662,7 +664,7 @@ out:
 int ssl_42_ciphers(int argc, char *const *argv)
 {
 
-    plan_tests(2 * 2 * 2 * nprotos * (ciphers_len-1)/* client auth on/off * #configs * #ciphers */
+    plan_tests(3 * 2 * 2 * nprotos * (ciphers_len-1)/* client auth 0/1/2 * #configs * protos * #ciphers */
                 + 1 /*cert*/);
 
 

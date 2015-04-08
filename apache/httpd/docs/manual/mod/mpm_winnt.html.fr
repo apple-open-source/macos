@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mpm_winnt - Serveur Apache HTTP</title>
+<title>mpm_winnt - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -60,9 +60,9 @@ NT.</td></tr>
     requêtes n'ont pas été traitées correctement. Pour éviter cette
     erreur, définissez la directive <code class="directive"><a href="../mod/core.html#acceptfilter">AcceptFilter</a></code> à <code>none</code>.</p>
 
-    <div class="example"><p><code>
-        AcceptFilter none
-    </code></p></div>
+    <pre class="prettyprint lang-config">AcceptFilter http none
+AcceptFilter https none</pre>
+
 
     <p><em>Avec les versions 2.0 et 2.2 d'Apache httpd, c'est la directive
     <code class="directive">Win32DisableAcceptEx</code> qui était utilisée à cet

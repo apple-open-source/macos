@@ -461,7 +461,7 @@ static CFHashCode SOSPeerInfoHash(CFTypeRef cf) {
     return CFHash(peer->description) ^ CFHash(peer->signature);
 }
 
-static CFStringRef SOSPeerInfoCopyDescription(CFTypeRef aObj) {
+static CFStringRef SOSPeerInfoCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
     SOSPeerInfoRef pi = (SOSPeerInfoRef) aObj;
     CFIndex version = SOSPeerInfoGetPeerProtocolVersion(pi);
     

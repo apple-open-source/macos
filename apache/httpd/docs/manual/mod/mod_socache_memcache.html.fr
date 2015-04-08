@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_socache_memcache - Serveur Apache HTTP</title>
+<title>mod_socache_memcache - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -47,9 +47,8 @@
     fournir la liste des serveurs sous la forme du paramètre optionnel
     "arg".</p>
 
-     <div class="example"><p><code>
-         SSLSessionCache memcache:memcache.example.com:12345,memcache2.example.com:123455
-     </code></p></div>
+     <pre class="prettyprint lang-config">SSLSessionCache memcache:memcache.example.com:12345,memcache2.example.com:12345</pre>
+
 
     <p>Vous trouverez des détails à propos des autres fournisseurs de
     cache d'objets partagés <a href="../socache.html">ici</a>.

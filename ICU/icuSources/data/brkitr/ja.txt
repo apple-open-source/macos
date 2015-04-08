@@ -9,6 +9,9 @@
 ja{
     Version{"2.0.82.42"}
     boundaries{
-        line:process(dependency){"line_ja.brk"}
+        line:process(dependency){"line_normal.brk"}
+        line_loose:process(dependency){"line_loose_cj.brk"}
+        line_normal:process(dependency){"line_normal_cj.brk"}
+        line_strict:process(dependency){"line.brk"}
     }
 }

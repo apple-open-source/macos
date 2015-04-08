@@ -1,3 +1,1148 @@
+2015-03-07  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r181176.
+
+    2015-03-06  Beth Dakin  <bdakin@apple.com>
+
+            REGRESSION (r180782): Data Detector popovers are not dismissed on scroll or zoom
+            https://bugs.webkit.org/show_bug.cgi?id=142371
+            -and corresponding-
+            rdar://problem/20059224
+
+            Reviewed by Tim Horton.
+
+            This patch has the WKImmediateActionController keep track of whether or not it has 
+            an active immediate action. Then we only call into Lookup and DD if the window is 
+            key OR if the WKView’s immediateActionController has an active action.
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _dismissContentRelativeChildWindows]):
+            * UIProcess/mac/WKImmediateActionController.h:
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController initWithPage:view:recognizer:]):
+            (-[WKImmediateActionController willDestroyView:]):
+            (-[WKImmediateActionController _clearImmediateActionState]):
+            (-[WKImmediateActionController hasActiveImmediateAction]):
+            (-[WKImmediateActionController immediateActionRecognizerWillBeginAnimation:]):
+
+2015-03-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r180782
+
+    2015-02-27  Beth Dakin  <bdakin@apple.com>
+
+            Lookup panel dismisses when pages are loading in other tabs/windows
+            https://bugs.webkit.org/show_bug.cgi?id=142104
+            -and corresponding-
+            rdar://problem/19882137
+
+            Reviewed by Tim Horton.
+
+            Until rdar://problem/13875766 is resolved, we should only call into Lookup and 
+            DataDetectors for key windows.
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _dismissContentRelativeChildWindows]):
+
+2015-02-20  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180293. <rdar://problem/19890148>
+
+    2015-02-18  Beth Dakin  <bdakin@apple.com>
+
+            iBooks immediate action blacklist should not even create the gesture recognizer
+            https://bugs.webkit.org/show_bug.cgi?id=141768
+            -and corresponding-
+            rdar://problem/19806770
+
+            Reviewed by Tim Horton.
+
+            Move the runtime-application check to the point where the gesture recognizer is 
+            created so that we can avoid doing so.
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView initWithFrame:processPool:configuration:webView:]):
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _updateImmediateActionItem]):
+
+2015-02-20  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180242. <rdar://problem/19870992>
+
+    2015-02-17  Timothy Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r178595): Clicking on DD highlights sometimes do not work
+            https://bugs.webkit.org/show_bug.cgi?id=141728
+            <rdar://problem/19825372>
+
+            Reviewed by Beth Dakin.
+
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _cancelImmediateActionIfNeeded]):
+            (-[WKImmediateActionController immediateActionRecognizerWillBeginAnimation:]):
+            The change that r178595 intended to make was purely that things that we
+            have no immediate actions for should cancel the immediate action gesture recognizer.
+            Moving the DataDetectors activation code as well breaks strict ordering
+            of immediate action callbacks vs. shouldUseActionsWithContext: that they depend on.
+
+2015-02-19  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180115. <rdar://problem/19850758>
+
+    2015-02-14  Beth Dakin  <bdakin@apple.com>
+
+            REGRESSION: Page opens with enlarged font after visiting PDF, navigating back, 
+            then doing a process swap
+            https://bugs.webkit.org/show_bug.cgi?id=141584
+            -and corresponding-
+            rdar://problem/18167729
+
+            Reviewed by Tim Horton.
+
+            This patch keeps the plugin zoom/scale factors separate from page zoom/scale 
+            factors in the UI process since they are used for slightly different purposes for 
+            plugins (i.e., PDFs) than they are for normal pages. Keeping track of the right 
+            factor for the right type of document will ensure that we don’t use the wrong one.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::WebPageProxy):
+            (WebKit::WebPageProxy::pageZoomFactor):
+            (WebKit::WebPageProxy::pageScaleFactor):
+            (WebKit::WebPageProxy::pluginScaleFactorDidChange):
+            (WebKit::WebPageProxy::pluginZoomFactorDidChange):
+            (WebKit::WebPageProxy::didCommitLoadForFrame):
+            (WebKit::WebPageProxy::pageZoomFactorDidChange): Deleted.
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::pageZoomFactor): Deleted.
+            (WebKit::WebPageProxy::pageScaleFactor): Deleted.
+            * UIProcess/WebPageProxy.messages.in:
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::setPageScaleFactor):
+
+2015-02-19  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180094. <rdar://problem/19850716>
+
+    2015-02-13  Simon Fraser  <simon.fraser@apple.com>
+
+            Crash closing a tab when a context or popup menu is open
+            https://bugs.webkit.org/show_bug.cgi?id=141582
+            rdar://problem/17700475
+
+            Reviewed by Anders Carlsson.
+
+            If a context menu or a popup menu is open when a tab is programmatically closed,
+            then we'd crash because both the WebContextMenuProxyMac/WebPopupMenuProxyMac
+            and the WebPageProxy would be deleted while still in use, via messages
+            handled via the nested event tracking runloop.
+
+            Fix by protecting those things while showing the popup. Also programmatically
+            dismiss the popup when closing the WebPageProxy.
+
+            * UIProcess/WebContextMenuProxy.h:
+            (WebKit::WebContextMenuProxy::cancelTracking):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::close):
+            (WebKit::WebPageProxy::showPopupMenu): Clean up some EFL-related confusion that we don't need.
+            Retaining |this| will also retain m_activePopupMenu.
+            (WebKit::WebPageProxy::hidePopupMenu):
+            (WebKit::WebPageProxy::showContextMenu):
+            (WebKit::WebPageProxy::resetState):
+            * UIProcess/WebPopupMenuProxy.h:
+            (WebKit::WebPopupMenuProxy::cancelTracking):
+            * UIProcess/mac/WebContextMenuProxyMac.h:
+            * UIProcess/mac/WebContextMenuProxyMac.mm:
+            (WebKit::WebContextMenuProxyMac::showContextMenu):
+            (WebKit::WebContextMenuProxyMac::cancelTracking):
+            * UIProcess/mac/WebPopupMenuProxyMac.h: For popups, we need to remember if we were
+            canceled to avoid trying to send events after closing.
+            * UIProcess/mac/WebPopupMenuProxyMac.mm:
+            (WebKit::WebPopupMenuProxyMac::WebPopupMenuProxyMac):
+            (WebKit::WebPopupMenuProxyMac::showPopupMenu):
+            (WebKit::WebPopupMenuProxyMac::cancelTracking):
+
+2015-02-19  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180076. <rdar://problem/19850750>
+
+    2015-02-13  Brent Fulgham  <bfulgham@apple.com>
+
+            [Mac, iOS] Adjust pagination behavior for Mail.app printing use
+            https://bugs.webkit.org/show_bug.cgi?id=141569
+            <rdar://problem/14912763>
+
+            Reviewed by Anders Carlsson.
+
+            * Shared/WebPageCreationParameters.cpp:
+            (WebKit::WebPageCreationParameters::encode): Add new flag.
+            (WebKit::WebPageCreationParameters::decode): Ditto.
+            * Shared/WebPageCreationParameters.h: Ditto.
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::creationParameters): Set new page construction flag.
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/mac/WebPageProxyMac.mm:
+            (WebKit::WebPageProxy::paginationQuirkEnabled): Ask for new pagination flag
+            when running as a Mail client.
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::WebPage): Set up pagination based on desired settings.
+
+2015-02-19  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180062. <rdar://problem/19812938>
+
+    2015-02-12  Simon Fraser  <simon.fraser@apple.com>
+
+            determinePrimarySnapshottedPlugIn() should only traverse visible Frames
+            https://bugs.webkit.org/show_bug.cgi?id=141547
+            Part of rdar://problem/18445733.
+
+            Reviewed by Anders Carlsson.
+            
+            Use FrameTree::traverseNextRendered() to avoid doing things in unrendered frames
+            which are not guaranteed to have been laid out.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::determinePrimarySnapshottedPlugIn):
+
+2015-02-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r179736
+
+    2015-02-05  Tim Horton  <timothy_horton@apple.com>
+
+            Null deref in ViewGestureController::beginSwipeGesture when swiping while script is navigating
+            https://bugs.webkit.org/show_bug.cgi?id=141308
+            <rdar://problem/18460046>
+
+            Reviewed by Simon Fraser.
+
+            * UIProcess/mac/ViewGestureControllerMac.mm:
+            (WebKit::ViewGestureController::trackSwipeGesture):
+            If script navigates (history.back, probably other cases too) while in the middle of
+            building up enough scroll events to start a swipe, it can destroy the history item
+            that we were planning to swipe to. If this happens, bail from the swipe.
+
+2015-02-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r179586
+
+    2015-02-03  Timothy Horton  <timothy_horton@apple.com>
+
+            Every PageOverlayClientImpl leaks
+            https://bugs.webkit.org/show_bug.cgi?id=141224
+            <rdar://problem/19652939>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/InjectedBundle/API/c/WKBundlePageOverlay.cpp:
+            (WKBundlePageOverlayCreate):
+            * WebProcess/WebPage/WebPageOverlay.cpp:
+            (WebKit::WebPageOverlay::create):
+            (WebKit::WebPageOverlay::WebPageOverlay):
+            (WebKit::WebPageOverlay::pageOverlayDestroyed):
+            (WebKit::WebPageOverlay::willMoveToPage):
+            (WebKit::WebPageOverlay::didMoveToPage):
+            (WebKit::WebPageOverlay::drawRect):
+            (WebKit::WebPageOverlay::mouseEvent):
+            (WebKit::WebPageOverlay::didScrollFrame):
+            (WebKit::WebPageOverlay::actionContextForResultAtPoint):
+            (WebKit::WebPageOverlay::dataDetectorsDidPresentUI):
+            (WebKit::WebPageOverlay::dataDetectorsDidChangeUI):
+            (WebKit::WebPageOverlay::dataDetectorsDidHideUI):
+            (WebKit::WebPageOverlay::copyAccessibilityAttributeStringValueForPoint):
+            (WebKit::WebPageOverlay::copyAccessibilityAttributeBoolValueForPoint):
+            (WebKit::WebPageOverlay::copyAccessibilityAttributeNames):
+            * WebProcess/WebPage/WebPageOverlay.h:
+            (WebKit::WebPageOverlay::client):
+            Keep the PageOverlayClientImpl as a unique_ptr instead of a leaked reference,
+            ensuring that it's cleaned up when the WebPageOverlay is torn down.
+
+2015-02-10  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r177849
+
+    2015-01-01  Jeff Miller  <jeffm@apple.com>
+
+            Update user-visible copyright strings to include 2015
+            https://bugs.webkit.org/show_bug.cgi?id=139880
+
+            Reviewed by Darin Adler.
+
+            * DatabaseProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * DatabaseProcess/EntryPoint/mac/XPCService/DatabaseService.Development/Info.plist:
+            * DatabaseProcess/EntryPoint/mac/XPCService/DatabaseService/Info.plist:
+            * Info.plist:
+            * NetworkProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService.Development/Info-OSX.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService.Development/Info-iOS.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-OSX.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-iOS.plist:
+            * PluginProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * PluginProcess/EntryPoint/mac/XPCService/PluginService.32-64.Info.plist:
+            * PluginProcess/EntryPoint/mac/XPCService/PluginService.Development/Info.plist:
+            * WebProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService.Development/Info-OSX.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService.Development/Info-iOS.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService/Info-OSX.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService/Info-iOS.plist:
+            * mac/Info-WebKit2.plist:
+
+2015-02-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r179809.
+
+    2015-02-08  Timothy Horton  <timothy_horton@apple.com>
+
+            Null deref in _clearImmediateActionState when closing a view with a DataDetectors popover open
+            https://bugs.webkit.org/show_bug.cgi?id=141377
+            <rdar://problem/19711203>
+
+            Reviewed by Darin Adler.
+
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _clearImmediateActionState]):
+            We can have already detached the page when DataDetectors calls us back
+            in interactionStoppedHandler. While we have kept a strong reference to the
+            page in the interactionStoppedHandler block, _page is nulled out.
+            It's OK to avoid doing this work, in any case, because closing a page
+            tears down the TextIndicator anyway.
+
+2015-02-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r179066. rdar://problem/19670515
+
+    2015-01-24  David Kilzer  <ddkilzer@apple.com>
+
+            <rdar://problem/19433134> REGRESSION (iOS 8): Reproducible null deref in WebKit::nextFocusableElement
+
+            Merged small change from r175549.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::nextFocusableElement): Add isElementNode() check.
+
+2015-01-20  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r173737.
+
+    2014-09-18  Simon Fraser  <simon.fraser@apple.com>
+
+            Avoid divide by zero when we get an empty rect while snapshotting a node
+            https://bugs.webkit.org/show_bug.cgi?id=136932
+            rdar://problem/18383473
+
+            Reviewed by Dean Jackson.
+
+            renderer()->paintingRootRect() can return an empty rect for some inline configurations,
+            for example an <a> containing a floated <span>
+
+            When this occurs, avoid a divide by zero and return a null snapshot image.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::snapshotNode):
+
+2015-01-20  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r173071.
+
+    2014-08-27  Enrica Casucci  <enrica@apple.com>
+
+            textStylingAtPosition returns incorrect values after executing toggleBold, toggleItalic and toggleUnderline.
+            https://bugs.webkit.org/show_bug.cgi?id=136323
+            rdar://problem/18141964
+
+            Reviewed by Antti Koivisto.
+
+            For underline style we need to check typingStyle first and use that information to populate
+            the dictionary. If there is no typing style we can use the render style.
+            We also need to update the editor state for the toggle commands to reflect the state in the UIProcess
+            even for commands that don't change the selection.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::editorState):
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::executeEditCommandWithCallback):
+
+2015-01-29  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r179339. rdar://problem/19619999
+
+    2015-01-29  Tim Horton  <timothy_horton@apple.com>
+
+            Avoid manually handling quickLookWithEvent: if the immediate action gesture recognizer will do Lookup for us
+            https://bugs.webkit.orgshow_bug.cgi?id=141018
+            <rdar://problem/19619999>
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView quickLookWithEvent:]):
+            Yosemite is 101000, not 10100.
+
+2015-01-29  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r179320. rdar://problem/19619999
+
+    2015-01-28  Timothy Horton  <timothy_horton@apple.com>
+
+            Avoid manually handling quickLookWithEvent: if the immediate action gesture recognizer will do Lookup for us
+            https://bugs.webkit.org/show_bug.cgi?id=141018
+            <rdar://problem/19619999>
+
+            Reviewed by Beth Dakin.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView quickLookWithEvent:]):
+            If we have an immediate action gesture recognizer, just call super and
+            avoid WebKit's special quickLookWithEvent: implementation.
+
+2015-01-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r179230.
+
+    2015-01-27  Beth Dakin  <bdakin@apple.com>
+
+            Immediate action gesture recognizer still doesn't work well with IB
+            https://bugs.webkit.org/show_bug.cgi?id=140967
+            -and corresponding-
+            rdar://problem/19621509
+
+            Reviewed by Tim Horton.
+
+            We should add (or remove) the gesture recognizer in viewDidMoveToWindow because 
+            initWithFrame it too early and IB might mess with it.
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView viewDidMoveToWindow]):
+            (-[WKView initWithFrame:processPool:configuration:webView:]):
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r179195. rdar://problem/19572685
+
+    2015-01-27  Beth Dakin  <bdakin@apple.com>
+
+            Invoking an immediate action on link often dismisses selection
+            https://bugs.webkit.org/show_bug.cgi?id=140911
+            -and corresponding-
+            rdar://problem/19572685
+
+            Reviewed by Tim Horton.
+
+            Calling _page->setMaintainsInactiveSelection(false) in complete is often
+            too soon. Instead, call it in dismissContentRelativeChildWindows. This is more
+            similar to the timing for the TextIndicator.
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController dismissContentRelativeChildWindows]):
+            (-[WKImmediateActionController immediateActionRecognizerWillPrepare:]):
+            (-[WKImmediateActionController immediateActionRecognizerDidCompleteAnimation:]):
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r179129. rdar://problem/19489518
+
+    2015-01-26  Beth Dakin  <bdakin@apple.com>
+
+            Blacklist iBooks for WebKit's default immediate actions
+            https://bugs.webkit.org/show_bug.cgi?id=140854
+            -and corresponding-
+            rdar://problem/19489518
+
+            Reviewed by Tim Horton.
+
+            Blacklist iBooks.
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _updateImmediateActionItem]):
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r179087. rdar://problem/19571057
+
+    2015-01-25  Timothy Horton  <timothy_horton@apple.com>
+
+            Unresponsive Web processes sometimes throw ObjC exceptions under didPerformActionMenuHitTest:
+            https://bugs.webkit.org/show_bug.cgi?id=140859
+            <rdar://problem/19571057>
+
+            Reviewed by Darin Adler.
+
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController didPerformActionMenuHitTest:userData:]):
+            If we've already given up on this gesture (either because it was canceled or the
+            willBeginAnimation timeout expired), we shouldn't build a new animationController for it.
+            This is true both because it wouldn't look good to swap animationControllers out
+            from under the gesture, but also because AppKit throws an exception when you do this
+            and that breaks a lot of things.
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r179023. rdar://problem/19573674
+
+    2015-01-23  Timothy Horton  <timothy_horton@apple.com>
+
+            Fix the pre-Yosemite build.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _dismissContentRelativeChildWindows]):
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r179014. rdar://problem/19573674
+
+    2015-01-23  Timothy Horton  <timothy_horton@apple.com>
+
+            QLPreviewMenuItem popovers don't close when the page scrolls
+            https://bugs.webkit.org/show_bug.cgi?id=140806
+            <rdar://problem/19555618>
+
+            Reviewed by Beth Dakin.
+
+            Now that QLPreviewMenuItem's popover doesn't eat scrolls, we need to dismiss it if the page scrolls.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _dismissContentRelativeChildWindows]):
+            Send _dismissContentRelativeChildWindows on to WKImmediateActionController.
+
+            * UIProcess/mac/WKImmediateActionController.h:
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _clearImmediateActionState]):
+            (-[WKImmediateActionController dismissContentRelativeChildWindows]):
+            (-[WKImmediateActionController _defaultAnimationController]):
+            Keep track of the active QLPreviewMenuItem, and close it upon scroll.
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r179013. rdar://problem/19571601
+
+    2015-01-23  Timothy Horton  <timothy_horton@apple.com>
+
+            Infinite recursion in _clearImmediateActionState
+            https://bugs.webkit.org/show_bug.cgi?id=140807
+            <rdar://problem/19571601>
+
+            Reviewed by Anders Carlsson.
+
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _clearImmediateActionState]):
+            Clear _hasActivatedActionContext before calling didUseActions, because
+            didUseActions can call _clearImmediateActionState.
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r178938. rdar://problem/19558472
+
+    2015-01-22  Beth Dakin  <bdakin@apple.com>
+
+            ibtoold crash below -[WebView close]
+            https://bugs.webkit.org/show_bug.cgi?id=140782
+            -and corresponding-
+            rdar://problem/19558472
+
+            Reviewed by Tim Horton.
+
+            Retain the NSImmediateActionGestureRecognizer. This should not be necessary, but
+            it is because interface builder can mess with our views.
+            * UIProcess/mac/WKImmediateActionController.h:
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController willDestroyView:]):
+            (-[WKImmediateActionController _cancelImmediateAction]):
+            (-[WKImmediateActionController _cancelImmediateActionIfNeeded]):
+            (-[WKImmediateActionController _updateImmediateActionItem]):
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r178858. rdar://problem/19540806
+
+    2015-01-21  Beth Dakin  <bdakin@apple.com>
+
+            Crash in QuickLook preview delegate method
+            https://bugs.webkit.org/show_bug.cgi?id=140740
+            -and corresponding-
+            rdar://problem/19540806
+
+            Reviewed by Tim Horton.
+
+            Clear out the delegate.
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController willDestroyView:]):
+
+2015-01-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r178595. rdar://problem/19490114
+
+    2015-01-16  Beth Dakin  <bdakin@apple.com>
+
+            Should cancel immediate action sooner in WK2
+            https://bugs.webkit.org/show_bug.cgi?id=140561
+            -and corresponding-
+            rdar://problem/19490114
+
+            Reviewed by Tim Horton.
+
+            _cancelImmediateActionIfNeeded will cancel the immediate action if there is no
+            animation controller or if the DDActionContext doesn’t want to use its actions.
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _cancelImmediateActionIfNeeded]):
+
+            Call _cancelImmediateActionIfNeeded to cancel earlier.
+            (-[WKImmediateActionController didPerformActionMenuHitTest:userData:]):
+
+            Re-factor this code to use the newly-added method _cancelImmediateActionIfNeeded
+            (-[WKImmediateActionController immediateActionRecognizerWillBeginAnimation:]):
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174708. rdar://problem/19451256
+
+    2014-10-14  Alexey Proskuryakov  <ap@apple.com>
+
+            REGRESSION (r165356): Issues with Japanese text input
+            https://bugs.webkit.org/show_bug.cgi?id=137719
+            rdar://problem/18431952
+            rdar://problem/18483741
+
+            Reviewed by Darin Adler.
+
+            * WebProcess/WebPage/WebPage.cpp: (WebKit::WebPage::didChangeSelection):
+            In sync code path, ensure consistent message delivery order by adding
+            a DispatchMessageEvenWhenWaitingForSyncReply flag. This way, delayed
+            EditorStateChanged messages won't confuse UI process.
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177152. rdar://problem/19451288
+
+    2014-12-11  Alexey Proskuryakov  <ap@apple.com>
+
+            REGRESSION (Async Text Input): Text input method state is not reset when reloading a page
+            https://bugs.webkit.org/show_bug.cgi?id=139504
+            rdar://problem/19034674
+
+            Reviewed by Enrica Casucci.
+
+            WebKit2 used to look at EditorState changes and guess when to cancel a composition.
+            This was quite unreliable, and needlessly complicated - WebCore knows when it decides
+            to destroy a composition, so it now explicitly notifies the clients.
+
+            * UIProcess/API/mac/WKView.mm: (-[WKView _processDidExit]): Address crashing case too.
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::resetStateAfterProcessExited):
+            * WebProcess/WebCoreSupport/WebEditorClient.cpp:
+            (WebKit::WebEditorClient::discardedComposition):
+            * WebProcess/WebCoreSupport/WebEditorClient.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::didChangeSelection):
+            (WebKit::WebPage::discardedComposition):
+            * WebProcess/WebPage/WebPage.h:
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177033. rdar://problem/19451244
+
+    2014-12-09  Chris Dumez  <cdumez@apple.com>
+
+            [WK2] Crash when answering notification permission request after navigating
+            https://bugs.webkit.org/show_bug.cgi?id=139429
+            <rdar://problem/18921122>
+
+            Reviewed by Andreas Kling.
+
+            When requesting a notification permission, navigating away and then
+            answering the permission, WebKit2 would crash. This is because upon
+            navigating, the request is cancelled and removed from the HashMaps
+            in NotificationPermissionRequestManager. When
+            didReceiveNotificationPermissionDecision() is later called, it would
+            look for the request identifier in m_idToOriginMap HashMap. As the
+            request was cancelled, HashMap::take() call would return null for
+            the SecurityOrigin*. This security origin pointer is then removed
+            from m_originToIDMap, but the code was failing to do a null check
+            first. Calling HashMap::remove(nullptr) would then crash.
+
+            This patch adds the missing null check and a layout test to cover
+            this case.
+
+            Test: http/tests/notifications/legacy/notification-request-permission-then-navigate.html
+
+
+            * WebProcess/Notifications/NotificationPermissionRequestManager.cpp:
+            (WebKit::NotificationPermissionRequestManager::didReceiveNotificationPermissionDecision):
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r175759. rdar://problem/19450899
+
+    2014-11-07  Anshu Chimala  <anshu@apple.com>
+
+            Make it possible to associate snapshots with back/forward list items other than the current item.
+            https://bugs.webkit.org/show_bug.cgi?id=138490
+
+            Reviewed by Tim Horton.
+
+            * UIProcess/API/Cocoa/WKViewPrivate.h:
+            Declare -saveBackForwardSnapshotForItem:, an alternative to -saveBackForwardSnapshotForCurrentItem that accepts a
+            back/forward list item as an argument.
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView saveBackForwardSnapshotForItem:]):
+            Pass the provided back/forward list item along to WebPageProxy::recordNavigationSnapshot().
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::recordNavigationSnapshot):
+            Overloaded to optionally take a back/forward list item as an argument. If one isn't provided, default to the current item
+            as before; otherwise, associate the snapshot with whichever item was provided.
+            * UIProcess/WebPageProxy.h:
+            Declare the new recordNavigationSnapshot() overload.
+
+            * UIProcess/mac/ViewSnapshotStore.h:
+            Make recordSnapshot() take a back/forward list item as an argument.
+            * UIProcess/mac/ViewSnapshotStore.mm:
+            (WebKit::ViewSnapshotStore::recordSnapshot):
+            Store the snapshot in the provided back/forward list item instead of in the current item.
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r175719. rdar://problem/19424169
+
+    2014-11-05  Jer Noble  <jer.noble@apple.com>
+
+            De-templatize Timer
+            https://bugs.webkit.org/show_bug.cgi?id=138450
+
+            Reviewed by Anders Carlsson.
+
+            Remove template specifiers from Timer.
+
+            * NetworkProcess/NetworkResourceLoader.cpp:
+            (WebKit::NetworkResourceLoader::bufferingTimerFired):
+            * NetworkProcess/NetworkResourceLoader.h:
+            * Shared/WebMemorySampler.cpp:
+            (WebKit::WebMemorySampler::sampleTimerFired):
+            (WebKit::WebMemorySampler::stopTimerFired):
+            * Shared/WebMemorySampler.h:
+            * Shared/mac/RemoteLayerBackingStoreCollection.h:
+            * Shared/mac/RemoteLayerBackingStoreCollection.mm:
+            (WebKit::RemoteLayerBackingStoreCollection::volatilityTimerFired):
+            * UIProcess/API/efl/EwkView.cpp:
+            (EwkView::displayTimerFired):
+            * UIProcess/API/efl/EwkView.h:
+            * UIProcess/efl/TextCheckerClientEfl.cpp:
+            (TextCheckerClientEfl::languagesUpdateTimerFired):
+            (TextCheckerClientEfl::spellCheckingSettingChangeTimerFired):
+            * UIProcess/efl/TextCheckerClientEfl.h:
+            * WebProcess/WebPage/CoordinatedGraphics/CoordinatedLayerTreeHost.cpp:
+            (WebKit::CoordinatedLayerTreeHost::layerFlushTimerFired):
+            * WebProcess/WebPage/CoordinatedGraphics/CoordinatedLayerTreeHost.h:
+            * WebProcess/WebPage/mac/RemoteLayerTreeDrawingArea.h:
+            * WebProcess/WebPage/mac/RemoteLayerTreeDrawingArea.mm:
+            (WebKit::RemoteLayerTreeDrawingArea::layerFlushTimerFired):
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::processSuspensionCleanupTimerFired):
+            (WebKit::WebProcess::nonVisibleProcessCleanupTimerFired):
+            * WebProcess/WebProcess.h:
+
+2015-01-15  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r178290. rdar://problem/19441243
+
+    2015-01-12  Timothy Horton  <timothy_horton@apple.com>
+
+            Multi-rect TextIndicators are vertically flipped in WebKit1
+            https://bugs.webkit.org/show_bug.cgi?id=140350
+            <rdar://problem/19441243>
+
+            Reviewed by Beth Dakin.
+
+            * Shared/WebCoreArgumentCoders.cpp:
+            (IPC::ArgumentCoder<TextIndicatorData>::encode):
+            (IPC::ArgumentCoder<TextIndicatorData>::decode):
+            Adjust to the field name changes.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _setTextIndicator:fadeOut:]):
+            Convert the textBoundingRect from root view to screen coordinates.
+
+            * WebProcess/WebPage/FindController.cpp:
+            (WebKit::FindController::updateFindIndicator):
+            (WebKit::FindController::drawRect):
+            Adjust to the new name, and use contentsToRootView when comparing against
+            the stored m_findIndicatorRect.
+
+2015-01-14  Dana Burkart  <dburkart@apple.com>
+
+        Merged r175400. <rdar://problem/19424166>
+
+    2014-10-30  Jer Noble  <jer.noble@apple.com>
+
+            [EME] Add Setting for accessing storage location for MediaKeys data
+            https://bugs.webkit.org/show_bug.cgi?id=138147
+
+            Reviewed by Brady Eidson.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::WebPage): Pass from WebMediaKeyStorageManager into Settings.
+
+2015-01-14  Dana Burkart  <dburkart@apple.com>
+
+        Merged r175288. <rdar://problem/19480393>
+
+    2014-10-28  Jer Noble  <jer.noble@apple.com>
+
+            [EME] Pass location for media key storage through from WebKit/WebKit2.
+            https://bugs.webkit.org/show_bug.cgi?id=137120
+
+            Reviewed by Anders Carlsson.
+
+            Allow the location for media key storage to be passed into the WebProcess from the UIProcess
+            through the WebContextConfiguraiton struct.
+
+            * Shared/WebProcessCreationParameters.cpp:
+            (WebKit::WebProcessCreationParameters::encode): Add mediaKeysStorageDirectory.
+            (WebKit::WebProcessCreationParameters::decode): Ditto.
+            * Shared/WebProcessCreationParameters.h:
+            * UIProcess/API/C/WKContextConfigurationRef.cpp:
+            (WKContextConfigurationCopyMediaKeysStorageDirectory): Added getter.
+            (WKContextConfigurationSetMediaKeysStorageDirectory): Added setter.
+            * UIProcess/API/C/WKContextConfigurationRef.h:
+            * UIProcess/API/C/WKOriginDataManager.h:
+            * UIProcess/API/Cocoa/WKProcessPool.mm:
+            (-[WKProcessPool _initWithConfiguration:]): Provide a default location.
+            * UIProcess/APIContextConfiguration.cpp:
+            (API::ContextConfiguration::webContextConfiguration): Set mediaKeysStorageDirectory.
+            * UIProcess/APIContextConfiguration.h:
+            (API::ContextConfiguration::mediaKeysStorageDirectory): Added getter.
+            (API::ContextConfiguration::setMediaKeysStorageDirectory): Added setter.
+            * UIProcess/WebContext.cpp:
+            (WebKit::WebContext::applyPlatformSpecificConfigurationDefaults): Apply mediaKeysStorageDirectory.
+            (WebKit::WebContext::WebContext): Initialize m_mediaKeysStorageDirectory.
+            (WebKit::WebContext::createNewWebProcess): Create a sandbox extension handle for mediaKeysStorageDirectory.
+            * UIProcess/WebContext.h:
+            * UIProcess/efl/WebContextEfl.cpp:
+            (WebKit::WebContext::platformDefaultMediaKeysStorageDirectory): Return a default location.
+            * UIProcess/gtk/WebContextGtk.cpp:
+            (WebKit::WebContext::platformDefaultMediaKeysStorageDirectory): Ditto.
+            * UIProcess/mac/WebContextMac.mm:
+            (WebKit::WebContext::platformDefaultMediaKeysStorageDirectory): Return an overridable default location.
+            * WebProcess/MediaCache/WebMediaKeyStorageManager.cpp: Added.
+            (WebKit::WebMediaKeyStorageManager::initialize): Pull the mediaKeysStorageDirectory out of configuration.
+            (WebKit::WebMediaKeyStorageManager::supplementName): Return a configuration name.
+            (WebKit::WebMediaKeyStorageManager::mediaKeyStorageDirectoryForOrigin): Return the
+                correct storage directory based on the SecureOrigin.
+            (WebKit::WebMediaKeyStorageManager::getMediaKeyOrigins): Return the origins within the
+                storage directory.
+            (WebKit::removeAllMediaKeyStorageForOriginPath): Static, remove contents and directory at path.
+            (WebKit::WebMediaKeyStorageManager::deleteMediaKeyEntriesForOrigin): Use
+                removeAllMediaKeyStorageForOriginPath to remove origin data.
+            (WebKit::WebMediaKeyStorageManager::deleteMediaKeyEntriesModifiedBetweenDates): Ditto.
+            (WebKit::WebMediaKeyStorageManager::deleteAllMediaKeyEntries): Ditto.
+            * WebProcess/MediaCache/WebMediaKeyStorageManager.h: Added.
+            (WebKit::WebMediaKeyStorageManager::WebMediaKeyStorageManager): Default constructor.
+            (WebKit::WebMediaKeyStorageManager::~WebMediaKeyStorageManager): Default virtual destructor.
+            (WebKit::WebMediaKeyStorageManager::mediaKeyStorageDirectory): Simple accessor.
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::WebProcess): Add WebMediaKeyStorageManager as a supplement.
+            * WebProcess/cocoa/WebProcessCocoa.mm:
+            (WebKit::WebProcess::platformInitializeWebProcess): Create a sandbox extension from the sandbox extension handle.
+
+            Add new source files to project(s).
+
+            * PlatformEfl.cmake:
+            * PlatformGTK.cmake:
+            * WebKit2.xcodeproj/project.pbxproj:
+            * WebProcess/MediaCache/WebMediaKeyStorageManager.cpp:
+            (WebKit::WebMediaKeyStorageManager::getMediaKeyOrigins):
+            (WebKit::removeAllMediaKeyStorageForOriginPath):
+
+            Drive-by fix: references to VoidCallback are ambiguous, since the same name is re-used in multiple namespaces.
+            Make references to WebCore::VoidCallback explicit where the entire WebCore (and other) namespaces are pulled in.
+
+            * WebProcess/Notifications/NotificationPermissionRequestManager.cpp:
+            (WebKit::NotificationPermissionRequestManager::startRequest):
+            (WebKit::NotificationPermissionRequestManager::didReceiveNotificationPermissionDecision):
+            * WebProcess/WebCoreSupport/WebNotificationClient.cpp:
+            (WebKit::WebNotificationClient::requestPermission):
+
+2015-01-14  Dana Burkart  <dburkart@apple.com>
+
+        Merged r175188. <rdar://problem/19480522>
+
+    2014-10-24  Jer Noble  <jer.noble@apple.com>
+
+            Abstractify WebOriginDataManager to support arbitrary ChildProcess supplements.
+            https://bugs.webkit.org/show_bug.cgi?id=137993
+
+            Reviewed by Brady Eidson.
+
+            To allow different ChildProcess subclasses to handle listing and deletion of origin
+            data, make WebOriginDataManager more generic by having a supplement implement the
+            details, leaving WebOriginDataManager to deal with cross-process messaging.
+
+            De-virtualize AsyncTask, allowing a task to be created by passing in a
+            function<void()>, rather than an object, method, and arguments.
+
+            * Shared/AsyncTask.h:
+            (WebKit::AsyncTask::AsyncTask):
+            (WebKit::AsyncTask::performTask):
+            (WebKit::AsyncTask::~AsyncTask): Deleted.
+
+            Add a new virtual base class, to be implemented by various ChildProcesses, which
+            WebOriginDataManager will use to implement listing and deletion requests.
+
+            * WebProcess/OriginData/WebOriginDataManager.h:
+            * WebProcess/OriginData/WebOriginDataManagerSupplement.h: Added.
+            (WebKit::WebOriginDataManagerSupplement::WebOriginDataManagerSupplement):
+            (WebKit::WebOriginDataManagerSupplement::~WebOriginDataManagerSupplement):
+            (WebKit::WebOriginDataManagerSupplement::getOrigins):
+            (WebKit::WebOriginDataManagerSupplement::deleteEntriesForOrigin):
+            (WebKit::WebOriginDataManagerSupplement::deleteEntriesModifiedBetweenDates):
+            (WebKit::WebOriginDataManagerSupplement::deleteAllEntries):
+            * WebKit2.xcodeproj/project.pbxproj:
+
+            WebOriginDataManager doesn't need to be a ChildSupplement. Remove the DatabaseProcess-
+            specific implementations for its message handlers and replace with clean, generic calls
+            to its supplement. Because these supplements may want to respond to the request
+            asynchronously, pass a completion function in to be called by the supplement once its
+            work is complete.
+
+            * WebProcess/OriginData/WebOriginDataManager.cpp:
+            (WebKit::WebOriginDataManager::WebOriginDataManager):
+            (WebKit::WebOriginDataManager::getOrigins):
+            (WebKit::WebOriginDataManager::deleteEntriesForOrigin):
+            (WebKit::WebOriginDataManager::deleteEntriesModifiedBetweenDates):
+            (WebKit::WebOriginDataManager::deleteAllEntries):
+            (WebKit::WebOriginDataManager::supplementName): Deleted.
+
+            DatabaseProcess already uses WebOriginDataManager, so it will be the first process
+            to fall under the heel of the new regime. DatabaseProcess will subclass
+            WebOriginDataManagerSupplement, and pass itself in twice to the WebOriginDataManager
+            constructor. Create a lambda-based AsyncTask for each request, and call the completion
+            function when each request is complete.
+
+            * DatabaseProcess/DatabaseProcess.cpp:
+            (WebKit::DatabaseProcess::DatabaseProcess):
+            (WebKit::DatabaseProcess::getIndexedDatabaseOrigins):
+            (WebKit::DatabaseProcess::deleteIndexedDatabaseEntriesForOrigin):
+            (WebKit::DatabaseProcess::deleteIndexedDatabaseEntriesModifiedBetweenDates):
+            (WebKit::DatabaseProcess::deleteAllIndexedDatabaseEntries):
+            (WebKit::DatabaseProcess::getOrigins):
+            (WebKit::DatabaseProcess::deleteEntriesForOrigin):
+            (WebKit::DatabaseProcess::deleteEntriesModifiedBetweenDates):
+            (WebKit::DatabaseProcess::deleteAllEntries):
+            (WebKit::DatabaseProcess::doGetIndexedDatabaseOrigins): Deleted.
+            (WebKit::DatabaseProcess::doDeleteIndexedDatabaseEntriesForOrigin): Deleted.
+            (WebKit::DatabaseProcess::doDeleteIndexedDatabaseEntriesModifiedBetweenDates): Deleted.
+            (WebKit::DatabaseProcess::doDeleteAllIndexedDatabaseEntries): Deleted.
+            * DatabaseProcess/DatabaseProcess.h:
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r178056. rdar://problem/19300492
+
+    2015-01-07  Beth Dakin  <bdakin@apple.com>
+
+            Adopt delegate callbacks so that standardQuickLookMenuItem does not obscure the 
+            link
+            https://bugs.webkit.org/show_bug.cgi?id=140206
+            -and corresponding-
+            rdar://problem/19300492
+
+            Reviewed by Tim Horton.
+
+            Providing and item frame will ensure that the original link is not obscured.
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController menuItem:itemFrameForPoint:]):
+
+            For now use a max size that is smaller than the WKView, with the screen’s aspect 
+            ratio, and scaled down.
+            (-[WKImmediateActionController menuItem:maxSizeForPoint:]):
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r178003. rdar://problem/19255417
+
+    2015-01-06  Timothy Horton  <timothy_horton@apple.com>
+
+            View state change callbacks are sometimes dropped on the floor
+            https://bugs.webkit.org/show_bug.cgi?id=140156
+            <rdar://problem/19255417>
+
+            Reviewed by Anders Carlsson.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::dispatchViewStateChange):
+            Always send SetViewState to the Web process if we have any
+            registered view state change callbacks. Otherwise, if nothing changed,
+            we can end up never calling the callback.
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177970. rdar://problem/19383425
+
+    2015-01-06  Timothy Horton  <timothy_horton@apple.com>
+
+            Make explicit which TextIndicator animations are driven manually, and which run automatically
+            https://bugs.webkit.org/show_bug.cgi?id=140113
+            <rdar://problem/19383425>
+
+            Reviewed by Darin Adler.
+
+            * UIProcess/mac/PageClientImpl.mm:
+            (WebKit::PageClientImpl::didPerformDictionaryLookup):
+            Delete an inaccurate comment.
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177928. rdar://problem/19298391
+
+    2015-01-05  Timothy Horton  <timothy_horton@apple.com>
+
+            Implicitly dismissed DD popovers don't clear immediate action state, prematurely dismissing the next DD highlight
+            https://bugs.webkit.org/show_bug.cgi?id=140088
+            <rdar://problem/19298391>
+
+            Reviewed by Anders Carlsson.
+
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _menuItemForDataDetectedText]):
+            Instead of just tearing down the TextIndicator, clear all state.
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177754. rdar://problem/19343307
+
+    2014-12-26  Conrad Shultz  <conrad_shultz@apple.com>
+
+            Safari build crashes when "zooming into"/choosing a tab from tab view
+            https://bugs.webkit.org/show_bug.cgi?id=139934
+
+            Reviewed by Dan Bernstein.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _setIgnoresNonWheelEvents:]):
+            Trying to add a nil gesture recognizer raises an exception. Stop assuming that a
+            gesture recognizer is non-nil.
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177705. rdar://problem/19333076
+
+    2014-12-23  Timothy Horton  <timothy_horton@apple.com>
+
+            Install a TextIndicator for link immediate actions
+            https://bugs.webkit.org/show_bug.cgi?id=139897
+            <rdar://problem/19333076>
+
+            Reviewed by Anders Carlsson.
+
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _defaultAnimationController]):
+            Install the link's TextIndicator.
+
+            (-[WKImmediateActionController menuItemDidClose:]):
+            Dismiss the TextIndicator and clean up when the item closes.
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177704. rdar://problem/19333075
+
+    2014-12-23  Timothy Horton  <timothy_horton@apple.com>
+
+            Expose ElementBoundingBox on WKHitTestResult
+            https://bugs.webkit.org/show_bug.cgi?id=139895
+            <rdar://problem/19333075>
+
+            Reviewed by Dan Bernstein.
+
+            * UIProcess/API/C/WKHitTestResult.cpp:
+            (WKHitTestResultGetElementBoundingBox):
+            * UIProcess/API/C/WKHitTestResult.h:
+            Expose the rect.
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177702. rdar://problem/19333074
+
+    2014-12-23  Timothy Horton  <timothy_horton@apple.com>
+
+            Remove the custom web page preview code
+            https://bugs.webkit.org/show_bug.cgi?id=139894
+            <rdar://problem/19333074>
+
+            Reviewed by Dan Bernstein.
+
+            * UIProcess/API/Cocoa/WKViewPrivate.h:
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _dismissContentRelativeChildWindows]):
+            (-[WKView _viewForPreviewingURL:initialFrameSize:]): Deleted.
+            (-[WKView _titleForPreviewOfURL:]): Deleted.
+            (-[WKView _setPreviewTitle:]): Deleted.
+            (-[WKView _setPreviewLoading:]): Deleted.
+            (-[WKView _setPreviewOverrideImage:]): Deleted.
+            (-[WKView _finishPreviewingURL:withPreviewView:]): Deleted.
+            (-[WKView _handleClickInPreviewView:URL:]): Deleted.
+            (-[WKView _shouldUseStandardQuickLookPreview]): Deleted.
+            * UIProcess/mac/WKImmediateActionController.h:
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController willDestroyView:]):
+            (-[WKImmediateActionController _clearImmediateActionState]):
+            (-[WKImmediateActionController immediateActionRecognizerWillPrepare:]):
+            (-[WKImmediateActionController _defaultAnimationController]):
+            (-[WKImmediateActionController hidePreview]): Deleted.
+            (-[WKImmediateActionController setPreviewTitle:]): Deleted.
+            (-[WKImmediateActionController setPreviewLoading:]): Deleted.
+            (-[WKImmediateActionController setPreviewOverrideImage:]): Deleted.
+            (-[WKImmediateActionController _animationControllerForCustomPreview]): Deleted.
+            * UIProcess/mac/WKPagePreviewViewController.h: Removed.
+            * UIProcess/mac/WKPagePreviewViewController.mm: Removed.
+            * UIProcess/mac/WKPreviewPopoverAnimationController.h: Removed.
+            * UIProcess/mac/WKPreviewPopoverAnimationController.mm: Removed.
+            * WebKit2.xcodeproj/project.pbxproj:
+            Remove all of the custom web page preview code. Clients that want the custom
+            preview can implement it by overriding the immediate action.
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177604. rdar://problem/19312111
+
+    2014-12-19  Timothy Horton  <timothy_horton@apple.com>
+
+            Fix the build.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _setIgnoresNonWheelEvents:]):
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177601. rdar://problem/19301470
+
+    2014-12-19  Beth Dakin  <bdakin@apple.com>
+
+            Preview popovers don't show an arrow for large links
+            https://bugs.webkit.org/show_bug.cgi?id=139842
+            -and corresponding-
+            <rdar://problem/19301470>
+
+            Reviewed by Tim Horton.
+
+            This patch addresses the case where the link is so large that there is no 
+            available space on any side once you factor in screen padding. In that case, we 
+            should give up early on not obscuring the link.
+            * UIProcess/mac/WKPreviewPopoverAnimationController.mm:
+            (-[WKPreviewPopoverAnimationController _targetSizeForPagePreview]):
+            (-[WKPreviewPopoverAnimationController _effectivePaddingWithPreviewPadding:]):
+            (-[WKPreviewPopoverAnimationController _maxSpaceAvailableOnYEdgeForOriginRect:withScreenRect:previewPadding:]):
+            (-[WKPreviewPopoverAnimationController _maxSpaceAvailableOnXEdgeForOriginRect:withScreenRect:previewPadding:]):
+            (-[WKPreviewPopoverAnimationController _preferredPopoverSizeWithPreviewPadding:forTargetSize:]):
+
+2015-01-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177600. rdar://problem/19312111
+
+    2014-12-19  Timothy Horton  <timothy_horton@apple.com>
+
+            WKView's ignoresNonWheelEvents should ignore immediate actions
+            https://bugs.webkit.org/show_bug.cgi?id=139839
+            <rdar://problem/19312111>
+
+            Reviewed by Anders Carlsson.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView initWithFrame:context:configuration:webView:]):
+            (-[WKView _setIgnoresNonWheelEvents:]):
+            Install/uninstall the immediate action gesture recognizer when
+            toggling ignoresNonWheelEvents.
+
 2015-01-06  Lucas Forschler  <lforschler@apple.com>
 
     Rollout r177932. rdar://problem/19312111

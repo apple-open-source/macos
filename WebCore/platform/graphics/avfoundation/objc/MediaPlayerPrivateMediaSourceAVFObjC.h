@@ -38,11 +38,13 @@ OBJC_CLASS AVAsset;
 OBJC_CLASS AVSampleBufferAudioRenderer;
 OBJC_CLASS AVSampleBufferDisplayLayer;
 OBJC_CLASS AVSampleBufferRenderSynchronizer;
+OBJC_CLASS AVStreamSession;
 
 typedef struct OpaqueCMTimebase* CMTimebaseRef;
 
 namespace WebCore {
 
+class CDMSessionMediaSourceAVFObjC;
 class PlatformClockCM;
 class MediaSourcePrivateAVFObjC;
 
@@ -52,6 +54,12 @@ public:
     virtual ~MediaPlayerPrivateMediaSourceAVFObjC();
 
     static void registerMediaEngine(MediaEngineRegistrar);
+
+    // MediaPlayer Factory Methods
+    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
+    static bool isAvailable();
+    static void getSupportedTypes(HashSet<String>& types);
+    static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
 
     void addDisplayLayer(AVSampleBufferDisplayLayer*);
     void removeDisplayLayer(AVSampleBufferDisplayLayer*);
@@ -73,9 +81,12 @@ public:
 
     void effectiveRateChanged();
     void sizeChanged();
+    void characteristicsChanged();
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
-    virtual std::unique_ptr<CDMSession> createSession(const String&);
+    bool hasStreamSession() { return m_streamSession; }
+    AVStreamSession *streamSession();
+    virtual void setCDMSession(CDMSession*) override;
     void keyNeeded(Uint8Array*);
 #endif
 
@@ -105,33 +116,33 @@ private:
 
     virtual bool supportsScanning() const override;
 
-    virtual IntSize naturalSize() const override;
+    virtual FloatSize naturalSize() const override;
 
     virtual bool hasVideo() const override;
     virtual bool hasAudio() const override;
 
     virtual void setVisible(bool) override;
 
-    virtual double durationDouble() const override;
-    virtual double currentTimeDouble() const override;
-    virtual double startTimeDouble() const override;
-    virtual double initialTime() const override;
+    virtual MediaTime durationMediaTime() const override;
+    virtual MediaTime currentMediaTime() const override;
+    virtual MediaTime startTime() const override;
+    virtual MediaTime initialTime() const override;
 
-    virtual void seekWithTolerance(double time, double negativeThreshold, double positiveThreshold) override;
+    virtual void seekWithTolerance(const MediaTime&, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold) override;
     virtual bool seeking() const override;
     virtual void setRateDouble(double) override;
 
     virtual std::unique_ptr<PlatformTimeRanges> seekable() const override;
-    virtual double maxTimeSeekableDouble() const override;
-    virtual double minTimeSeekable() const override;
+    virtual MediaTime maxMediaTimeSeekable() const override;
+    virtual MediaTime minMediaTimeSeekable() const override;
     virtual std::unique_ptr<PlatformTimeRanges> buffered() const override;
 
     virtual bool didLoadingProgress() const override;
 
     virtual void setSize(const IntSize&) override;
 
-    virtual void paint(GraphicsContext*, const IntRect&) override;
-    virtual void paintCurrentFrameInContext(GraphicsContext*, const IntRect&) override;
+    virtual void paint(GraphicsContext*, const FloatRect&) override;
+    virtual void paintCurrentFrameInContext(GraphicsContext*, const FloatRect&) override;
 
     virtual bool hasAvailableVideoFrame() const override;
 
@@ -152,21 +163,12 @@ private:
     virtual unsigned long totalVideoFrames() override;
     virtual unsigned long droppedVideoFrames() override;
     virtual unsigned long corruptedVideoFrames() override;
-    virtual double totalFrameDelay() override;
-
-    MediaTime currentMediaTime() const;
+    virtual MediaTime totalFrameDelay() override;
 
     void ensureLayer();
     void destroyLayer();
     bool shouldBePlaying() const;
-    void seekTimerFired(Timer<MediaPlayerPrivateMediaSourceAVFObjC>&);
-
-    // MediaPlayer Factory Methods
-    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
-    static bool isAvailable();
-    static void getSupportedTypes(HashSet<String>& types);
-    static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
-    static bool supportsKeySystem(const String& keySystem, const String& mimeType);
+    void seekTimerFired(Timer&);
 
     friend class MediaSourcePrivateAVFObjC;
 
@@ -192,7 +194,9 @@ private:
     RetainPtr<AVSampleBufferRenderSynchronizer> m_synchronizer;
     RetainPtr<id> m_timeJumpedObserver;
     RetainPtr<id> m_durationObserver;
-    Timer<MediaPlayerPrivateMediaSourceAVFObjC> m_seekTimer;
+    RetainPtr<AVStreamSession> m_streamSession;
+    Timer m_seekTimer;
+    CDMSessionMediaSourceAVFObjC* m_session;
     MediaPlayer::NetworkState m_networkState;
     MediaPlayer::ReadyState m_readyState;
     MediaTime m_lastSeekTime;

@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_proxy_express - Serveur Apache HTTP</title>
+<title>mod_proxy_express - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -67,10 +67,12 @@ dynamique inverse de masse</td></tr>
     expressions rationnelles ou les modèles.
     </li>
     <li>Il émule :
-      <div class="example"><p><code>
-        ProxyPass / backend.server:port<br />
-        ProxyPassReverse / backend.server:port<br />
-      </code></p></div>
+      <pre class="prettyprint lang-config">&lt;VirtualHost *:80&gt;
+   ServerName front.end.server
+   ProxyPass / back.end.server:port
+   ProxyPassReverse / back.end.server:port
+&lt;/VirtualHost&gt;</pre>
+
       En d'autres termes, l'URL dans son ensemble est ajoutée à l'URL
       d'arrière-plan correspondante, tout ceci dans le but de
       proposer un commutateur mandataire inverse simple mais rapide.

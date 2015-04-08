@@ -43,7 +43,11 @@ public:
     Element& element() const { return toElement(nodeForNonAnonymous()); }
 
     virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
-
+    
+    RenderRubyRun* rubyRun() const;
+    
+    bool canBreakBefore(const LazyLineBreakIterator&) const;
+   
 private:
     virtual const char* renderName() const override { return "RenderRubyText"; }
     virtual bool isRubyText() const override { return true; }
@@ -53,6 +57,8 @@ private:
     virtual ETextAlign textAlignmentForLine(bool endsWithSoftBreak) const override;
     virtual void adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const override;
 };
+
+RENDER_OBJECT_TYPE_CASTS(RenderRubyText, isRubyText())
 
 } // namespace WebCore
 

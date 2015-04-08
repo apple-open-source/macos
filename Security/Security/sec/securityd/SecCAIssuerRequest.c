@@ -103,7 +103,8 @@ static CFArrayRef SecCAIssuerConvertToParents(SecCertificateRef certificate,
     CFDataRef nic = SecCertificateGetNormalizedIssuerContent(certificate);
     CFArrayRef parents = NULL;
     if (parent) {
-        if (CFEqual(nic, SecCertificateGetNormalizedSubjectContent(parent))) {
+      CFDataRef parent_nic = SecCertificateGetNormalizedSubjectContent(parent);
+      if (parent_nic && CFEqual(nic, parent_nic)) {
             const void *ventry = parent;
             parents = CFArrayCreate(NULL, &ventry, 1, &kCFTypeArrayCallBacks);
         }

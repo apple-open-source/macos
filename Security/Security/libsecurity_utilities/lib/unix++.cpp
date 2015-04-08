@@ -26,10 +26,15 @@
 // unix++ - C++ layer for basic UNIX facilities
 //
 #include "unix++.h"
+#include <security_utilities/cfutilities.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/debugging.h>
+#include <sys/dirent.h>
 #include <sys/xattr.h>
 #include <cstdarg>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 
 namespace Security {
@@ -406,6 +411,49 @@ FILE *FileDesc::fdopen(const char *form)
 {
 	//@@@ pick default value for 'form' based on chracteristics of mFd
     return ::fdopen(mFd, form);
+}
+
+
+//
+// Device characteristics
+//
+static CFDictionaryRef deviceCharacteristics(FileDesc &fd)
+{
+	// get device name
+	AutoFileDesc::UnixStat st;
+	fd.fstat(st);
+	char buffer[MAXNAMLEN];
+	checkError(::devname_r(st.st_dev, S_IFBLK, buffer, MAXNAMLEN));
+
+	// search in IO Registry for named device
+	CFDictionaryRef matching = IOBSDNameMatching(kIOMasterPortDefault, 0, buffer);
+	if (matching) {
+		// fetch the object with the matching BSD name (consumes reference on matching)
+		io_registry_entry_t entry = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+		if (entry != IO_OBJECT_NULL) {
+			// get device characteristics
+			CFDictionaryRef characteristics = (CFDictionaryRef)IORegistryEntrySearchCFProperty(entry,
+				kIOServicePlane,
+				CFSTR(kIOPropertyDeviceCharacteristicsKey),
+				NULL,
+				kIORegistryIterateRecursively | kIORegistryIterateParents);
+			IOObjectRelease(entry);
+			return characteristics;
+		}
+	}
+
+	return NULL;	// unable to get device characteristics
+}
+
+std::string FileDesc::mediumType()
+{
+	CFRef<CFDictionaryRef> characteristics = deviceCharacteristics(*this);
+	if (characteristics) {
+		CFStringRef mediumType = (CFStringRef)CFDictionaryGetValue(characteristics, CFSTR(kIOPropertyMediumTypeKey));
+		if (mediumType)
+			return cfString(mediumType);
+	}
+	return string();
 }
 
 

@@ -85,6 +85,7 @@ protected:
     int                         fInstantCurrent;
     int                         fAvgCurrent;
     OSArray                     *fCellVoltages;
+    uint64_t                    acAttach_ts; 
 
     CommandTable                cmdTable;
 

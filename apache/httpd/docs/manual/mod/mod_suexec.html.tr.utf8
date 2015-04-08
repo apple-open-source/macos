@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_suexec - Apache HTTP Sunucusu</title>
+<title>mod_suexec - Apache HTTP Sunucusu Sürüm 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -68,8 +68,8 @@
     <pre class="prettyprint lang-config">SuexecUserGroup nobody nogroup</pre>
 
 
-    <p>Apache HTTP Sunucusunun 2.3.9 ve sonraki sürümlerinde, bu yönerge
-      belirtildiği halde <code class="directive"><a href="../mod/mod_unixd.html#suexec">Suexec</a></code>
+    <p>Bu yönerge belirtildiği halde
+      <code class="directive"><a href="../mod/mod_unixd.html#suexec">Suexec</a></code>
       özelliği etkinleştirilmemişse Apache httpd başlatılamaz.</p>
 
 <h3>Ayrıca bakınız:</h3>

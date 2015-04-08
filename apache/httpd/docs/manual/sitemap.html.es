@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Mapa de este sitio web - Servidor HTTP Apache</title>
+<title>Mapa de este sitio web - Servidor HTTP Apache Versión 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -183,6 +183,7 @@ usados para describir las directivas de Apache</a></li>
 <li><a href="mod/mod_authn_dbm.html">Módulo Apache mod_authn_dbm</a></li>
 <li><a href="mod/mod_authn_file.html">Módulo Apache mod_authn_file</a></li>
 <li><a href="mod/mod_authn_socache.html">Módulo Apache mod_authn_socache</a></li>
+<li><a href="mod/mod_authnz_fcgi.html">Módulo Apache mod_authnz_fcgi</a></li>
 <li><a href="mod/mod_authnz_ldap.html">Módulo Apache mod_authnz_ldap</a></li>
 <li><a href="mod/mod_authz_core.html">Módulo Apache mod_authz_core</a></li>
 <li><a href="mod/mod_authz_dbd.html">Módulo Apache mod_authz_dbd</a></li>

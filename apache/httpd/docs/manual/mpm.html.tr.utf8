@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Çok Süreçlilik Modülleri (MPM’ler) - Apache HTTP Sunucusu</title>
+<title>Çok Süreçlilik Modülleri (MPM’ler) - Apache HTTP Sunucusu Sürüm 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -148,6 +148,16 @@
       modülü olarak derlenen MPM'ler, sunucunun yeniden derlenmesini
       gerektirmeden <code class="directive"><a href="./mod/mod_so.html#loadmodule">LoadModule</a></code> yönergesi
       güncellenerek değiştirilebilir.</p>
+
+    <pre class="prettyprint lang-config">LoadModule mpm_prefork_module modules/mod_mpm_prefork.so</pre>
+
+
+    <p><code class="directive"><a href="./mod/mod_so.html#loadmodule">LoadModule</a></code> yönergesini birden
+      fazla MPM için kullanmak sunucunun başlatılması sırasında aşağıdaki
+      hatanın oluşmasına sebep olur.</p>
+
+    <div class="example"><p><code>AH00534: httpd: Configuration error: More than one MPM
+    loaded.</code></p></div>
 
     <p>Bu özellik <code class="program"><a href="./programs/configure.html">configure</a></code> betiğinin
       <code>--enable-mpms-shared</code> seçeneği ile etkinleştirilebilir.

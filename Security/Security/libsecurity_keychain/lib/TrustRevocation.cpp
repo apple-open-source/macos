@@ -243,6 +243,8 @@ CFDictionaryRef Trust::defaultRevocationSettings()
 }
 
 CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
+	bool ocspEnabledOnBestAttempt,
+	bool crlEnabledOnBestAttempt,
 	uint32 &numAdded,
 	Allocator &alloc)
 {
@@ -294,6 +296,9 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 		if(ocspStyle != kSecDisabled) {
 			doOcsp = true;
 		}
+		if(ocspStyle == kSecBestAttempt) {
+			doOcsp = ocspEnabledOnBestAttempt;
+		}
 	}
 	val = prefsDict->getStringValue(kSecRevocationCrlStyle);
 	if(val != NULL) {
@@ -301,7 +306,11 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 		if(crlStyle != kSecDisabled) {
 			doCrl = true;
 		}
+		if(crlStyle == kSecBestAttempt) {
+			doCrl = crlEnabledOnBestAttempt;
+		}
 	}
+
 	if(!doCrl && !doOcsp) {
 		return NULL;
 	}
@@ -423,8 +432,7 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 		}
 
 	}
-	else {
-		assert(doCrl);
+	else if(doCrl) {
 		CFArrayAppendValue(policies, crlPolicy->handle(false));
 	}
 	return policies;
@@ -581,6 +589,8 @@ void Trust::orderRevocationPolicies(
  * Caller is responsible for releasing the returned policies array.
  */
 CFMutableArrayRef Trust::forceRevocationPolicies(
+	bool ocspEnabled,
+	bool crlEnabled,
 	uint32 &numAdded,
 	Allocator &alloc,
 	bool requirePerCert)
@@ -644,7 +654,7 @@ CFMutableArrayRef Trust::forceRevocationPolicies(
 		throw std::bad_alloc();
 	}
 
-	if(!hasOcspPolicy) {
+	if(!hasOcspPolicy && ocspEnabled) {
 		/* Cook up a new Policy object */
 		ocspPolicy = new Policy(mTP, CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_OCSP));
 		CSSM_APPLE_TP_OCSP_OPTIONS opts;
@@ -698,7 +708,7 @@ CFMutableArrayRef Trust::forceRevocationPolicies(
 			delete prefsDict;
 	}
 
-	if(!hasCrlPolicy) {
+	if(!hasCrlPolicy && crlEnabled) {
 		/* Cook up a new Policy object */
 		crlPolicy = new Policy(mTP, CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_CRL));
 		CSSM_APPLE_TP_CRL_OPTIONS opts;

@@ -1,3 +1,4 @@
+# coding=utf-8
 #
 # Run a variety of tests against fsck_msdos
 #
@@ -135,7 +136,7 @@ def test_fat16(dir, fsck, newfs):
 	dmg = os.path.join(dir, 'Test160MB.dmg')
 	f = file(dmg, "w")
 	f.truncate(160*1024*1024)
-	f.close
+	f.close()
 	newfs_opts = "-F 16 -b 4096 -v TEST160MB".split()
 	
 	#
@@ -193,7 +194,7 @@ def test_fat12(dir, fsck, newfs):
 	dmg = os.path.join(dir, 'Test15MB.dmg')
 	f = file(dmg, "w")
 	f.truncate(15*1024*1024)
-	f.close
+	f.close()
 	newfs_opts = "-F 12 -b 4096 -v TEST15MB".split()
 	
 	#
@@ -229,6 +230,40 @@ def test_fat12(dir, fsck, newfs):
 	fat_bad_0_or_1(rdisk, fsck, newfs, newfs_opts)
 	directory_garbage(rdisk, fsck, newfs, newfs_opts)
 	
+	#
+	# Detach the image
+	#
+	launch(['diskutil', 'eject', disk])
+	
+	#
+	# Delete the image file
+	#
+	os.remove(dmg)
+
+#
+# Run tests on 100MiB FAT12 image
+#
+def test_fat12_100MB(dir, fsck, newfs):	
+	#
+	# Create a 100MB disk image in @dir
+	#
+	dmg = os.path.join(dir, 'Test100MB.dmg')
+	f = file(dmg, "w")
+	f.truncate(100*1024*1024)
+	f.close()
+	newfs_opts = "-F 12 -b 32768 -v TEST100MB".split()
+	
+	#
+	# Attach the image
+	#
+	disk = launch(['hdiutil', 'attach', '-nomount', dmg], stdout=subprocess.PIPE)[0].rstrip()
+	rdisk = disk.replace('/dev/disk', '/dev/rdisk')
+	
+	#
+	# Run tests
+	#
+	test_18523205(rdisk, fsck, newfs, newfs_opts)
+		
 	#
 	# Detach the image
 	#
@@ -1207,6 +1242,29 @@ While some see them as the crazy ones, we see genius. Because the people who are
 	f.close()
     
 #
+# Test quick check and repair on a FAT12 volume with large cluster size.
+# See <rdar://problem/18523205> 
+#
+def test_18523205(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+	
+	# Create some subdirectories with children
+	with open(disk, "r+") as f:
+		v = msdosfs(f)
+		root = v.root()
+		
+		for i in range(10):
+			subdir = root.mkdir('Folder {}'.format(i))
+			subdir.mkfile('Child {}'.format(i), content='This is child number {}'.format(i))
+		
+		v.flush()
+
+	# Try quick check, verify and explicit repair	
+	launch([fsck, '-q', disk])
+	launch([fsck, '-n', disk])
+	launch([fsck, '-y', disk])
+
+#
 # When run as a script, run the test suite.
 #
 # Usage:
@@ -1235,5 +1293,6 @@ if __name__ == '__main__':
 	test_fat32(dir, fsck, newfs)
 	test_fat16(dir, fsck, newfs)
 	test_fat12(dir, fsck, newfs)
+	test_fat12_100MB(dir, fsck, newfs)
 	
 	print "\nSuccess!"

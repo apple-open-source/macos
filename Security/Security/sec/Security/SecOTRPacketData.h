@@ -42,36 +42,79 @@
 
 __BEGIN_DECLS
 
-static OSStatus ReadAndVerifyByte(const uint8_t**bytes, size_t*size, uint8_t expected);
-static OSStatus ReadAndVerifyShort(const uint8_t**bytes, size_t*size, uint16_t expected);
-static OSStatus ReadAndVerifyMessageType(const uint8_t**bytes, size_t*size, OTRMessageType expected);
+static CC_NONNULL((1,2))
+OSStatus ReadAndVerifyByte(const uint8_t**bytes, size_t*size, uint8_t expected);
 
-static OSStatus SizeAndSkipDATA(const uint8_t **bytes, size_t *size,
-                                const uint8_t **dataBytes, size_t *dataSize);
-static OSStatus SizeAndSkipMPI(const uint8_t **bytes, size_t *size,
-                               const uint8_t **mpiBytes, size_t *mpiSize);
+static CC_NONNULL((1,2))
+OSStatus ReadAndVerifyShort(const uint8_t**bytes, size_t*size, uint16_t expected);
 
-    
-static OSStatus ReadLongLongCompact(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value);
-static OSStatus ReadLongLong(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value);
-static OSStatus ReadLong(const uint8_t**bytesPtr, size_t*sizePtr, uint32_t* value);
-static OSStatus ReadShort(const uint8_t**bytesPtr, size_t*sizePtr, uint16_t* value);
-static OSStatus ReadByte(const uint8_t**bytesPtr, size_t*sizePtr, uint8_t* value);
-static OSStatus ReadMessageType(const uint8_t**bytesPtr, size_t*sizePtr, OTRMessageType* type);
-static OSStatus ReadMPI(const uint8_t**bytesPtr, size_t*sizePtr, cc_size n, cc_unit *x);
-static OSStatus ReadDATA(const uint8_t**bytesPtr, size_t*sizePtr, size_t* dataSize, uint8_t* data);
-static OSStatus CreatePublicKey(const uint8_t**bytesPtr, size_t*sizePtr, SecOTRPublicIdentityRef* publicId);
-static CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef allocator, const uint8_t**bytesPtr, size_t*sizePtr);
-    
-static void AppendLongLongCompact(CFMutableDataRef appendTo, uint64_t value);
-static void AppendLongLong(CFMutableDataRef appendTo, uint64_t value);
-static void AppendLong(CFMutableDataRef appendTo, uint32_t value);
-static void AppendShort(CFMutableDataRef appendTo, uint16_t value);
-static void AppendByte(CFMutableDataRef appendTo, uint8_t type);
-static void AppendMessageType(CFMutableDataRef appendTo, OTRMessageType type);
-static void AppendMPI(CFMutableDataRef appendTo, cc_size n, const cc_unit *x);
-static void AppendDATA(CFMutableDataRef appendTo, size_t size, const uint8_t*data);
-static void AppendPublicKey(CFMutableDataRef appendTo, SecOTRPublicIdentityRef publicId);
+static CC_NONNULL((1,2))
+OSStatus ReadAndVerifyMessageType(const uint8_t**bytes, size_t*size, OTRMessageType expected);
+
+static CC_NONNULL((1,2,3,4))
+OSStatus SizeAndSkipDATA(const uint8_t **bytes, size_t *size,
+                         const uint8_t **dataBytes, size_t *dataSize);
+static CC_NONNULL((1,2,3,4))
+OSStatus SizeAndSkipMPI(const uint8_t **bytes, size_t *size,
+                        const uint8_t **mpiBytes, size_t *mpiSize);
+
+
+static CC_NONNULL((1,2,3))
+OSStatus ReadLongLongCompact(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value);
+
+static CC_NONNULL((1,2,3))
+OSStatus ReadLongLong(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value);
+
+static CC_NONNULL((1,2,3))
+OSStatus ReadLong(const uint8_t**bytesPtr, size_t*sizePtr, uint32_t* value);
+
+static CC_NONNULL((1,2,3))
+OSStatus ReadShort(const uint8_t**bytesPtr, size_t*sizePtr, uint16_t* value);
+
+static CC_NONNULL((1,2,3))
+OSStatus ReadByte(const uint8_t**bytesPtr, size_t*sizePtr, uint8_t* value);
+
+static CC_NONNULL((1,2,3))
+OSStatus ReadMessageType(const uint8_t**bytesPtr, size_t*sizePtr, OTRMessageType* type);
+
+static CC_NONNULL((1,2,4))
+OSStatus ReadMPI(const uint8_t**bytesPtr, size_t*sizePtr, cc_size n, cc_unit *x);
+
+static CC_NONNULL((1,2,3,4))
+OSStatus ReadDATA(const uint8_t**bytesPtr, size_t*sizePtr, size_t* dataSize, uint8_t* data);
+
+static CC_NONNULL((1,2,3))
+OSStatus CreatePublicKey(const uint8_t**bytesPtr, size_t*sizePtr, SecOTRPublicIdentityRef* publicId);
+
+static CC_NONNULL((1,2,3))
+CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef allocator, const uint8_t**bytesPtr, size_t*sizePtr);
+
+static CC_NONNULL((1))
+void AppendLongLongCompact(CFMutableDataRef appendTo, uint64_t value);
+
+static CC_NONNULL((1))
+void AppendLongLong(CFMutableDataRef appendTo, uint64_t value);
+
+static CC_NONNULL((1))
+void AppendLong(CFMutableDataRef appendTo, uint32_t value);
+
+static CC_NONNULL((1))
+void AppendShort(CFMutableDataRef appendTo, uint16_t value);
+
+static CC_NONNULL((1))
+void AppendByte(CFMutableDataRef appendTo, uint8_t type);
+
+static CC_NONNULL((1))
+void AppendMessageType(CFMutableDataRef appendTo, OTRMessageType type);
+
+static CC_NONNULL((1,3))
+void AppendMPI(CFMutableDataRef appendTo, cc_size n, const cc_unit *x);
+
+static CC_NONNULL((1,3))
+void AppendDATA(CFMutableDataRef appendTo, size_t size, const uint8_t*data);
+
+static CC_NONNULL((1,2))
+void AppendPublicKey(CFMutableDataRef appendTo, SecOTRPublicIdentityRef publicId);
 
     
 //
@@ -203,7 +246,7 @@ static inline OSStatus ReadMessageType(const uint8_t**bytesPtr, size_t*sizePtr, 
     uint8_t value;
 
     require(type != NULL, fail);
-    require_noerr(result = ReadByte(bytesPtr, sizePtr, &value), fail);
+    require_noerr_quiet(result = ReadByte(bytesPtr, sizePtr, &value), fail);
     
     *type = value;
 fail:
@@ -215,13 +258,13 @@ static inline OSStatus ReadMPI(const uint8_t**bytesPtr, size_t*sizePtr, cc_size 
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
     require(x != NULL, fail);
-    require(*sizePtr >= 5, fail);
+    require_quiet(*sizePtr >= 5, fail);
     
     uint32_t mpiLength;
     
     ReadLong(bytesPtr, sizePtr, &mpiLength);
     
-    require(mpiLength <= *sizePtr, fail);
+    require_quiet(mpiLength <= *sizePtr, fail);
     
     ccn_read_uint(n, x, mpiLength, *bytesPtr);
     
@@ -239,13 +282,13 @@ static inline OSStatus ReadDATA(const uint8_t**bytesPtr, size_t*sizePtr, size_t*
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
     require(data != NULL, fail);
-    require(*sizePtr >= 5, fail);
+    require_quiet(*sizePtr >= 5, fail);
     
     uint32_t dataLength;
     
     ReadLong(bytesPtr, sizePtr, &dataLength);
     
-    require(dataLength <= *sizePtr, fail);
+    require_quiet(dataLength <= *sizePtr, fail);
     memmove(data, bytesPtr, dataLength);
     
     *bytesPtr += dataLength;
@@ -269,14 +312,14 @@ static inline OSStatus CreatePublicKey(const uint8_t**bytesPtr, size_t*sizePtr, 
     uint16_t type = 0;
     ReadShort(bytesPtr, sizePtr, &type);
 
-    require(type == 0xF000, fail);
-    require(*sizePtr >= 5, fail);
+    require_quiet(type == 0xF000, fail);
+    require_quiet(*sizePtr >= 5, fail);
     
     uint32_t serializedIDLength = 0;
     ReadLong(bytesPtr, sizePtr, &serializedIDLength);
     
-    require(*sizePtr >= serializedIDLength, fail);
-    require(((CFIndex)serializedIDLength) >= 0, fail);
+    require_quiet(*sizePtr >= serializedIDLength, fail);
+    require_quiet(((CFIndex)serializedIDLength) >= 0, fail);
     
     CFDataRef serializedBytes = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, *bytesPtr, (CFIndex)serializedIDLength, kCFAllocatorNull);
     
@@ -297,9 +340,9 @@ static inline CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef all
 {
     CFMutableDataRef result = NULL;
     uint32_t sizeInStream;
-    require_noerr(ReadLong(bytesPtr, sizePtr, &sizeInStream), exit);
-    require(sizeInStream <= *sizePtr, exit);
-    require(((CFIndex)sizeInStream) >= 0, exit);
+    require_noerr_quiet(ReadLong(bytesPtr, sizePtr, &sizeInStream), exit);
+    require_quiet(sizeInStream <= *sizePtr, exit);
+    require_quiet(((CFIndex)sizeInStream) >= 0, exit);
     
     result = CFDataCreateMutable(allocator, 0);
     
@@ -320,8 +363,8 @@ static inline OSStatus ReadAndVerifyByte(const uint8_t**bytes, size_t*size, uint
 {
     uint8_t found;
     OSStatus result = ReadByte(bytes, size, &found);
-    require_noerr(result, exit);
-    require_action(found == expected, exit, result = errSecDecode);
+    require_noerr_quiet(result, exit);
+    require_action_quiet(found == expected, exit, result = errSecDecode);
 exit:
     return result;
 }
@@ -330,8 +373,8 @@ static inline OSStatus ReadAndVerifyShort(const uint8_t**bytes, size_t*size, uin
 {
     uint16_t found;
     OSStatus result = ReadShort(bytes, size, &found);
-    require_noerr(result, exit);
-    require_action(found == expected, exit, result = errSecDecode);
+    require_noerr_quiet(result, exit);
+    require_action_quiet(found == expected, exit, result = errSecDecode);
 exit:
     return result;
 }
@@ -340,8 +383,8 @@ static inline OSStatus ReadAndVerifyMessageType(const uint8_t**bytes, size_t*siz
 {
     OTRMessageType found;
     OSStatus result = ReadMessageType(bytes, size, &found);
-    require_noerr(result, exit);
-    require_action(found == expected, exit, result = errSecDecode);
+    require_noerr_quiet(result, exit);
+    require_action_quiet(found == expected, exit, result = errSecDecode);
 exit:
     return result;
 }
@@ -354,10 +397,10 @@ static inline OSStatus ReadAndVerifyVersion(const uint8_t**bytes, size_t*size)
 static inline OSStatus ReadAndVerifyHeader(const uint8_t**bytes, size_t*size, OTRMessageType expected)
 {
     OSStatus result = ReadAndVerifyVersion(bytes, size);
-    require_noerr(result, exit);
+    require_noerr_quiet(result, exit);
     
     result = ReadAndVerifyMessageType(bytes, size, expected);
-    require_noerr(result, exit);
+    require_noerr_quiet(result, exit);
     
 exit:
     return result;
@@ -366,10 +409,10 @@ exit:
 static inline OSStatus ReadHeader(const uint8_t**bytes, size_t*size, OTRMessageType *messageType)
 {
     OSStatus result = ReadAndVerifyVersion(bytes, size);
-    require_noerr(result, exit);
+    require_noerr_quiet(result, exit);
     
     result = ReadMessageType(bytes, size, messageType);
-    require_noerr(result, exit);
+    require_noerr_quiet(result, exit);
     
 exit:
     return result;
@@ -382,8 +425,8 @@ static inline OSStatus SizeAndSkipDATA(const uint8_t **bytes, size_t *size,
     uint32_t sizeRead;
     result = ReadLong(bytes, size, &sizeRead);
     
-    require_noerr(result, exit);
-    require_action(sizeRead <= *size, exit, result = errSecDecode);
+    require_noerr_quiet(result, exit);
+    require_action_quiet(sizeRead <= *size, exit, result = errSecDecode);
     
     *dataSize = sizeRead;
     *dataBytes = *bytes;

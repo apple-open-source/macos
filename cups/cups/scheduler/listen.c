@@ -1,5 +1,5 @@
 /*
- * "$Id: listen.c 12148 2014-09-03 15:32:26Z msweet $"
+ * "$Id: listen.c 12183 2014-10-01 13:02:28Z msweet $"
  *
  * Server listening routines for the CUPS scheduler.
  *
@@ -43,7 +43,9 @@ cupsdDeleteAllListeners(void)
   for (lis = (cupsd_listener_t *)cupsArrayFirst(Listeners);
        lis;
        lis = (cupsd_listener_t *)cupsArrayNext(Listeners))
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
     if (!lis->on_demand)
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
     {
       cupsArrayRemove(Listeners, lis);
       free(lis);
@@ -300,5 +302,5 @@ cupsdStopListening(void)
 
 
 /*
- * End of "$Id: listen.c 12148 2014-09-03 15:32:26Z msweet $".
+ * End of "$Id: listen.c 12183 2014-10-01 13:02:28Z msweet $".
  */

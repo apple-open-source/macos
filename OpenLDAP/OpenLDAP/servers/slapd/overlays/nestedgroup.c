@@ -216,7 +216,7 @@ nestedgroup_getgroup(Operation *op, adpair *ap, int *isMember )
 						if (!BER_BVISNULL(&member_dn)) {
 							*isMember = 0;
 							nestedgroup_is_member (op, &member_dn, op->oq_compare.rs_ava->aa_desc, &op->oq_compare.rs_ava->aa_value, isMember);
-                            //ber_memfree(&(member_dn.bv_val));
+							ber_memfree(member_dn.bv_val);
 							if (*isMember) {
 								rc = LDAP_COMPARE_TRUE;
 								break;

@@ -74,7 +74,7 @@ public:
 
     virtual bool canSaveMediaData() const { return false; }
 
-    virtual IntSize naturalSize() const = 0;
+    virtual FloatSize naturalSize() const = 0;
 
     virtual bool hasVideo() const = 0;
     virtual bool hasAudio() const = 0;
@@ -83,20 +83,21 @@ public:
 
     virtual float duration() const { return 0; }
     virtual double durationDouble() const { return duration(); }
+    virtual MediaTime durationMediaTime() const { return MediaTime::createWithDouble(durationDouble()); }
 
     virtual float currentTime() const { return 0; }
     virtual double currentTimeDouble() const { return currentTime(); }
+    virtual MediaTime currentMediaTime() const { return MediaTime::createWithDouble(currentTimeDouble()); }
 
     virtual void seek(float) { }
     virtual void seekDouble(double time) { seek(time); }
-    virtual void seekWithTolerance(double time, double, double) { seekDouble(time); }
+    virtual void seek(const MediaTime& time) { seekDouble(time.toDouble()); }
+    virtual void seekWithTolerance(const MediaTime& time, const MediaTime&, const MediaTime&) { seek(time); }
 
     virtual bool seeking() const = 0;
 
-    virtual float startTime() const { return 0; }
-    virtual double startTimeDouble() const { return startTime(); }
-
-    virtual double initialTime() const { return 0; }
+    virtual MediaTime startTime() const { return MediaTime::zeroTime(); }
+    virtual MediaTime initialTime() const { return MediaTime::zeroTime(); }
 
     virtual void setRate(float) { }
     virtual void setRateDouble(double rate) { setRate(rate); }
@@ -123,19 +124,20 @@ public:
     virtual MediaPlayer::NetworkState networkState() const = 0;
     virtual MediaPlayer::ReadyState readyState() const = 0;
 
-    virtual std::unique_ptr<PlatformTimeRanges> seekable() const { return maxTimeSeekableDouble() ? PlatformTimeRanges::create(MediaTime::createWithDouble(minTimeSeekable()), MediaTime::createWithDouble(maxTimeSeekableDouble())) : PlatformTimeRanges::create(); }
+    virtual std::unique_ptr<PlatformTimeRanges> seekable() const { return maxMediaTimeSeekable() == MediaTime::zeroTime() ? PlatformTimeRanges::create() : PlatformTimeRanges::create(minMediaTimeSeekable(), maxMediaTimeSeekable()); }
     virtual float maxTimeSeekable() const { return 0; }
-    virtual double maxTimeSeekableDouble() const { return maxTimeSeekable(); }
+    virtual MediaTime maxMediaTimeSeekable() const { return MediaTime::createWithDouble(maxTimeSeekable()); }
     virtual double minTimeSeekable() const { return 0; }
+    virtual MediaTime minMediaTimeSeekable() const { return MediaTime::createWithDouble(minTimeSeekable()); }
     virtual std::unique_ptr<PlatformTimeRanges> buffered() const = 0;
 
     virtual bool didLoadingProgress() const = 0;
 
     virtual void setSize(const IntSize&) = 0;
 
-    virtual void paint(GraphicsContext*, const IntRect&) = 0;
+    virtual void paint(GraphicsContext*, const FloatRect&) = 0;
 
-    virtual void paintCurrentFrameInContext(GraphicsContext* c, const IntRect& r) { paint(c, r); }
+    virtual void paintCurrentFrameInContext(GraphicsContext* c, const FloatRect& r) { paint(c, r); }
     virtual bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject, GC3Dint, GC3Denum, GC3Denum, bool, bool) { return false; }
     virtual PassNativeImagePtr nativeImageForCurrentTime() { return nullptr; }
 
@@ -189,8 +191,7 @@ public:
 
     // Time value in the movie's time scale. It is only necessary to override this if the media
     // engine uses rational numbers to represent media time.
-    virtual float mediaTimeForTimeValue(float timeValue) const { return timeValue; }
-    virtual double mediaTimeForTimeValueDouble(double timeValue) const { return timeValue; }
+    virtual MediaTime mediaTimeForTimeValue(const MediaTime& timeValue) const { return timeValue; }
 
     // Overide this if it is safe for HTMLMediaElement to cache movie time and report
     // 'currentTime' as [cached time + elapsed wall time]. Returns the maximum wall time
@@ -222,6 +223,7 @@ public:
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
     virtual std::unique_ptr<CDMSession> createSession(const String&) { return nullptr; }
+    virtual void setCDMSession(CDMSession*) { }
 #endif
 
 #if ENABLE(VIDEO_TRACK)
@@ -254,7 +256,7 @@ public:
     virtual unsigned long totalVideoFrames() { return 0; }
     virtual unsigned long droppedVideoFrames() { return 0; }
     virtual unsigned long corruptedVideoFrames() { return 0; }
-    virtual double totalFrameDelay() { return 0; }
+    virtual MediaTime totalFrameDelay() { return MediaTime::zeroTime(); }
 #endif
 
 #if ENABLE(AVF_CAPTIONS)

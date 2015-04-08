@@ -49,7 +49,7 @@
  * able to run on the CPU that we first ran on.
  */
 #pragma D option bufpolicy=ring
-#pragma D option bufsize=40
+#pragma D option bufsize=80
 #pragma D option quiet
 
 int n;

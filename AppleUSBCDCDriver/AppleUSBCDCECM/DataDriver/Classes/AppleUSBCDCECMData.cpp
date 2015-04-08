@@ -743,6 +743,7 @@ bool AppleUSBCDCECMData::start(IOService *provider)
 	if (ret != kIOReturnSuccess)
 	{
 		ALERT(0, fDataInterfaceNumber, "start - Find CDC driver for ECM data interface failed");
+        fDataInterface = NULL;
 		return false;
 	}
 	
@@ -882,8 +883,10 @@ bool AppleUSBCDCECMData::start(IOService *provider)
     
 	if (fDataInterface)
 		fDataInterface->retain();
+    
 	if (fWorkLoop)
 		fWorkLoop->retain();
+    
 	if (fTransmitQueue)
 		fTransmitQueue->retain();
     
@@ -899,6 +902,38 @@ bool AppleUSBCDCECMData::start(IOService *provider)
     return true;
     	
 }/* end start */
+
+
+void AppleUSBCDCECMData::free()
+{
+    
+    XTRACE(this, 0, 0, "free >>>");
+        
+    if (fNetworkInterface)
+    {
+        fNetworkInterface->release();
+    }
+ 
+    if (fMediumDict)
+    {
+        fMediumDict->release();
+    }
+
+    if (fWorkLoop)
+    {
+        fWorkLoop->release();
+    }
+    
+    if (fTransmitQueue)
+    {
+        fTransmitQueue->release();
+    }
+        
+    super::free();
+    
+    XTRACE(this, 0, 0, "free <<<");
+}/* end free */
+
 
 /****************************************************************************************************/
 //
@@ -923,39 +958,11 @@ void AppleUSBCDCECMData::stop(IOService *provider)
 		
     releaseResources();
     
-    if (fDataInterface)	
-    { 
-        fDataInterface->close(this);
-        fDataInterface->release();
-        fDataInterface = NULL;
-    }
-    
     if (fNetworkInterface)
     {
         detachInterface(fNetworkInterface, FALSE);
-
-        fNetworkInterface->release();
-        fNetworkInterface = NULL;
     }
 
-    if (fMediumDict)
-    {
-        fMediumDict->release();
-        fMediumDict = NULL;
-    }
-    
-    if (fWorkLoop)
-    {
-        fWorkLoop->release();
-        fWorkLoop = NULL;
-    }
-    
-    if (fTransmitQueue)
-    {
-        fTransmitQueue->release();
-        fTransmitQueue = NULL;
-    }
-    
     super::stop(provider);
     
     return;
@@ -1207,7 +1214,10 @@ IOReturn AppleUSBCDCECMData::disable(IONetworkInterface *netif)
     
          // Tell the Control driver the port's been disabled
 		 // If reset state's not normal then he already knows
-        
+ 
+    if (fTerminate)
+        return kIOReturnOffline;
+    
 	if (fResetState == kResetNormal)
 	{
 		if (fControlDriver)
@@ -1830,14 +1840,6 @@ bool AppleUSBCDCECMData::wakeUp()
 
     XTRACE(this, 0, 0, "wakeUp");
 	
-	if (fEnumOnWake)
-    {
-        if ((fSleeping) && (fDataInterface))
-        {
-            fDataInterface->GetDevice()->ReEnumerateDevice(0);
-            return false;
-        }
-    }
     
     fDataInterface->GetDevice()->SuspendDevice(false);
     
@@ -1917,12 +1919,7 @@ bool AppleUSBCDCECMData::wakeUp()
 void AppleUSBCDCECMData::putToSleep()
 {
     XTRACE(this, 0, 0, "putToSleep >>>");
-        
-	if ( (!fReady) || (fTerminate == true))							// We've been here before...
-	{
-		return;
-	}
-	
+    
     fReady = false;
 	
 		// Abort any outstanding I/O
@@ -1941,6 +1938,7 @@ void AppleUSBCDCECMData::putToSleep()
     linkStatusChange(kLinkDown);
 	fSleeping = true;
     
+    XTRACE(this, 0, 0, "putToSleep <<<");
 }/* end putToSleep */
 
 /****************************************************************************************************/
@@ -2113,7 +2111,7 @@ void AppleUSBCDCECMData::releaseResources()
 {
     UInt32	i;
     
-    XTRACE(this, 0, 0, "releaseResources");
+    XTRACE(this, 0, 0, "releaseResources >>>");
 
     for (i=0; i<fOutBufPool; i++)
     {
@@ -2142,6 +2140,8 @@ void AppleUSBCDCECMData::releaseResources()
         }
     }
 
+    XTRACE(this, 0, 0, "releaseResources <<<");
+    
 }/* end releaseResources */
 
 /****************************************************************************************************/
@@ -2750,6 +2750,7 @@ bool AppleUSBCDCECMData::willTerminate( IOService * provider, IOOptionBits optio
     Log(DEBUG_NAME ":willTerminate\n");
     
     fTerminate = true;
+    
     return result;
 }
 
@@ -2778,49 +2779,20 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
     switch (type)
     {
         case kIOMessageServiceIsTerminated:
-            XTRACE(this, fReady, type, "message - kIOMessageServiceIsTerminated");
-#if 0
-				// As a precaution abort any outstanding I/O
-			
-			if (fInPipe)
-				fInPipe->Abort();
-			if (fOutPipe)
-				fOutPipe->Abort();
-#endif
+            XTRACE(this, fReady, type, "message - kIOMessageServiceIsTerminated+");
 						
             if (fReady)
             {
                 if (!fTerminate)		// Check if we're already being terminated
                 { 
-#if 0
-		    // NOTE! This call below depends on the hard coded path of this KEXT. Make sure
-		    // that if the KEXT moves, this path is changed!
-		    KUNCUserNotificationDisplayNotice(
-			10,		// Timeout in seconds
-			0,		// Flags (for later usage)
-			"",		// iconPath (not supported yet)
-			"",		// soundPath (not supported yet)
-			"/System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCECMData.kext",	// localizationPath
-			"Unplug Header",		// the header
-			"Unplug Notice",		// the notice - look in Localizable.strings
-			"OK"); 
-#endif
+                    putToSleep();
                 }
-            }
-			
-			putToSleep();
-            
-//            releaseResources();
-
-            if (fDataInterface)	
-            { 
-                fDataInterface->close(this);
-                fDataInterface->release();
-                fDataInterface = NULL;
             }
             fTerminate = true;              // we're being terminated (unplugged)
             linkStatusChange(kLinkDown);    // and of course we're offline
-            return kIOReturnSuccess;			
+            if (fDataInterface != NULL)
+                fDataInterface->close(this);
+            return kIOReturnSuccess;
         case kIOMessageServiceIsSuspended: 	
             XTRACE(this, 0, type, "message - kIOMessageServiceIsSuspended");
             break;			
@@ -2828,7 +2800,7 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
             XTRACE(this, 0, type, "message - kIOMessageServiceIsResumed");
             break;			
         case kIOMessageServiceIsRequestingClose: 
-            XTRACE(this, 0, type, "message - kIOMessageServiceIsRequestingClose"); 
+            XTRACE(this, 0, type, "message - kIOMessageServiceIsRequestingClose+");
             break;
         case kIOMessageServiceWasClosed: 	
             XTRACE(this, 0, type, "message - kIOMessageServiceWasClosed"); 
@@ -2837,7 +2809,7 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
             XTRACE(this, 0, type, "message - kIOMessageServiceBusyStateChange"); 
             break;
         case kIOUSBMessagePortHasBeenResumed: 	
-            XTRACE(this, 0, type, "message - kIOUSBMessagePortHasBeenResumed");
+            XTRACE(this, fAltInterface, type, "message - kIOUSBMessagePortHasBeenResumed");
             
             ior = fDataInterface->SetAlternateInterface(this, fAltInterface);
             if (ior != kIOReturnSuccess)

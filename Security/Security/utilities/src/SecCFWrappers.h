@@ -68,6 +68,9 @@
 // Call this to create a function that returns a singleton instance of type stype,
 // which is initialized once by calling doThisOnce, with result in its context.  Upon
 // completion body should assign to *result.
+
+CFDictionaryRef kDebugDescriptionFormatOptions;
+
 #define CFGiblisGetSingleton(returnType, giblisClassName, result, doThisOnce) \
 returnType giblisClassName(void); \
 returnType giblisClassName(void) { \
@@ -100,34 +103,43 @@ CFGiblisGetSingleton(CFTypeID, gibliClassName##GetTypeID, typeID, (^{ \
         _onceBlock(); \
 }))
 
-
 #define CFGiblisWithHashFor(gibliClassName) \
-    static CFStringRef  gibliClassName##CopyDescription(CFTypeRef cf); \
+    static CFStringRef  gibliClassName##CopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions); \
     static void         gibliClassName##Destroy(CFTypeRef cf); \
     static Boolean      gibliClassName##Compare(CFTypeRef lhs, CFTypeRef rhs); \
     static CFHashCode   gibliClassName##Hash(CFTypeRef cf); \
+    static CFStringRef gibliClassName##CopyDescription(CFTypeRef cf){\
+        return gibliClassName##CopyFormatDescription(cf, kDebugDescriptionFormatOptions);\
+    }\
     \
-    CFGiblisWithFunctions(gibliClassName, NULL, NULL, gibliClassName##Destroy, gibliClassName##Compare, gibliClassName##Hash, NULL, gibliClassName##CopyDescription, NULL, NULL, NULL)
+    CFGiblisWithFunctions(gibliClassName, NULL, NULL, gibliClassName##Destroy, gibliClassName##Compare, gibliClassName##Hash, gibliClassName##CopyFormatDescription, gibliClassName##CopyDescription, NULL, NULL, NULL)
 
 #define CFGiblisWithCompareFor(gibliClassName) \
-    static CFStringRef  gibliClassName##CopyDescription(CFTypeRef cf); \
+    static CFStringRef  gibliClassName##CopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions); \
     static void         gibliClassName##Destroy(CFTypeRef cf); \
     static Boolean      gibliClassName##Compare(CFTypeRef lhs, CFTypeRef rhs); \
+    static CFStringRef gibliClassName##CopyDescription(CFTypeRef cf){\
+        return gibliClassName##CopyFormatDescription(cf, kDebugDescriptionFormatOptions);\
+    }\
     \
-    CFGiblisWithFunctions(gibliClassName, NULL, NULL, gibliClassName##Destroy, gibliClassName##Compare, NULL, NULL, gibliClassName##CopyDescription, NULL, NULL, NULL)
+    CFGiblisWithFunctions(gibliClassName, NULL, NULL, gibliClassName##Destroy, gibliClassName##Compare, NULL, gibliClassName##CopyFormatDescription, gibliClassName##CopyDescription, NULL, NULL, NULL)
 
 
 #define CFGiblisFor(gibliClassName) \
-    static CFStringRef  gibliClassName##CopyDescription(CFTypeRef cf); \
+    static CFStringRef  gibliClassName##CopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions); \
     static void         gibliClassName##Destroy(CFTypeRef cf); \
+    static CFStringRef gibliClassName##CopyDescription(CFTypeRef cf){\
+        return gibliClassName##CopyFormatDescription(cf, kDebugDescriptionFormatOptions);\
+    }\
     \
-    CFGiblisWithFunctions(gibliClassName, NULL, NULL, gibliClassName##Destroy, NULL, NULL, NULL, gibliClassName##CopyDescription, NULL, NULL, NULL)
+    CFGiblisWithFunctions(gibliClassName, NULL, NULL, gibliClassName##Destroy, NULL, NULL, gibliClassName##CopyFormatDescription, gibliClassName##CopyDescription, NULL, NULL, NULL)
 
 #define CFTypeAllocateWithSpace(classType, space, allocator) \
     (classType##Ref) _CFRuntimeCreateInstance(allocator, classType##GetTypeID(), space, NULL)
 
 #define CFTypeAllocate(classType, internalType, allocator) \
     CFTypeAllocateWithSpace(classType, sizeof(internalType) - sizeof(CFRuntimeBase), allocator)
+
 
 
 __BEGIN_DECLS
@@ -636,7 +648,7 @@ static inline void CFDictionaryForEach(CFDictionaryRef dictionary, void (^operat
 // MARK: CFCalendar helpers
 //
 
-CFCalendarRef SecCFCalendarGetZulu();
+void SecCFCalendarDoWithZuluCalendar(void(^action)(CFCalendarRef zuluCalendar));
 
 //
 // MARK: CFAbsoluteTime helpers
@@ -674,13 +686,21 @@ static inline CFAbsoluteTime CFAbsoluteTimeForGregorianDay(CFTimeZoneRef tz, int
 
 static inline CFAbsoluteTime CFAbsoluteTimeForGregorianZuluMoment(int year, int month, int day, int hour, int minute, int second)
 {
-    return CFAbsoluteTimeForCalendarMoment(SecCFCalendarGetZulu(), year, month, day, hour, minute, second);
+    __block CFAbsoluteTime result = 0.0;
+    SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+        result = CFAbsoluteTimeForCalendarMoment(zuluCalendar, year, month, day, hour, minute, second);
+    });
+    return result;
 }
 
 
 static inline CFAbsoluteTime CFAbsoluteTimeForGregorianZuluDay(int year, int month, int day)
 {
-    return CFAbsoluteTimeForCalendarDay(SecCFCalendarGetZulu(), year, month, day);
+    __block CFAbsoluteTime result = 0.0;
+    SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+        result = CFAbsoluteTimeForCalendarDay(zuluCalendar, year, month, day);
+    });
+    return result;
 }
 
 

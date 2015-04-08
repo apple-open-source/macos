@@ -42,7 +42,7 @@
  * fill up our buffer in one series of enablings on a single CPU.
  */
 #pragma D option bufpolicy=fill
-#pragma D option bufsize=64
+#pragma D option bufsize=128
 #pragma D option statusrate=10ms
 #pragma D option quiet
 

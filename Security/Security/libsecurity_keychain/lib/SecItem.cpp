@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2015 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -2157,7 +2157,7 @@ _SafeSecKeychainItemDelete(
 	CFArrayRef appList = NULL;
 	CFStringRef description = NULL;
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR promptSelector;
-	CFIndex count = 0;
+	CFIndex idx, count = 0;
 	SecTrustedApplicationRef currentAppRef = NULL;
 	CFStringRef itemAppName = NULL, currentAppName = NULL;
 
@@ -2205,37 +2205,41 @@ _SafeSecKeychainItemDelete(
 	require_noerr(status, finish);
 	require_quiet(appList != NULL, finish);
 
-	// does only a single application/tool have decrypt access to this item?
+	// does the calling application/tool have decrypt access to this item?
 	count = CFArrayGetCount(appList);
-	if ( count == 1 ) {
-		// get SecTrustedApplicationRef for item's application/tool
-		SecTrustedApplicationRef itemAppRef = (SecTrustedApplicationRef)CFArrayGetValueAtIndex(appList, 0);
+	for ( idx = 0; idx < count; idx++ ) {
+		// get SecTrustedApplicationRef for this entry
+		SecTrustedApplicationRef itemAppRef = (SecTrustedApplicationRef)CFArrayGetValueAtIndex(appList, idx);
 		require_quiet(itemAppRef != NULL, finish);
 
 		// copy the name out
+		CFReleaseSafe(itemAppName);
 		itemAppName = _AppNameFromSecTrustedApplication(CFGetAllocator(itemRef), itemAppRef);
 		if (itemAppName == NULL) {
 			/*
 			 * If there is no app name, it's probably because it's not an appname
 			 * in the ACE but an entitlement/info.plist based rule instead;
 			 * just let the caller have it. */
-			count--;
+			count = 0;
 			goto finish;
 		}
 
 		// create SecTrustedApplicationRef for current application/tool
+		CFReleaseSafe(currentAppRef);
 		status = SecTrustedApplicationCreateFromPath(NULL, &currentAppRef);
 		require_noerr(status, finish);
 		require_quiet(currentAppRef != NULL, finish);
 
 		// copy the name out
+		CFReleaseSafe(currentAppName);
 		currentAppName = _AppNameFromSecTrustedApplication(CFGetAllocator(itemRef), currentAppRef);
 		require_quiet(currentAppName != NULL, finish);
 
 		// compare the names to see if we own the decrypt access
+		// TBD: validation of membership in an application group
 		if ( CFStringCompare(currentAppName, itemAppName, 0) == kCFCompareEqualTo ) {
-			// decrement the count to zero, which will remove the item below
-			--count;
+			count = 0;
+			goto finish;
 		}
 	}
 
@@ -2256,6 +2260,142 @@ finish:
 		// caller is not the "owner" of the item
 		status = errSecInvalidOwnerEdit;
 	}
+
+	return status;
+}
+
+static OSStatus
+_ReplaceKeychainItem(
+	SecKeychainItemRef itemToUpdate,
+	SecKeychainAttributeList *changeAttrList,
+	CFDataRef itemData)
+{
+	OSStatus status;
+	UInt32 itemID;
+	SecItemClass itemClass;
+	SecKeychainAttributeInfo *info = NULL;
+	SecKeychainAttributeList *attrList = NULL;
+	SecKeychainAttributeList newAttrList = { 0, NULL};
+	SecKeychainRef keychain = NULL;
+	SecKeychainItemRef newItem = NULL;
+
+	int priority = LOG_DEBUG;
+	const char *format = "ReplaceKeychainItem (%d) error %d";
+
+	// get existing item's keychain
+	status = SecKeychainItemCopyKeychain(itemToUpdate, &keychain);
+	if (status) { secitemlog(priority, format, 1, (int)status); }
+	require_noerr(status, replace_failed);
+
+	// get attribute info (i.e. database schema) for the item class
+	status = SecKeychainItemCopyAttributesAndData(itemToUpdate, NULL, &itemClass, NULL, NULL, NULL);
+	if (status) { secitemlog(priority, format, 2, (int)status); }
+	require_noerr(status, replace_failed);
+
+	switch (itemClass)
+	{
+		case kSecInternetPasswordItemClass:
+			itemID = CSSM_DL_DB_RECORD_INTERNET_PASSWORD;
+			break;
+		case kSecGenericPasswordItemClass:
+			itemID = CSSM_DL_DB_RECORD_GENERIC_PASSWORD;
+			break;
+		default:
+			itemID = itemClass;
+			break;
+	}
+	status = SecKeychainAttributeInfoForItemID(keychain, itemID, &info);
+	if (status) { secitemlog(priority, format, 3, (int)status); }
+
+	// get item's existing attributes (but not data!)
+	status = SecKeychainItemCopyAttributesAndData(itemToUpdate, info, &itemClass, &attrList, NULL, NULL);
+	if (status) { secitemlog(priority, format, 4, (int)status); }
+	require(attrList != NULL, replace_failed);
+
+	// move aside the item by changing a primary attribute
+    // (currently only for passwords)
+	if (itemClass == kSecInternetPasswordItemClass || itemClass == kSecGenericPasswordItemClass) {
+		CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+		CFStringRef uuidStr = (uuid) ? CFUUIDCreateString(kCFAllocatorDefault, uuid) : CFSTR("MOVED");
+		CFReleaseSafe(uuid);
+		if (uuidStr) {
+			CFIndex maxLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(uuidStr), kCFStringEncodingUTF8) + 1;
+			char* buffer = (char*) malloc(maxLength);
+			if (buffer) {
+				if (CFStringGetCString(uuidStr, buffer, maxLength, kCFStringEncodingUTF8)) {
+					UInt32 length = (UInt32)strlen(buffer);
+					SecKeychainAttribute attrs[] = { { kSecAccountItemAttr, length, (char*)buffer }, };
+					SecKeychainAttributeList updateAttrList = { sizeof(attrs) / sizeof(attrs[0]), attrs };
+					status = SecKeychainItemModifyAttributesAndData(itemToUpdate, &updateAttrList, 0, NULL);
+					if (status) { secitemlog(priority, format, 5, (int)status); }
+					if (status == errSecVerifyFailed) {
+						// still unable to change attrs? delete unconditionally here
+						status = SecKeychainItemDelete(itemToUpdate);
+						if (status) { secitemlog(priority, format, 6, (int)status); }
+					}
+				}
+				free(buffer);
+			}
+			CFReleaseSafe(uuidStr);
+		}
+	}
+	require_noerr(status, replace_failed);
+
+	// make attribute list for new item (the data is still owned by attrList)
+	newAttrList.count = attrList->count;
+	newAttrList.attr = (SecKeychainAttribute *) malloc(sizeof(SecKeychainAttribute) * attrList->count);
+	int i, newCount;
+	for (i=0, newCount=0; i < attrList->count; i++) {
+		if (attrList->attr[i].length > 0) {
+			newAttrList.attr[newCount++] = attrList->attr[i];
+		#if 0
+			// debugging code to log item attributes
+			SecKeychainAttrType tag = attrList->attr[i].tag;
+			SecKeychainAttrType htag=(SecKeychainAttrType)OSSwapConstInt32(tag);
+			char tmp[sizeof(SecKeychainAttrType) + 1];
+			char tmpdata[attrList->attr[i].length + 1];
+			memcpy(tmp, &htag, sizeof(SecKeychainAttrType));
+			tmp[sizeof(SecKeychainAttrType)]=0;
+			memcpy(tmpdata, attrList->attr[i].data, attrList->attr[i].length);
+			tmpdata[attrList->attr[i].length]=0;
+			secitemlog(priority, "item attr '%s' = %d bytes: \"%s\"",
+				tmp, (int)attrList->attr[i].length, tmpdata);
+		#endif
+		}
+	}
+	newAttrList.count = newCount;
+
+	// create new item in the same keychain
+	status = SecKeychainItemCreateFromContent(itemClass, &newAttrList,
+		(UInt32)((itemData) ? CFDataGetLength(itemData) : 0),
+		(const void *)((itemData) ? CFDataGetBytePtr(itemData) : NULL),
+		keychain, NULL, &newItem);
+	if (status) { secitemlog(priority, format, 7, (int)status); }
+	require_noerr(status, replace_failed);
+
+	// delete the old item unconditionally once new item exists
+	status = SecKeychainItemDelete(itemToUpdate);
+
+	// update the new item with changed attributes, if any
+	status = (changeAttrList) ? SecKeychainItemModifyContent(newItem, changeAttrList, 0, NULL) : errSecSuccess;
+	if (status) { secitemlog(priority, format, 8, (int)status); }
+	if (status == errSecSuccess) {
+		// say the item already exists, because it does now. <rdar://19063674>
+		status = errSecDuplicateItem;
+	}
+
+replace_failed:
+	if (newAttrList.attr) {
+		free(newAttrList.attr);
+	}
+    if (attrList) {
+        SecKeychainItemFreeAttributesAndData(attrList, NULL);
+    }
+    if (info) {
+        SecKeychainFreeAttributeInfo(info);
+    }
+	CFReleaseSafe(newItem);
+	CFReleaseSafe(keychain);
 
 	return status;
 }
@@ -2357,6 +2497,7 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 				(changeAttrList->count == 0) ? NULL : changeAttrList,
 				(theData != NULL) ? (UInt32)CFDataGetLength(theData) : 0,
 				(theData != NULL) ? CFDataGetBytePtrVoid(theData) : NULL);
+	require_noerr(status, update_failed);
 
 	// one more thing... update access?
 	if (CFDictionaryGetValueIfPresent(changedAttributes, kSecAttrAccess, (const void **)&access)) {
@@ -2364,6 +2505,13 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 	}
 
 update_failed:
+	if (status == errSecVerifyFailed &&
+		(itemClass == kSecInternetPasswordItemClass || itemClass == kSecGenericPasswordItemClass)) {
+		// if we got a cryptographic failure updating a password item, it needs to be replaced
+		status = _ReplaceKeychainItem(itemToUpdate,
+					(changeAttrList->count == 0) ? NULL : changeAttrList,
+					theData);
+	}
 	if (itemToUpdate)
 		CFRelease(itemToUpdate);
 	_FreeAttrList(changeAttrList);

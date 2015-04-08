@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_proxy - Apache HTTP サーバ</title>
+<title>mod_proxy - Apache HTTP サーバ バージョン 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -332,8 +332,7 @@
 <tr><th><a href="directive-dict.html#Context">コンテキスト:</a></th><td>サーバ設定ファイル, バーチャルホスト</td></tr>
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>mod_proxy</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>BalancerInherit is only available in Apache HTTP Server 2.5.0
-        and later.</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>BalancerInherit is only available in Apache HTTP Server 2.4.5 and later.</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。
             </p></div>
@@ -356,8 +355,7 @@
 <tr><th><a href="directive-dict.html#Context">コンテキスト:</a></th><td>サーバ設定ファイル, バーチャルホスト</td></tr>
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>mod_proxy</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>BalancerPersist is only available in Apache HTTP Server 2.4.4 and later.
-        and later.</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>BalancerPersist is only available in Apache HTTP Server 2.4.4 and later.</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。
             </p></div>
@@ -924,7 +922,7 @@
 <tr><th><a href="directive-dict.html#Context">コンテキスト:</a></th><td>サーバ設定ファイル, バーチャルホスト</td></tr>
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>mod_proxy</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>ProxyPassInherit is only available in Apache HTTP Server 2.5.0 and later.
+<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>ProxyPassInherit is only available in Apache HTTP Server 2.4.5 and later.
         and later.</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。

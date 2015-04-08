@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Contrôle d'accès - Serveur Apache HTTP</title>
+<title>Contrôle d'accès - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -142,6 +142,13 @@ arbitraires</a></h2>
     <pre class="prettyprint lang-config">&lt;If "%{HTTP_USER_AGENT} == 'BadBot'"&gt;
     Require All Denied
 &lt;/If&gt;</pre>
+
+
+    <p>La syntaxe <code>expr</code> de la directive <code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code> permet de réécrire
+    l'exemple précédent de la manière suivante :</p>
+
+
+    <pre class="prettyprint lang-config">Require expr %{HTTP_USER_AGENT} != 'BadBot'</pre>
 
 
     <div class="note"><h3>Avertissement :</h3>

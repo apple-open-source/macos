@@ -66,7 +66,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Chess</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.10, Copyright 2003-2013 Apple Inc.</string>
+	<string>3.12, Copyright 2003-2015 Apple Inc.</string>
 	<key>CFBundleHelpBookFolder</key>
 	<string>Chess.help</string>
 	<key>CFBundleHelpBookName</key>
@@ -82,11 +82,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.10</string>
+	<string>3.12</string>
 	<key>CFBundleSignature</key>
 	<string>mbch</string>
 	<key>CFBundleVersion</key>
-	<string>3.10</string>
+	<string>3.12</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.board-games</string>
 	<key>LSHasLocalizedDisplayName</key>
@@ -94,9 +94,9 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>10.9.0</string>
 	<key>MBCBuildTag</key>
-	<string>Chess-310.5</string>
+	<string>Chess-311</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2003-2013 Apple Inc.</string>
+	<string>Copyright 2003-2015 Apple Inc.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

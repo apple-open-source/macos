@@ -1827,13 +1827,16 @@ config_auth(
 		req_hashlen = digest_len;
 #endif
 	} else {
-		int	rankey;
+		unsigned char rankey[16];
 
-		rankey = ntp_random();
+		if (ntp_crypto_random_buf(rankey, sizeof (rankey))) {
+			msyslog(LOG_ERR, "ntp_crypto_random_buf() failed.");
+			exit(1);
+		}
+
 		req_keytype = NID_md5;
 		req_hashlen = 16;
-		MD5auth_setkey(req_keyid, req_keytype,
-		    (u_char *)&rankey, sizeof(rankey));
+		MD5auth_setkey(req_keyid, req_keytype, rankey, sizeof(rankey));
 		authtrust(req_keyid, 1);
 	}
 

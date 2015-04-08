@@ -470,6 +470,7 @@ static void tests(void)
 {
     CFArrayRef certs = NULL;
     CFDataRef message;
+    CFIndex count;
 
     // Premade message containing one certificate blob
     message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
@@ -504,7 +505,11 @@ static void tests(void)
     ok(message = SecCMSCreateCertificatesOnlyMessageIAP(another_cert), "create iAP specific cert only message (2certs)");
     ok(certs = SecCMSCertificatesOnlyMessageCopyCertificates(message),
        "SecCMSCertificatesOnlyMessageCopyCertificates");
-    is(CFArrayGetCount(certs), 2, "certificate count is 2");
+    // %%% SecCMSCreateCertificatesOnlyMessageIAP should be changed to take a CFArrayRef argument.
+    // Note that a SecCertificateRef can only contain the data of a single certificate.
+    // If the fix for rdar://17159227 is present, the message will only contain one certificate.
+    count = (certs) ? CFArrayGetCount(certs) : 0;
+    ok(count > 0 && count < 3, "certificate count is 1 or 2");
 
     // Clean up
     CFReleaseNull(another_cert);

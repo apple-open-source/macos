@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_session_crypto - Apache HTTP Server</title>
+<title>mod_session_crypto - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -190,8 +190,9 @@ SessionCryptoPassphrase secret</pre>
     secret to the end of the list, and once rolled out completely to all servers, remove
     the first key from the start of the list.</p>
 
-    <p>If the value begins with exec: the resulting command will be executed and the
-    first line returned to standard output by the program will be used as the key.</p>
+    <p>As of version 2.4.7 if the value begins with <var>exec:</var> the resulting command
+    will be executed and the first line returned to standard output by the program will be
+    used as the key.</p>
 <div class="example"><pre>#key used as-is
 SessionCryptoPassphrase secret
 

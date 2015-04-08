@@ -664,6 +664,7 @@ struct IOHIDSystem::ExpansionData
 
     bool                    continuousCursor;
     bool                    hidActivityIdle; // Is HID activity idle for more than IDLE_HID_ACTIVITY_NSECS ?
+    bool                    forceIdle;
     AbsoluteTime            lastTickleTime;
     thread_call_t           hidActivityThread;
 
@@ -706,6 +707,7 @@ struct IOHIDSystem::ExpansionData
 #define _continuousCursor            (_privateData->continuousCursor)
 #define _hidActivityIdle            (_privateData->hidActivityIdle)
 #define _lastTickleTime             (_privateData->lastTickleTime)
+#define _forceIdle                  (_privateData->forceIdle)
 #define _hidActivityThread          (_privateData->hidActivityThread)
 
 #define _delayedNotificationLock    (_privateData->delayedNotificationLock)
@@ -1057,6 +1059,7 @@ IOReturn IOHIDSystem::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned l
 
            // Force set HID activity to idle
            _lastTickleTime = 0;
+           _forceIdle = true;
            thread_call_enter(_hidActivityThread);
         }
 
@@ -2238,6 +2241,7 @@ void IOHIDSystem::updateHidActivity()
 {
 #if !TARGET_OS_EMBEDDED
     clock_get_uptime(&_lastTickleTime);
+    _forceIdle = false;
     if (_hidActivityIdle)
         thread_call_enter(_hidActivityThread);
 #endif
@@ -2264,7 +2268,7 @@ void IOHIDSystem::reportUserHidActivityGated(void *args __unused)
 
 
     clock_get_uptime(&ts);
-    if ((ts-_lastTickleTime)  < idleHidActivity) {
+    if (!_forceIdle && ((ts-_lastTickleTime)  < idleHidActivity)) {
         if (_hidActivityIdle) {
             _hidActivityIdle = false;
             messageClients(kIOHIDSystemUserHidActivity, (void *)_hidActivityIdle );

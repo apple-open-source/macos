@@ -29,14 +29,13 @@
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
 
 #import "WKNSURLExtras.h"
-#import "WKPagePreviewViewController.h"
-#import "WKPreviewPopoverAnimationController.h"
 #import "WKViewInternal.h"
 #import "WebPageMessages.h"
 #import "WebPageProxy.h"
 #import "WebPageProxyMessages.h"
 #import "WebProcessProxy.h"
 #import <WebCore/DataDetectorsSPI.h>
+#import <WebCore/GeometryUtilities.h>
 #import <WebCore/LookupSPI.h>
 #import <WebCore/NSMenuSPI.h>
 #import <WebCore/NSPopoverSPI.h>
@@ -67,19 +66,26 @@ using namespace WebKit;
     _wkView = wkView;
     _type = kWKImmediateActionNone;
     _immediateActionRecognizer = immediateActionRecognizer;
+    _hasActiveImmediateAction = NO;
 
     return self;
 }
 
 - (void)willDestroyView:(WKView *)view
 {
-    [_previewAnimationController close];
-
     _page = nullptr;
     _wkView = nil;
     _hitTestResult = ActionMenuHitTestResult();
+
+    id animationController = [_immediateActionRecognizer animationController];
+    if ([animationController isKindOfClass:NSClassFromString(@"QLPreviewMenuItem")]) {
+        QLPreviewMenuItem *menuItem = (QLPreviewMenuItem *)animationController;
+        menuItem.delegate = nil;
+    }
+
     _immediateActionRecognizer = nil;
     _currentActionContext = nil;
+    _hasActiveImmediateAction = NO;
 }
 
 - (void)wkView:(WKView *)wkView willHandleMouseDown:(NSEvent *)event
@@ -90,21 +96,26 @@ using namespace WebKit;
 - (void)_cancelImmediateAction
 {
     // Reset the recognizer by turning it off and on again.
-    _immediateActionRecognizer.enabled = NO;
-    _immediateActionRecognizer.enabled = YES;
+    [_immediateActionRecognizer setEnabled:NO];
+    [_immediateActionRecognizer setEnabled:YES];
 
     [self _clearImmediateActionState];
 }
 
+- (void)_cancelImmediateActionIfNeeded
+{
+    if (![_immediateActionRecognizer animationController])
+        [self _cancelImmediateAction];
+}
+
 - (void)_clearImmediateActionState
 {
-    [self hidePreview];
-
-    _page->clearTextIndicator();
+    if (_page)
+        _page->clearTextIndicator();
 
     if (_currentActionContext && _hasActivatedActionContext) {
-        [getDDActionsManagerClass() didUseActions];
         _hasActivatedActionContext = NO;
+        [getDDActionsManagerClass() didUseActions];
     }
 
     _state = ImmediateActionState::None;
@@ -112,16 +123,35 @@ using namespace WebKit;
     _type = kWKImmediateActionNone;
     _currentActionContext = nil;
     _userData = nil;
+    _currentQLPreviewMenuItem = nil;
+    _hasActiveImmediateAction = NO;
 }
 
 - (void)didPerformActionMenuHitTest:(const ActionMenuHitTestResult&)hitTestResult userData:(API::Object*)userData
 {
+    // If we've already given up on this gesture (either because it was canceled or the
+    // willBeginAnimation timeout expired), we shouldn't build a new animationController for it.
+    if (_state != ImmediateActionState::Pending)
+        return;
+
     // FIXME: This needs to use the WebKit2 callback mechanism to avoid out-of-order replies.
     _state = ImmediateActionState::Ready;
     _hitTestResult = hitTestResult;
     _userData = userData;
 
     [self _updateImmediateActionItem];
+    [self _cancelImmediateActionIfNeeded];
+}
+
+- (void)dismissContentRelativeChildWindows
+{
+    _page->setMaintainsInactiveSelection(false);
+    [_currentQLPreviewMenuItem close];
+}
+
+- (BOOL)hasActiveImmediateAction
+{
+    return _hasActiveImmediateAction;
 }
 
 #pragma mark NSImmediateActionGestureRecognizerDelegate
@@ -131,12 +161,11 @@ using namespace WebKit;
     if (immediateActionRecognizer != _immediateActionRecognizer)
         return;
 
-    _page->setMaintainsInactiveSelection(true);
-
     [_wkView _dismissContentRelativeChildWindows];
 
-    _eventLocationInView = [immediateActionRecognizer locationInView:immediateActionRecognizer.view];
-    _page->performActionMenuHitTestAtLocation(_eventLocationInView, true);
+    _page->setMaintainsInactiveSelection(true);
+
+    _page->performActionMenuHitTestAtLocation([immediateActionRecognizer locationInView:immediateActionRecognizer.view], true);
 
     _state = ImmediateActionState::Pending;
     immediateActionRecognizer.animationController = nil;
@@ -150,6 +179,8 @@ using namespace WebKit;
     if (_state == ImmediateActionState::None)
         return;
 
+    _hasActiveImmediateAction = YES;
+
     // FIXME: We need to be able to cancel this if the gesture recognizer is cancelled.
     // FIXME: Connection can be null if the process is closed; we should clean up better in that case.
     if (_state == ImmediateActionState::Pending) {
@@ -160,12 +191,9 @@ using namespace WebKit;
         }
     }
 
-    if (_state != ImmediateActionState::Ready)
+    if (_state != ImmediateActionState::Ready) {
         [self _updateImmediateActionItem];
-
-    if (!_immediateActionRecognizer.animationController) {
-        [self _cancelImmediateAction];
-        return;
+        [self _cancelImmediateActionIfNeeded];
     }
 
     if (_currentActionContext) {
@@ -199,7 +227,6 @@ using namespace WebKit;
         return;
 
     _page->setTextIndicatorAnimationProgress(1);
-    _page->setMaintainsInactiveSelection(false);
 }
 
 - (PassRefPtr<WebHitTestResult>)_webHitTestResult
@@ -226,22 +253,14 @@ using namespace WebKit;
     if (!absoluteLinkURL.isEmpty() && WebCore::protocolIsInHTTPFamily(absoluteLinkURL)) {
         _type = kWKImmediateActionLinkPreview;
 
-        BOOL shouldUseStandardQuickLookPreview = [_wkView _shouldUseStandardQuickLookPreview] && [NSMenuItem respondsToSelector:@selector(standardQuickLookMenuItem)];
-        if (shouldUseStandardQuickLookPreview) {
-            RetainPtr<NSMenuItem> previewLinkItem;
-            RetainPtr<QLPreviewMenuItem> qlPreviewLinkItem;
-            if (shouldUseStandardQuickLookPreview) {
-                qlPreviewLinkItem = [NSMenuItem standardQuickLookMenuItem];
-                [qlPreviewLinkItem setPreviewStyle:QLPreviewStylePopover];
-                [qlPreviewLinkItem setDelegate:self];
-            }
-            return (id<NSImmediateActionAnimationController>)qlPreviewLinkItem.get();
-        }
+        if (TextIndicator *textIndicator = _hitTestResult.linkTextIndicator.get())
+            _page->setTextIndicator(textIndicator->data(), false);
 
-        if (id<NSImmediateActionAnimationController> previewController = [self _animationControllerForCustomPreview])
-            return previewController;
-        return nil;
-
+        RetainPtr<QLPreviewMenuItem> qlPreviewLinkItem = [NSMenuItem standardQuickLookMenuItem];
+        [qlPreviewLinkItem setPreviewStyle:QLPreviewStylePopover];
+        [qlPreviewLinkItem setDelegate:self];
+        _currentQLPreviewMenuItem = qlPreviewLinkItem.get();
+        return (id<NSImmediateActionAnimationController>)qlPreviewLinkItem.get();
     }
 
     if (hitTestResult->isTextNode() || hitTestResult->isOverTextInsideFormControlElement()) {
@@ -267,49 +286,16 @@ using namespace WebKit;
 
     RefPtr<WebHitTestResult> hitTestResult = [self _webHitTestResult];
     id customClientAnimationController = [_wkView _immediateActionAnimationControllerForHitTestResult:toAPI(hitTestResult.get()) withType:_type userData:toAPI(_userData.get())];
+
     if (customClientAnimationController == [NSNull null]) {
         [self _cancelImmediateAction];
         return;
     }
+
     if (customClientAnimationController && [customClientAnimationController conformsToProtocol:@protocol(NSImmediateActionAnimationController)])
-        _immediateActionRecognizer.animationController = (id <NSImmediateActionAnimationController>)customClientAnimationController;
+        [_immediateActionRecognizer setAnimationController:(id <NSImmediateActionAnimationController>)customClientAnimationController];
     else
-        _immediateActionRecognizer.animationController = defaultAnimationController;
-}
-
-#pragma mark Link Preview action
-
-- (void)hidePreview
-{
-    [_previewAnimationController close];
-}
-
-- (void)setPreviewTitle:(NSString *)previewTitle
-{
-    [_previewAnimationController setPreviewTitle:previewTitle];
-}
-
-- (void)setPreviewLoading:(BOOL)loading
-{
-    [_previewAnimationController setPreviewLoading:loading];
-}
-
-- (void)setPreviewOverrideImage:(NSImage *)image
-{
-    [_previewAnimationController setPreviewOverrideImage:image];
-}
-
-- (id<NSImmediateActionAnimationController>)_animationControllerForCustomPreview
-{
-    RefPtr<WebHitTestResult> hitTestResult = [self _webHitTestResult];
-    RetainPtr<NSURL> url = [NSURL _web_URLWithWTFString:hitTestResult->absoluteLinkURL()];
-
-    if (_hitTestResult.linkTextIndicator)
-        _page->setTextIndicator(_hitTestResult.linkTextIndicator->data(), false);
-
-    _previewAnimationController = adoptNS([[WKPreviewPopoverAnimationController alloc] initWithURL:url.get() view:_wkView page:*_page originRect:hitTestResult->elementBoundingBox() eventLocationInView:_eventLocationInView]);
-
-    return _previewAnimationController.get();
+        [_immediateActionRecognizer setAnimationController:defaultAnimationController];
 }
 
 #pragma mark QLPreviewMenuItemDelegate implementation
@@ -331,6 +317,30 @@ using namespace WebKit;
 - (NSRectEdge)menuItem:(NSMenuItem *)menuItem preferredEdgeForPoint:(NSPoint)point
 {
     return NSMaxYEdge;
+}
+
+- (void)menuItemDidClose:(NSMenuItem *)menuItem
+{
+    [self _clearImmediateActionState];
+}
+
+- (NSRect)menuItem:(NSMenuItem *)menuItem itemFrameForPoint:(NSPoint)point
+{
+    if (!_wkView)
+        return NSZeroRect;
+
+    RefPtr<WebHitTestResult> hitTestResult = [self _webHitTestResult];
+    return [_wkView convertRect:hitTestResult->elementBoundingBox() toView:nil];
+}
+
+- (NSSize)menuItem:(NSMenuItem *)menuItem maxSizeForPoint:(NSPoint)point
+{
+    if (!_wkView)
+        return NSZeroSize;
+
+    NSSize screenSize = _wkView.window.screen.frame.size;
+    FloatRect largestRect = largestRectWithAspectRatioInsideRect(screenSize.width / screenSize.height, _wkView.bounds);
+    return NSMakeSize(largestRect.width() * 0.75, largestRect.height() * 0.75);
 }
 
 #pragma mark Data Detectors actions
@@ -358,7 +368,7 @@ using namespace WebKit;
         page->send(Messages::WebPage::DataDetectorsDidChangeUI(overlayID));
     } interactionStoppedHandler:^() {
         page->send(Messages::WebPage::DataDetectorsDidHideUI(overlayID));
-        page->clearTextIndicator();
+        [self _clearImmediateActionState];
     }];
 
     [_currentActionContext setHighlightFrame:[_wkView.window convertRectToScreen:[_wkView convertRect:_hitTestResult.detectedDataBoundingBox toView:nil]]];

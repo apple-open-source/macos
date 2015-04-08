@@ -2184,9 +2184,17 @@ int slap_sasl_getdn( Connection *conn, Operation *op, struct berval *id,
 			ber_dupbv_x( dn, id, op->o_tmpmemctx );
 
 		} else {
-			/* convert to u:<username> form */
-			is_dn = SET_U;
-			*dn = *id;
+			char *suffix = odusers_copy_suffix();
+			if(suffix && (strnstr(id->bv_val, suffix, id->bv_len) != NULL)) {
+				do_norm = 0;
+				is_dn = SET_DN;
+				ber_dupbv_x( dn, id, op->o_tmpmemctx );
+			} else {
+				/* convert to u:<username> form */
+				is_dn = SET_U;
+				*dn = *id;
+			}
+			free(suffix);
 		}
 	}
 

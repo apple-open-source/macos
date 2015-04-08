@@ -23,6 +23,7 @@
 #include "bundlediskrep.h"
 #include "filediskrep.h"
 #include "dirscanner.h"
+#include <CoreFoundation/CFBundlePriv.h>
 #include <CoreFoundation/CFURLAccess.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <security_utilities/cfmunge.h>
@@ -64,6 +65,20 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 BundleDiskRep::~BundleDiskRep()
 {
 }
+	
+void BundleDiskRep::checkMoved(CFURLRef oldPath, CFURLRef newPath)
+{
+	char cOld[PATH_MAX];
+	char cNew[PATH_MAX];
+	// The realpath call is important because alot of Framework bundles have a symlink
+	// to their "Current" version binary in the main bundle
+	if (realpath(cfString(oldPath).c_str(), cOld) == NULL ||
+		realpath(cfString(newPath).c_str(), cNew) == NULL)
+		MacOSError::throwMe(errSecCSInternalError);
+	
+	if (strcmp(cOld, cNew) != 0)
+		recordStrictError(errSecCSAmbiguousBundleFormat);
+}
 
 // common construction code
 void BundleDiskRep::setup(const Context *ctx)
@@ -72,10 +87,12 @@ void BundleDiskRep::setup(const Context *ctx)
 
 	// capture the path of the main executable before descending into a specific version
 	CFRef<CFURLRef> mainExecBefore = CFBundleCopyExecutableURL(mBundle);
+	CFRef<CFURLRef> infoPlistBefore = _CFBundleCopyInfoPlistURL(mBundle);
 
 	// validate the bundle root; fish around for the desired framework version
 	string root = cfStringRelease(copyCanonicalPath());
 	string contents = root + "/Contents";
+	string supportFiles = root + "/Support Files";
 	string version = root + "/Versions/"
 		+ ((ctx && ctx->version) ? ctx->version : "Current")
 		+ "/.";
@@ -88,6 +105,8 @@ void BundleDiskRep::setup(const Context *ctx)
 		} catch (const MacOSError &err) {
 			recordStrictError(err.error);
 		}
+	} else if (::access(supportFiles.c_str(), F_OK) == 0) {	// ancient legacy boondoggle bundle
+		// treat like a shallow bundle; do not allow Versions arbitration
 	} else if (::access(version.c_str(), F_OK) == 0) {	// versioned bundle
 		if (CFBundleRef versionBundle = CFBundleCreate(NULL, CFTempURL(version)))
 			mBundle.take(versionBundle);	// replace top bundle ref
@@ -112,17 +131,12 @@ void BundleDiskRep::setup(const Context *ctx)
 			// That's because you know what you are doing if you are looking at a specific version.
 			// This check is designed to stop someone who did a verification on an app root, from mistakenly
 			// verifying a framework
-			if (mainExecBefore && (!ctx || !ctx->version)) {
-				char main_exec_before[PATH_MAX];
-				char main_exec[PATH_MAX];
-				// The realpath call is important because alot of Framework bundles have a symlink
-				// to their "Current" version binary in the main bundle
-				if (realpath(cfString(mainExecBefore).c_str(), main_exec_before) == NULL ||
-					realpath(cfString(mainExec).c_str(), main_exec) == NULL)
-					MacOSError::throwMe(errSecCSInternalError);
-
-				if (strcmp(main_exec_before, main_exec) != 0)
-					recordStrictError(errSecCSAmbiguousBundleFormat);
+			if (!ctx || !ctx->version) {
+				if (mainExecBefore)
+					checkMoved(mainExecBefore, mainExec);
+				if (infoPlistBefore)
+					if (CFRef<CFURLRef> infoDictPath = _CFBundleCopyInfoPlistURL(mBundle))
+						checkMoved(infoPlistBefore, infoDictPath);
 			}
 
 			mMainExecutableURL = mainExec;

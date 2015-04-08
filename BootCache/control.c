@@ -58,6 +58,13 @@ static int  add_logical_playlist(const char *playlist, struct BC_playlist *pc, i
 static int verbose;
 static char *myname;
 
+#ifdef DEBUG
+static FILE* outstream;
+#define DLOG(args...) fprintf(outstream, ##args)
+#else
+#define DLOG(args...)
+#endif
+
 int
 main(int argc, char *argv[])
 {
@@ -277,7 +284,7 @@ isRootCPDK()
 					if (CFGetTypeID(cfRef) == CFStringGetTypeID()) {
 						
 						lvUUID = CFStringCreateCopy(NULL, cfRef);
-						// fprintf(outfile, "%6f CoreStorage Logical Volume UUID is %p %s\n", CFAbsoluteTimeGetCurrent() - starttime, lvUUID, CFStringGetCStringPtr(lvUUID, 0)); fflush(outfile);
+						DLOG("CoreStorage Logical Volume UUID is %p %s\n", lvUUID, CFStringGetCStringPtr(lvUUID, 0));
 
 					}
 					
@@ -312,7 +319,7 @@ isRootCPDK()
 		if (NULL != lvgUUID) {
 
 			lvgUUID = CFStringCreateCopy(NULL, lvgUUID);
-			// fprintf(outfile, "%6f CoreStorage Logical Volume Group UUID is %p %s\n", CFAbsoluteTimeGetCurrent() - starttime, lvgUUID, CFStringGetCStringPtr(lvgUUID, 0)); fflush(outfile);
+			DLOG("CoreStorage Logical Volume Group UUID is %p %s\n", lvgUUID, CFStringGetCStringPtr(lvgUUID, 0));
 
 		}
 		
@@ -345,9 +352,9 @@ isRootCPDK()
 	}
 	
 	if (isCompositeDisk) {
-		// fprintf(outfile, "%6f is cpdk\n", CFAbsoluteTimeGetCurrent() - starttime); fflush(outfile);
+		DLOG("is cpdk\n");
 	} else {
-		// fprintf(outfile, "%6f is not cpdk\n", CFAbsoluteTimeGetCurrent() - starttime); fflush(outfile);
+		DLOG("is not cpdk\n");
 	}
 	
 	return isCompositeDisk;
@@ -359,6 +366,10 @@ isRootCPDK()
 static int
 do_boot_cache()
 {
+#ifdef DEBUG
+	outstream = fopen("/var/log/BootCacheControl.log", "a");
+#endif
+	
 	struct BC_playlist *pc;
 	int error;
 	const char* pfname = BC_ROOT_PLAYLIST;

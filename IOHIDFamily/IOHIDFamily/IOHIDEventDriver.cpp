@@ -2130,7 +2130,8 @@ void IOHIDEventDriver::setElementValue (
     IOHIDElement *element = 0;
 
     if ( usagePage == kHIDPage_LEDs )
-        element = _keyboard.ledElements[usage - kHIDUsage_LED_NumLock];
+        if ((usage == kHIDUsage_LED_NumLock) || (usage == kHIDUsage_LED_CapsLock))
+            element = _keyboard.ledElements[usage - kHIDUsage_LED_NumLock];
 
     if (element)
         element->setValue(value);
@@ -2146,7 +2147,8 @@ UInt32 IOHIDEventDriver::getElementValue (
     IOHIDElement *element = 0;
 
     if ( usagePage == kHIDPage_LEDs )
-        element = _keyboard.ledElements[usage - kHIDUsage_LED_NumLock];
+        if ((usage == kHIDUsage_LED_NumLock) || (usage == kHIDUsage_LED_CapsLock))
+            element = _keyboard.ledElements[usage - kHIDUsage_LED_NumLock];
 
     return (element) ? element->getValue() : 0;
 }

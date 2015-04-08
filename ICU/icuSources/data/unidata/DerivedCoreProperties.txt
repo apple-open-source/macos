@@ -9998,7 +9998,7 @@ FFFC..FFFD    ; Grapheme_Base
 1F3A0..1F3C4  ; Grapheme_Base
 1F3C6..1F3CA  ; Grapheme_Base
 1F3E0..1F3F0  ; Grapheme_Base
-1F400..1F43E  ; Grapheme_Base
+1F3FB..1F43E  ; Grapheme_Base
 1F440         ; Grapheme_Base
 1F442..1F4F7  ; Grapheme_Base
 1F4F9..1F4FC  ; Grapheme_Base

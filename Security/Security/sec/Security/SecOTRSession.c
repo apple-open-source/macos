@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include "utilities/comparison.h"
+#include <CoreFoundation/CFDate.h>
 
 #include "SecOTRSession.h"
 
@@ -69,6 +70,100 @@
 
 CFGiblisFor(SecOTRSession);
 
+static uint64_t setup_defaults_settings(){
+    
+    Boolean keyExistsAndHasValue = false;
+    uint64_t seconds;
+    seconds = CFPreferencesGetAppIntegerValue(CFSTR("OTR"), CFSTR("com.apple.security"), &keyExistsAndHasValue);
+    secdebug("OTR", "Retrieving OTR default settings was success? %d value retrieved: %llu", keyExistsAndHasValue, seconds);
+    return keyExistsAndHasValue ? seconds : (kSecondsPerMinute * 15); //15 minutes by default
+}
+
+static uint64_t SecOTRGetDefaultsWriteSeconds(void) {
+    static dispatch_once_t sdOnceToken;
+    static uint64_t seconds;
+    
+    dispatch_once(&sdOnceToken, ^{
+        seconds = setup_defaults_settings();
+    });
+    
+    return seconds;
+}
+
+static void SecOTRSEnableTimeToRoll(SecOTRSessionRef session){
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    CFAbsoluteTime nextTimeToRoll = now + session->_stallSeconds;
+    
+    if(session->_timeToRoll == 0 || session->_timeToRoll > nextTimeToRoll){
+        session->_timeToRoll = nextTimeToRoll;
+    }
+}
+
+static void SecOTRSExpireCachedKeysForFullKey(SecOTRSessionRef session, SecOTRFullDHKeyRef myKey)
+{
+    for(int i = 0; i < kOTRKeyCacheSize; ++i)
+    {
+        if (0 == constant_memcmp(session->_keyCache[i]._fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE)) {
+            CFDataAppendBytes(session->_macKeysToExpose, session->_keyCache[i]._receiveMacKey, sizeof(session->_keyCache[i]._receiveMacKey));
+            bzero(&session->_keyCache[i], sizeof(session->_keyCache[i]));
+        }
+    }
+}
+
+static void SecOTRSExpireCachedKeysForPublicKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef theirKey)
+{
+    for(int i = 0; i < kOTRKeyCacheSize; ++i)
+    {
+        if (0 == constant_memcmp(session->_keyCache[i]._publicKeyHash, SecPDHKGetHash(theirKey), CCSHA1_OUTPUT_SIZE)) {
+            CFDataAppendBytes(session->_macKeysToExpose, session->_keyCache[i]._receiveMacKey, sizeof(session->_keyCache[i]._receiveMacKey));
+            
+            bzero(&session->_keyCache[i], sizeof(session->_keyCache[i]));
+        }
+    }
+}
+
+static void SecOTRGenerateNewProposedKey(SecOTRSessionRef session)
+{
+    SecOTRSExpireCachedKeysForFullKey(session, session->_myKey);
+    
+    // Swap the keys so we know the current key.
+    {
+        SecOTRFullDHKeyRef oldKey = session->_myKey;
+        session->_myKey = session->_myNextKey;
+        session->_myNextKey = oldKey;
+    }
+    
+    // Derive a new next key by regenerating over the old key.
+    SecFDHKNewKey(session->_myNextKey);
+    
+    session->_keyID += 1;
+}
+
+
+static void SecOTRSHandleProposalAcknowledge(SecOTRSessionRef session){
+    if(session->_missedAck){
+        SecOTRGenerateNewProposedKey(session);
+        session->_missedAck = false;
+    }
+    else{
+        session->_receivedAck = true;
+        SecOTRSEnableTimeToRoll(session);
+    }
+}
+
+static void SecOTRSRollIfTime(SecOTRSessionRef session){
+    
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    CFAbsoluteTime longestTimeToRoll = now + session->_stallSeconds;
+    
+    //in case time to roll becomes too large we're going to roll now!
+    if(session->_timeToRoll < now || session->_timeToRoll > longestTimeToRoll){
+        SOSOTRSRoll(session);
+        session->_timeToRoll = 0;
+    }
+}
+
+
 static OTRMessageType SecOTRSGetMessageType(CFDataRef message)
 {
     OTRMessageType type = kInvalidMessage;
@@ -83,6 +178,8 @@ static OTRMessageType SecOTRSGetMessageType(CFDataRef message)
         switch (firstByte) {
             case kOddCompactDataMessage:
             case kEvenCompactDataMessage:
+            case kOddCompactDataMessageWithHashes:
+            case kEvenCompactDataMessageWithHashes:
                 type = firstByte;
                 break;
                 
@@ -96,19 +193,34 @@ static OTRMessageType SecOTRSGetMessageType(CFDataRef message)
     return type;
 }
 
+#if DEBUG
+
+static CFStringRef SecOTRCacheElementCopyDescription(SecOTRCacheElement *keyCache){
+    __block CFStringRef description = NULL;
+    BufferPerformWithHexString(keyCache->_fullKeyHash, sizeof(keyCache->_fullKeyHash), ^(CFStringRef fullKeyHashString) {
+        BufferPerformWithHexString(keyCache->_publicKeyHash,sizeof(keyCache->_publicKeyHash), ^(CFStringRef publicKeyHashString) {
+            description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("fkh: [%@], pkh: [%@], c: %llu tc: %llu"), fullKeyHashString, publicKeyHashString, keyCache->_counter, keyCache->_theirCounter);
+        });
+    });
+    return description;
+}
+
+#endif
 const char *SecOTRPacketTypeString(CFDataRef message)
 {
     if (!message) return "NoMessage";
     switch (SecOTRSGetMessageType(message)) {
-        case kDHMessage:                return "DHMessage (0x02)";
-        case kDataMessage:              return "DataMessage (0x03)";
-        case kDHKeyMessage:             return "DHKeyMessage (0x0A)";
-        case kRevealSignatureMessage:   return "RevealSignatureMessage (0x11)";
-        case kSignatureMessage:         return "SignatureMessage (0x12)";
-        case kEvenCompactDataMessage:   return "kEvenCompactDatamessage (0x20)";
-        case kOddCompactDataMessage:    return "kOddCompactDataMessage (0x21)";
-        case kInvalidMessage:           return "InvalidMessage (0xFF)";
-        default:                        return "UnknownMessage";
+        case kDHMessage:                        return "DHMessage (0x02)";
+        case kDataMessage:                      return "DataMessage (0x03)";
+        case kDHKeyMessage:                     return "DHKeyMessage (0x0A)";
+        case kRevealSignatureMessage:           return "RevealSignatureMessage (0x11)";
+        case kSignatureMessage:                 return "SignatureMessage (0x12)";
+        case kEvenCompactDataMessage:           return "kEvenCompactDatamessage (0x20)";
+        case kOddCompactDataMessage:            return "kOddCompactDataMessage (0x21)";
+        case kEvenCompactDataMessageWithHashes: return "kEvenCompactDatamessage (0x30)";
+        case kOddCompactDataMessageWithHashes:  return "kOddCompactDataMessage (0x31)";
+        case kInvalidMessage:                   return "InvalidMessage (0xFF)";
+        default:                                return "UnknownMessage";
     }
 }
 
@@ -124,9 +236,12 @@ static const char *SecOTRAuthStateString(SecOTRAuthState authState)
     }
 }
 
-static CF_RETURNS_RETAINED CFStringRef SecOTRSessionCopyDescription(CFTypeRef cf) {
+static CF_RETURNS_RETAINED CFStringRef SecOTRSessionCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SecOTRSessionRef session = (SecOTRSessionRef)cf;
-    return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<%s %s %s%s%s%s %d:%d %s%s>"),
+
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+
+    return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<%s %s %s%s%s%s %d:%d %s%s %llu %s%s%s%s>"),
                                     SecOTRAuthStateString(session->_state),
                                     session->_compactAppleMessages ? "C" :"c",
                                     session->_me ? "F" : "f",
@@ -136,7 +251,12 @@ static CF_RETURNS_RETAINED CFStringRef SecOTRSessionCopyDescription(CFTypeRef cf
                                     session->_keyID,
                                     session->_theirKeyID,
                                     session->_theirPreviousKey ? "P" : "p",
-                                    session->_theirKey ? "T" : "t");
+                                    session->_theirKey ? "T" : "t",
+                                    session->_stallSeconds,
+                                    session->_missedAck ? "M" : "m",
+                                    session->_receivedAck ? "R" : "r",
+                                    session->_stallingTheirRoll ? "S" : "s",
+                                    (session->_timeToRoll > now && session->_timeToRoll != 0) ? "E" : "e");
 }
 
 static void SecOTRSessionDestroy(CFTypeRef cf) {
@@ -178,6 +298,14 @@ static void SecOTRSessionResetInternal(SecOTRSessionRef session)
     bzero(session->_keyCache, sizeof(session->_keyCache));
 }
 
+int SecOTRSGetKeyID(SecOTRSessionRef session){
+    return session->_keyID;
+}
+
+int SecOTRSGetTheirKeyID(SecOTRSessionRef session){
+    return session->_theirKeyID;
+}
+
 void SecOTRSessionReset(SecOTRSessionRef session)
 {
     dispatch_sync_f(session->_queue, session, (dispatch_function_t) SecOTRSessionResetInternal);
@@ -190,6 +318,7 @@ SecOTRSessionRef SecOTRSessionCreateFromID(CFAllocatorRef allocator,
 {
     SecOTRSessionRef newID = CFTypeAllocate(SecOTRSession, struct _SecOTRSession, allocator);
 
+    (void)SecOTRGetDefaultsWriteSeconds();
     newID->_queue = dispatch_queue_create("OTRSession", DISPATCH_QUEUE_SERIAL);
 
     newID->_me = myID;
@@ -203,6 +332,13 @@ SecOTRSessionRef SecOTRSessionCreateFromID(CFAllocatorRef allocator,
     newID->_macKeysToExpose = NULL;
     newID->_textOutput = false;
     newID->_compactAppleMessages = false;
+    newID->_includeHashes = false;
+    
+    newID->_timeToRoll =  0;
+    newID->_stallingTheirRoll = false;
+    newID->_stallSeconds = 0;
+    newID->_missedAck = true;
+    newID->_receivedAck = false;
 
     SecOTRSessionResetInternal(newID);
 
@@ -217,6 +353,9 @@ SecOTRSessionRef SecOTRSessionCreateFromIDAndFlags(CFAllocatorRef allocator,
                                            SecOTRPublicIdentityRef theirID,
                                            uint32_t flags)
 {
+    
+    uint64_t seconds = SecOTRGetDefaultsWriteSeconds();
+    
     SecOTRSessionRef newID = SecOTRSessionCreateFromID(allocator, myID, theirID);
     if (flags & kSecOTRSendTextMessages) {
         newID->_textOutput = true;
@@ -224,6 +363,15 @@ SecOTRSessionRef SecOTRSessionCreateFromIDAndFlags(CFAllocatorRef allocator,
     if (flags & kSecOTRUseAppleCustomMessageFormat) {
         newID->_compactAppleMessages = true;
     }
+    if(flags & kSecOTRIncludeHashesInMessages)
+    {
+        newID->_includeHashes = true;
+    }
+    if(flags & kSecOTRSlowRoll)
+    {
+        newID->_stallSeconds = seconds;
+    }
+
     return newID;
 }
 
@@ -238,11 +386,32 @@ static bool hashIsZero(uint8_t hash[CCSHA1_OUTPUT_SIZE])
     return isZero;
 }
 
-
 static bool SOSOTRSCacheEntryIsEmpty(SecOTRCacheElement *element)
 {
     return hashIsZero(element->_fullKeyHash) && hashIsZero(element->_publicKeyHash);
 }
+
+#if DEBUG
+
+static void WithCacheDescription(SecOTRSessionRef session, void (^operation)(CFStringRef cacheDescription)) {
+    CFStringRef description = NULL;
+    
+    CFStringRef keyCache0Description = SecOTRCacheElementCopyDescription(&session->_keyCache[0]);
+    CFStringRef keyCache1Description = SecOTRCacheElementCopyDescription(&session->_keyCache[1]);
+    CFStringRef keyCache2Description = SecOTRCacheElementCopyDescription(&session->_keyCache[2]);
+    CFStringRef keyCache3Description = SecOTRCacheElementCopyDescription(&session->_keyCache[3]);
+    
+    description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("{%@, %@, %@, %@}"), keyCache0Description, keyCache1Description, keyCache2Description, keyCache3Description);
+    
+    operation(description);
+    
+    CFReleaseNull(keyCache0Description);
+    CFReleaseNull(keyCache1Description);
+    CFReleaseNull(keyCache2Description);
+    CFReleaseNull(keyCache3Description);
+}
+
+#endif
 
 static void SecOTRSFindKeysForMessage(SecOTRSessionRef session,
                                       SecOTRFullDHKeyRef myKey,
@@ -252,7 +421,10 @@ static void SecOTRSFindKeysForMessage(SecOTRSessionRef session,
 {
     SecOTRCacheElement* emptyKeys = NULL;
     SecOTRCacheElement* cachedKeys = NULL;
-    
+#if DEBUG
+    int emptyPosition = kOTRKeyCacheSize;
+#endif
+
     if ((NULL == myKey) || (NULL == theirKey)) {
         if (messageKey)
             *messageKey = NULL;
@@ -269,18 +441,32 @@ static void SecOTRSFindKeysForMessage(SecOTRSessionRef session,
         if (0 == constant_memcmp(session->_keyCache[i]._fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE)
          && (0 == constant_memcmp(session->_keyCache[i]._publicKeyHash, SecPDHKGetHash(theirKey), CCSHA1_OUTPUT_SIZE))) {
             cachedKeys = &session->_keyCache[i];
+#if DEBUG
+            secerror("session@[%p] found key match: mk: %@, tk: %@", session, myKey, theirKey);
+#endif
             break;
         }
 
         if (emptyKeys == NULL && SOSOTRSCacheEntryIsEmpty(&(session->_keyCache[i]))) {
+#if DEBUG
+            emptyPosition = i;
+#endif
+
             emptyKeys = &session->_keyCache[i];
         }
     }
 
     if (cachedKeys == NULL) {
         if (emptyKeys == NULL) {
-            secerror("SecOTRSession key cache was full. Should never happen, spooky.\n");
+#if DEBUG
+            WithCacheDescription(session, ^(CFStringRef cacheDescription) {
+                secerror("session@[%p] Cache miss, spooky for mk: %@, tk: %@ cache: %@", session, myKey, theirKey, cacheDescription);
+            });
+            emptyPosition = 0;
+#endif
+
             emptyKeys = &session->_keyCache[0];
+
         }
 
         // Fill in the entry.
@@ -295,6 +481,12 @@ static void SecOTRSFindKeysForMessage(SecOTRSessionRef session,
                               emptyKeys->_receiveEncryptionKey, emptyKeys->_receiveMacKey);
 
         cachedKeys = emptyKeys;
+#if DEBUG
+        WithCacheDescription(session, ^(CFStringRef cacheDescription) {
+            secerror("mk %@, th: %@ session@[%p] new key cache state added key@[%d]: %@", myKey, theirKey, session, emptyPosition, cacheDescription);
+        });
+#endif
+
     }
     
     if (messageKey)
@@ -313,9 +505,14 @@ SecOTRSessionRef SecOTRSessionCreateFromData(CFAllocatorRef allocator, CFDataRef
     SecOTRSessionRef result = NULL;
     SecOTRSessionRef session = CFTypeAllocate(SecOTRSession, struct _SecOTRSession, allocator);
 
+    uint8_t numberOfKeys;
+    uint64_t timeToRoll;
+    
     const uint8_t *bytes = CFDataGetBytePtr(data);
     size_t size = (size_t)CFDataGetLength(data);
-
+    
+    (void)SecOTRGetDefaultsWriteSeconds();
+    
     session->_queue = dispatch_queue_create("OTRSession", DISPATCH_QUEUE_SERIAL);
 
     session->_me = NULL;
@@ -328,12 +525,17 @@ SecOTRSessionRef SecOTRSessionCreateFromData(CFAllocatorRef allocator, CFDataRef
     session->_receivedDHKeyMessage = NULL;
     session->_textOutput = false;
     session->_compactAppleMessages = false;
+    session->_timeToRoll =  0;
+    session->_stallingTheirRoll = false;
+    session->_stallSeconds = 0;
+    session->_missedAck = true;
+    session->_receivedAck = false;
 
     bzero(session->_keyCache, sizeof(session->_keyCache));
 
     uint8_t version;
     require_noerr(ReadByte(&bytes, &size, &version), fail);
-    require(version <= 4, fail);
+    require(version <= 6, fail);
 
     require_noerr(ReadLong(&bytes, &size, &session->_state), fail);
     session->_me = SecOTRFullIdentityCreateFromBytes(kCFAllocatorDefault, &bytes, &size, NULL);
@@ -361,14 +563,15 @@ SecOTRSessionRef SecOTRSessionCreateFromData(CFAllocatorRef allocator, CFDataRef
             session->_receivedDHKeyMessage = CFDataCreateMutableFromOTRDATA(kCFAllocatorDefault, &bytes, &size);
         }
     }
-
+    
     if (version < 3) {
         uint8_t ready;
         require_noerr(ReadByte(&bytes, &size, &ready), fail);
         if (ready && session->_state == kIdle)
             session->_state = kDone;
     }
-
+    
+    
     require_noerr(ReadLong(&bytes, &size, &session->_keyID), fail);
     if (session->_keyID > 0) {
         session->_myKey = SecOTRFullDHKCreateFromBytes(kCFAllocatorDefault, &bytes, &size);
@@ -377,16 +580,32 @@ SecOTRSessionRef SecOTRSessionCreateFromData(CFAllocatorRef allocator, CFDataRef
         require(session->_myNextKey != NULL, fail);
     }
     
+    
+    require_noerr(ReadByte(&bytes, &size, &numberOfKeys), fail);
+    
     require_noerr(ReadLong(&bytes, &size, &session->_theirKeyID), fail);
-    if (session->_theirKeyID > 0) {
-        if (session->_theirKeyID > 1) {
-            session->_theirPreviousKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
-            require(session->_theirPreviousKey != NULL, fail);
+    if (version < 5) {
+        if (session->_theirKeyID > 0) {
+            if (session->_theirKeyID > 1) {
+                session->_theirPreviousKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
+                require(session->_theirPreviousKey != NULL, fail);
+            }
+            session->_theirKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
+            require(session->_theirKey != NULL, fail);
         }
-        session->_theirKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
-        require(session->_theirKey != NULL, fail);
     }
-
+    else {
+        if(numberOfKeys >= 1){
+            if (numberOfKeys >= 2) {
+                session->_theirPreviousKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
+                require(session->_theirPreviousKey != NULL, fail);
+            }
+            session->_theirKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
+            require(session->_theirKey != NULL, fail);
+        }
+    }
+    
+    
     uint64_t *counter;
     SecOTRSFindKeysForMessage(session, session->_myKey, session->_theirKey, false, NULL, NULL, &counter);
     require_noerr(ReadLongLong(&bytes, &size, counter), fail);
@@ -413,7 +632,17 @@ SecOTRSessionRef SecOTRSessionCreateFromData(CFAllocatorRef allocator, CFDataRef
     if (version >= 4) {
         require_noerr(ReadByteAsBool(&bytes, &size, &session->_compactAppleMessages), fail);
     }
-
+    if (version >= 5) {
+        require_noerr(ReadByteAsBool(&bytes, &size, &session->_includeHashes), fail);
+    }
+    if (version >= 6) {
+        require_noerr(ReadLongLong(&bytes, &size, &session->_stallSeconds), fail);
+        require_noerr(ReadByteAsBool(&bytes, &size, &session->_stallingTheirRoll), fail);
+        require_noerr(ReadLongLong(&bytes, &size, &timeToRoll), fail);
+        require_noerr(ReadByteAsBool(&bytes, &size, &session->_missedAck), fail);
+        require_noerr(ReadByteAsBool(&bytes, &size, &session->_receivedAck), fail);
+        session->_timeToRoll = timeToRoll;
+    }
     result = session;
     session = NULL;
 
@@ -431,10 +660,10 @@ OSStatus SecOTRSAppendSerialization(SecOTRSessionRef session, CFMutableDataRef s
     require(serializeInto, abort);
 
     CFIndex start = CFDataGetLength(serializeInto);
-
+    
     dispatch_sync(session->_queue, ^{
-        const uint8_t version = 4;
-
+        const uint8_t version = 6;
+        uint8_t numberOfKeys = 0;
         CFDataAppendBytes(serializeInto, &version, sizeof(version));
 
         AppendLong(serializeInto, session->_state);
@@ -454,27 +683,35 @@ OSStatus SecOTRSAppendSerialization(SecOTRSessionRef session, CFMutableDataRef s
                 AppendByte(serializeInto, 1);
                 AppendCFDataAsDATA(serializeInto, session->_receivedDHMessage);
             }
-
+            
             if (session->_receivedDHKeyMessage == NULL) {
                 AppendByte(serializeInto, 0);
             } else {
                 AppendByte(serializeInto, 1);
                 AppendCFDataAsDATA(serializeInto, session->_receivedDHKeyMessage);
             }
-
+            
             AppendLong(serializeInto, session->_keyID);
             if (session->_keyID > 0) {
                 SecFDHKAppendSerialization(session->_myKey, serializeInto);
                 SecFDHKAppendSerialization(session->_myNextKey, serializeInto);
             }
-
+            
+            if(session->_theirPreviousKey != NULL)
+                numberOfKeys++;
+            if(session->_theirKey != NULL)
+                numberOfKeys++;
+            
+            AppendByte(serializeInto, numberOfKeys);
+            
             AppendLong(serializeInto, session->_theirKeyID);
-            if (session->_theirKeyID > 0) {
-                if (session->_theirKeyID > 1) {
-                    SecPDHKAppendSerialization(session->_theirPreviousKey, serializeInto);
-                }
+            
+            if (session->_theirPreviousKey != NULL)
+                SecPDHKAppendSerialization(session->_theirPreviousKey, serializeInto);
+            
+            if (session->_theirKey != NULL )
                 SecPDHKAppendSerialization(session->_theirKey, serializeInto);
-            }
+            
             
             uint64_t *counter;
             SecOTRSFindKeysForMessage(session, session->_myKey, session->_theirKey, false, NULL, NULL, &counter);
@@ -498,6 +735,15 @@ OSStatus SecOTRSAppendSerialization(SecOTRSessionRef session, CFMutableDataRef s
             
             AppendByte(serializeInto, session->_textOutput ? 1 : 0);
             AppendByte(serializeInto, session->_compactAppleMessages ? 1 : 0);
+            AppendByte(serializeInto, session->_includeHashes ? 1 : 0);
+
+            AppendLongLong(serializeInto, session->_stallSeconds ? session->_stallSeconds : constant_zero);
+
+            AppendByte(serializeInto, session->_stallingTheirRoll ? 1 : 0);
+            AppendLongLong(serializeInto, (uint64_t)session->_timeToRoll);
+            AppendByte(serializeInto, session->_missedAck ? 1 : 0);
+            AppendByte(serializeInto, session->_receivedAck ? 1 : 0);
+
         }
     });
 
@@ -527,30 +773,6 @@ bool SecOTRSGetIsIdle(SecOTRSessionRef session)
     return result;
 }
 
-static void SecOTRSExpireCachedKeysForFullKey(SecOTRSessionRef session, SecOTRFullDHKeyRef myKey)
-{
-    for(int i = 0; i < kOTRKeyCacheSize; ++i)
-    {
-        if (0 == constant_memcmp(session->_keyCache[i]._fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE)) {
-            CFDataAppendBytes(session->_macKeysToExpose, session->_keyCache[i]._receiveMacKey, sizeof(session->_keyCache[i]._receiveMacKey));
-
-            bzero(&session->_keyCache[i], sizeof(session->_keyCache[i]));
-        }
-    }
-}
-
-static void SecOTRSExpireCachedKeysForPublicKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef theirKey)
-{
-    for(int i = 0; i < kOTRKeyCacheSize; ++i)
-    {
-        if (0 == constant_memcmp(session->_keyCache[i]._publicKeyHash, SecPDHKGetHash(theirKey), CCSHA1_OUTPUT_SIZE)) {
-            CFDataAppendBytes(session->_macKeysToExpose, session->_keyCache[i]._receiveMacKey, sizeof(session->_keyCache[i]._receiveMacKey));
-
-            bzero(&session->_keyCache[i], sizeof(session->_keyCache[i]));
-        }
-    }
-}
-
 static void SecOTRSPrecalculateForPair(SecOTRSessionRef session,
                                        SecOTRFullDHKeyRef myKey,
                                        SecOTRPublicDHKeyRef theirKey)
@@ -570,6 +792,11 @@ static void SecOTRSPrecalculateKeysInternal(SecOTRSessionRef session)
     SecOTRSPrecalculateForPair(session, session->_myNextKey, session->_theirPreviousKey);
 }
 
+static void SecOTRSPrecalculateNextKeysInternal(SecOTRSessionRef session)
+{
+    SecOTRSPrecalculateForPair(session, session->_myKey, session->_theirKey);
+}
+
 void SecOTRSPrecalculateKeys(SecOTRSessionRef session)
 {
     dispatch_sync_f(session->_queue, session, (dispatch_function_t) SecOTRSPrecalculateKeysInternal);
@@ -585,6 +812,8 @@ enum SecOTRSMessageKind SecOTRSGetMessageKind(SecOTRSessionRef session, CFDataRe
         case kDataMessage:
         case kEvenCompactDataMessage:
         case kOddCompactDataMessage:
+        case kEvenCompactDataMessageWithHashes:
+        case kOddCompactDataMessageWithHashes:
             kind = kOTRDataPacket;
             break;
         case kDHMessage:
@@ -604,7 +833,7 @@ enum SecOTRSMessageKind SecOTRSGetMessageKind(SecOTRSessionRef session, CFDataRe
 
 static OSStatus SecOTRSSignAndProtectRaw_locked(SecOTRSessionRef session,
                                                 CFDataRef sourceMessage, CFMutableDataRef destinationMessage,
-                                                uint8_t* messageKey, uint8_t* macKey, uint64_t* counter)
+                                                uint8_t* messageKey, uint8_t* macKey, uint64_t* counter, uint32_t theirKeyID,  SecOTRPublicDHKeyRef theirKey)
 {
     CFIndex start = CFDataGetLength(destinationMessage);
 
@@ -612,7 +841,7 @@ static OSStatus SecOTRSSignAndProtectRaw_locked(SecOTRSessionRef session,
     AppendByte(destinationMessage, 0); // Flags, all zero
 
     AppendLong(destinationMessage, session->_keyID);
-    AppendLong(destinationMessage, session->_theirKeyID);
+    AppendLong(destinationMessage, theirKeyID);
     SecFDHKAppendPublicSerialization(session->_myNextKey, destinationMessage);
     AppendLongLong(destinationMessage, ++*counter);
 
@@ -643,11 +872,15 @@ const size_t kCompactMessageMACSize = 16;
 
 static OSStatus SecOTRSSignAndProtectCompact_locked(SecOTRSessionRef session,
                                                     CFDataRef sourceMessage, CFMutableDataRef destinationMessage,
-                                                    uint8_t* messageKey, uint8_t* macKey, uint64_t* counter)
+                                                    uint8_t* messageKey, uint8_t* macKey, uint64_t* counter, uint32_t theirKeyID, SecOTRPublicDHKeyRef theirKey)
 {
     CFIndex start = CFDataGetLength(destinationMessage);
+    bool sendHashes = session->_includeHashes;
+    
+    const uint8_t messageType = sendHashes ? ((theirKeyID & 0x1) ? kOddCompactDataMessageWithHashes : kEvenCompactDataMessageWithHashes)
+                                           : ((theirKeyID & 0x1) ? kOddCompactDataMessage           : kEvenCompactDataMessage);
 
-    AppendByte(destinationMessage, (session->_theirKeyID & 0x1) ? kOddCompactDataMessage : kEvenCompactDataMessage);
+    AppendByte(destinationMessage, messageType);
 
     SecFDHKAppendCompactPublicSerialization(session->_myNextKey, destinationMessage);
     AppendLongLongCompact(destinationMessage, ++*counter);
@@ -660,6 +893,17 @@ static OSStatus SecOTRSSignAndProtectCompact_locked(SecOTRSessionRef session,
                                (size_t)sourceSize, CFDataGetBytePtr(sourceMessage),
                                encryptedDataPointer);
 
+    if (sendHashes) {
+        uint8_t *senderHashPtr = CFDataIncreaseLengthAndGetMutableBytes(destinationMessage, kSecDHKHashSize);
+        
+        memcpy(senderHashPtr, SecFDHKGetHash(session->_myKey), kSecDHKHashSize);
+        
+        uint8_t *receiverHashPtr = CFDataIncreaseLengthAndGetMutableBytes(destinationMessage, kSecDHKHashSize);
+        
+        memcpy(receiverHashPtr, SecPDHKGetHash(theirKey), kSecDHKHashSize);
+    }
+    
+    
     CFIndex macedContentsSize = CFDataGetLength(destinationMessage) - start;
     CFIndex macSize = CCSHA1_OUTPUT_SIZE;
     uint8_t mac[macSize];
@@ -692,16 +936,25 @@ OSStatus SecOTRSSignAndProtectMessage(SecOTRSessionRef session,
         uint8_t *messageKey;
         uint8_t *macKey;
         uint64_t *counter;
+        uint32_t theirKeyID = session->_theirKeyID;
 
-        SecOTRSFindKeysForMessage(session, session->_myKey, session->_theirKey,
+        SecOTRPublicDHKeyRef theirKeyToUse = session->_theirKey;
+        
+        SecOTRSRollIfTime(session);
+
+        if(session->_stallingTheirRoll && session->_theirPreviousKey){
+            theirKeyToUse = session->_theirPreviousKey;
+            theirKeyID = session->_theirKeyID - 1;
+        }
+
+        SecOTRSFindKeysForMessage(session, session->_myKey, theirKeyToUse,
                                   true,
                                   &messageKey, &macKey, &counter);
 
-
         CFMutableDataRef destinationMessage = session->_textOutput ? CFDataCreateMutable(kCFAllocatorDefault, 0) : CFRetainSafe(protectedMessage);
 
-        result = session->_compactAppleMessages ? SecOTRSSignAndProtectCompact_locked(session, sourceMessage, destinationMessage, messageKey, macKey, counter)
-        : SecOTRSSignAndProtectRaw_locked(session, sourceMessage, destinationMessage, messageKey, macKey, counter);
+        result = session->_compactAppleMessages ? SecOTRSSignAndProtectCompact_locked(session, sourceMessage, destinationMessage, messageKey, macKey, counter, theirKeyID, theirKeyToUse)
+        : SecOTRSSignAndProtectRaw_locked(session, sourceMessage, destinationMessage, messageKey, macKey, counter, theirKeyID, theirKeyToUse);
         
         if (result == errSecSuccess) {
             if (session->_textOutput) {
@@ -720,6 +973,10 @@ abort:
     return result;
 }
 
+void SecOTRSKickTimeToRoll(SecOTRSessionRef session){
+	session->_timeToRoll = CFAbsoluteTimeGetCurrent();
+}
+
 static void SecOTRAcceptNewRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef newKey)
 {
     if (session->_theirPreviousKey) {
@@ -733,21 +990,29 @@ static void SecOTRAcceptNewRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKey
     session->_theirKeyID += 1;
 }
 
-static void SecOTRGenerateNewProposedKey(SecOTRSessionRef session)
-{
-    SecOTRSExpireCachedKeysForFullKey(session, session->_myKey);
+OSStatus SecOTRSetupInitialRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef initialKey) {
+   
+    bzero(session->_keyCache, sizeof(session->_keyCache));
+    
+    session->_theirKey = initialKey;
+    session->_theirKeyID = 1;
+    
+    return errSecSuccess;
+}
 
-    // Swap the keys so we know the current key.
-    {
-        SecOTRFullDHKeyRef oldKey = session->_myKey;
-        session->_myKey = session->_myNextKey;
-        session->_myNextKey = oldKey;
+void SOSOTRSRoll(SecOTRSessionRef session){
+    
+    session->_stallingTheirRoll = false;
+    
+    //receiving side roll
+    if(session->_receivedAck){
+        SecOTRGenerateNewProposedKey(session);
+        session->_missedAck = false;
+        session->_receivedAck = false;
     }
-
-    // Derive a new next key by regenerating over the old key.
-    SecFDHKNewKey(session->_myNextKey);
-
-    session->_keyID += 1;
+    else{
+        session->_missedAck = true;
+    }
 }
 
 static OSStatus SecOTRVerifyAndExposeRaw_locked(SecOTRSessionRef session,
@@ -841,10 +1106,12 @@ static OSStatus SecOTRVerifyAndExposeRaw_locked(SecOTRSessionRef session,
     }
 
     if (myID == (session->_keyID + 1)) {
-        SecOTRGenerateNewProposedKey(session);
+        SecOTRSHandleProposalAcknowledge(session);
     }
 
-    SecOTRSPrecalculateKeysInternal(session);
+    SecOTRSRollIfTime(session);
+
+    SecOTRSPrecalculateNextKeysInternal(session);
 
 fail:
     CFReleaseNull(newKey);
@@ -859,45 +1126,85 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
     OSStatus result = errSecDecode;
     const uint8_t* bytes;
     size_t  size;
-
+    SecOTRPublicDHKeyRef theirKeyForMessage = NULL;
     bytes = CFDataGetBytePtr(decodedBytes);
     size = CFDataGetLength(decodedBytes);
-
+    SecOTRFullDHKeyRef myKeyForMessage = NULL;
     const uint8_t* macDataStart = bytes;
+    bool useEvenKey = false;
+    bool useCurrentKey = false;
+    bool sentHashes = false;
+    uint64_t counter = 0;
 
     uint8_t type_byte;
     require_noerr_quiet(result = ReadByte(&bytes, &size, &type_byte), fail);
-    require_action_quiet(type_byte == kOddCompactDataMessage || type_byte == kEvenCompactDataMessage, fail, result = errSecDecode);
+    require_action_quiet(type_byte == kOddCompactDataMessage || type_byte == kEvenCompactDataMessage
+                         || type_byte == kOddCompactDataMessageWithHashes || type_byte == kEvenCompactDataMessageWithHashes, fail, result = errSecDecode);
 
-    bool useEvenKey = (type_byte == kEvenCompactDataMessage);
+    useEvenKey = (type_byte == kEvenCompactDataMessage || type_byte == kEvenCompactDataMessageWithHashes);
+    sentHashes = (type_byte == kOddCompactDataMessageWithHashes || type_byte == kEvenCompactDataMessageWithHashes);
 
-    bool useCurrentKey = useEvenKey ^ (session->_keyID & 1);
-    SecOTRFullDHKeyRef myKeyForMessage =  useCurrentKey ? session->_myKey : session->_myNextKey;
+    useCurrentKey = useEvenKey ^ (session->_keyID & 1);
+    myKeyForMessage = useCurrentKey ? session->_myKey : session->_myNextKey;
+    
+    require_action_quiet(myKeyForMessage, fail, result = errSecDecode);
 
     theirProposal = SecOTRPublicDHKCreateFromCompactSerialization(kCFAllocatorDefault, &bytes, &size);
-
+    
     require_action_quiet(theirProposal, fail, result = errSecDecode);
-
+    
     bool proposalIsNew = !CFEqualSafe(theirProposal, session->_theirKey);
-    SecOTRPublicDHKeyRef theirKeyForMessage = proposalIsNew ? session->_theirKey : session->_theirPreviousKey;
-
+    theirKeyForMessage = proposalIsNew ? session->_theirKey : session->_theirPreviousKey;
+    
+    require_action_quiet(theirKeyForMessage, fail, result = errSecDecode);
+    
     uint8_t *messageKey;
     uint8_t *macKey;
     uint64_t *theirCounter;
 
+
     SecOTRSFindKeysForMessage(session, myKeyForMessage, theirKeyForMessage, false, &messageKey, &macKey, &theirCounter);
 
-    uint64_t counter;
     require_noerr_quiet(result = ReadLongLongCompact(&bytes, &size, &counter), fail);
     require_action_quiet(counter > *theirCounter, fail, result = errSecOTRTooOld);
 
-    uint8_t mac[CCSHA1_OUTPUT_SIZE];
-    require_action_quiet(sizeof(mac) < size, fail, result = errSecDecode); // require space for the mac and some bytes
-
-    size_t messageSize = size - kCompactMessageMACSize; // It's all message except for the MAC
+    size_t messageSize = size - kCompactMessageMACSize - (sentHashes ? 2 * kSecDHKHashSize : 0); // It's all message except for the MAC and maybe hashes
     const uint8_t* messageStart = bytes;
 
     bytes += messageSize;
+    size -= messageSize;
+    
+    if (sentHashes) {
+        // Sender then receiver keys
+
+        if (memcmp(SecPDHKGetHash(theirKeyForMessage), bytes, kSecDHKHashSize) != 0) {
+            // Wrong sender key WTF.
+#if DEBUG
+            BufferPerformWithHexString(bytes, kSecDHKHashSize, ^(CFStringRef dataString) {
+                secerror("Sender key hash doesn't match: %@ != %@", theirKeyForMessage, dataString);
+            });
+#endif
+        }
+        
+        bytes += kSecDHKHashSize;
+        size -= kSecDHKHashSize;
+        
+        if (memcmp(SecFDHKGetHash(myKeyForMessage), bytes, kSecDHKHashSize) != 0) {
+            // Wrong sender key WTF.
+#if DEBUG
+            BufferPerformWithHexString(bytes, kSecDHKHashSize, ^(CFStringRef dataString) {
+                secerror("Receiver key hash doesn't match: %@ != %@", myKeyForMessage, dataString);
+            });
+#endif
+        }
+        
+        bytes += kSecDHKHashSize;
+        size -= kSecDHKHashSize;
+        
+    }
+    
+    uint8_t mac[CCSHA1_OUTPUT_SIZE];
+    require_action_quiet(kCompactMessageMACSize == size, fail, result = errSecDecode); // require space for the mac and some bytes
 
     size_t macDataSize = (size_t)(bytes - macDataStart);
 
@@ -923,10 +1230,11 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
     }
     
     if (!useCurrentKey) {
-        SecOTRGenerateNewProposedKey(session);
+        SecOTRSHandleProposalAcknowledge(session);
     }
+    SecOTRSRollIfTime(session);
 
-    SecOTRSPrecalculateKeysInternal(session);
+    SecOTRSPrecalculateNextKeysInternal(session);
 
 fail:
     CFReleaseNull(theirProposal);
@@ -940,34 +1248,41 @@ OSStatus SecOTRSVerifyAndExposeMessage(SecOTRSessionRef session,
 {
     __block OSStatus result = errSecParam;
 
-
+    
     require(session, abort);
     require(incomingMessage, abort);
     require(exposedMessageContents, abort);
-
-    dispatch_sync(session->_queue, ^{
-        CFDataRef decodedBytes = SecOTRCopyIncomingBytes(incomingMessage);
-
-        OTRMessageType messageType = SecOTRSGetMessageType(decodedBytes);
-
-        switch (messageType) {
-            case kDataMessage:
-                result = SecOTRVerifyAndExposeRaw_locked(session, decodedBytes, exposedMessageContents);
-                break;
-
-            case kOddCompactDataMessage:
-            case kEvenCompactDataMessage:
-                result = SecOTRVerifyAndExposeRawCompact_locked(session, decodedBytes, exposedMessageContents);
-                break;
-
-            default:
-                result = errSecUnsupportedFormat;
-                break;
-        }
-
-        CFReleaseSafe(decodedBytes);
-    });
-
+    
+    if(session->_state == kDone){
+        dispatch_sync(session->_queue, ^{
+            CFDataRef decodedBytes = SecOTRCopyIncomingBytes(incomingMessage);
+            
+            OTRMessageType messageType = SecOTRSGetMessageType(decodedBytes);
+            
+            switch (messageType) {
+                case kDataMessage:
+                    result = SecOTRVerifyAndExposeRaw_locked(session, decodedBytes, exposedMessageContents);
+                    break;
+                    
+                case kOddCompactDataMessage:
+                case kEvenCompactDataMessage:
+                case kOddCompactDataMessageWithHashes:
+                case kEvenCompactDataMessageWithHashes:
+                    result = SecOTRVerifyAndExposeRawCompact_locked(session, decodedBytes, exposedMessageContents);
+                    break;
+                    
+                default:
+                    result = errSecUnsupportedFormat;
+                    break;
+            }
+            
+            CFReleaseSafe(decodedBytes);
+        });
+    }
+    else{
+        secnotice("OTR", "session[%p]Cannot process message:%@, session is not done negotiating, session state: %@", session, incomingMessage, session);
+        result = errSecOTRNotReady;
+    }
 abort:
     return result;
 }
@@ -1019,6 +1334,7 @@ static bool data_data_to_data_data_bool_error_request(enum SecXPCOperation op, C
 
 CFDataRef SecOTRSessionCreateRemote(CFDataRef publicPeerId, CFErrorRef *error) {
 
+    (void)SecOTRGetDefaultsWriteSeconds();
     CFDataRef otrSession = SECURITYD_XPC(sec_otr_session_create_remote, data_to_data_error_request, publicPeerId, error);
     return otrSession;
 

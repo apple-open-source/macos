@@ -174,7 +174,6 @@ struct BC_statistics {
 	/* readahead */
 	u_int   ss_readahead_threads; /* number of readahead threads */
 	u_int	ss_initiated_reads;	/* read operations we initiated */
-	u_int	ss_disk_initiated_reads[STAT_DISKMAX];	/* read operations we initiated per disk */
 	u_int	ss_read_blocks;		/* number of blocks read */
 	u_int	ss_read_bytes;		/* number of bytes read */
 	u_int	ss_read_errors;		/* read errors encountered */
@@ -182,6 +181,7 @@ struct BC_statistics {
 	u_int	ss_batch_bytes[STAT_DISKMAX][STAT_BATCHMAX+1];	/* number of bytes in read per batch, +1 for sum of extra batches */
 	u_int	ss_batch_late_bytes[STAT_DISKMAX][STAT_BATCHMAX+1];	/* number of bytes read during this batch
 																	that were scheduled for an earlier batch */
+	u_int	ss_batch_initiated_reads[STAT_DISKMAX][STAT_BATCHMAX+1];	/* read operations we initiated per batch */
 	u_int	ss_batch_time[STAT_DISKMAX][STAT_BATCHMAX+1];	/* msecs per batch, +1 for sum of extra batches */
 	u_int	ss_cache_time;		/* msecs cache was alive */
 	u_int	ss_preload_time;	/* msecs before cache started */
@@ -189,7 +189,7 @@ struct BC_statistics {
 	u_int	ss_read_bytes_lowpri;                         /* number of bytes read */
 	u_int	ss_batch_bytes_lowpri[STAT_DISKMAX];          /* number of bytes in read per disk */
 	u_int	ss_batch_time_lowpri[STAT_DISKMAX];           /* msecs per disk */
-	u_int	ss_disk_initiated_reads_lowpri[STAT_DISKMAX]; /* read operations we initiated per disk */
+	u_int	ss_batch_initiated_reads_lowpri[STAT_DISKMAX]; /* read operations we initiated per disk */
 
 	/* inbound strategy calls (while we're recording) */
 	u_int	ss_strategy_calls;			/* total strategy calls we received */
@@ -216,6 +216,7 @@ struct BC_statistics {
 	u_int	ss_strategy_bypass_duringio_rootdisk_failure;	/* read strategy calls we hit but failed to fulfil for the root disk */
 	u_int	ss_strategy_bypass_duringio_rootdisk_nonread;	/* nonread strategy calls we bypassed for the root disk */
 	u_int	ss_strategy_forced_throttled;			/* strategy calls we forced to throttle due to cutting through our readahead */
+	u_int	ss_strategy_nonthrottled;				/* strategy calls that cut through our readahead but we did not throttle */
 	u_int	ss_hit_duringio;				/* cache hits during active readahead */
 	u_int   ss_strategy_bypass_duringio_unfilled;           /* strategy calls that hit an unfilled extent (for SSDs) */
 	u_int   ss_strategy_unfilled_lowpri;    /* strategy calls that hit an unfilled low priority extent */
@@ -250,6 +251,8 @@ struct BC_statistics {
 	u_int	ss_write_discards;	/* bytes discarded due to overwriting */
 	u_int	ss_read_discards;	/* bytes discarded due to incoming reads */
 	u_int	ss_error_discards;	/* bytes discarded due to failure to fulfil a cache hit */
+	u_int	ss_unable_to_discard_bytes;	/* bytes not discarded due to lock contention (high estimate) */
+	u_int	ss_unable_to_discard_count;	/* number of cut-through IOs with bytes not discarded due to lock contention */
 	u_int	ss_spurious_bytes;	/* number of btyes not consumed */
 	u_int	ss_hit_bytes_afterhistory;		/* bytes fulfilled after history recording was complete */
 	u_int	ss_lost_bytes_afterhistory;	/* bytes lost after history recording was complete */

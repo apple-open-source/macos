@@ -1306,7 +1306,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
                           "error reading status line from remote "
                           "server %s:%d", backend->hostname, backend->port);
             if (APR_STATUS_IS_TIMEUP(rc)) {
-                apr_table_set(r->notes, "proxy_timedout", "1");
+                apr_table_setn(r->notes, "proxy_timedout", "1");
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01103) "read timeout");
                 if (do_100_continue) {
                     return ap_proxyerror(r, HTTP_SERVICE_UNAVAILABLE, "Timeout on 100-Continue");
@@ -1745,7 +1745,6 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
 #endif
                     /* sanity check */
                     if (APR_BRIGADE_EMPTY(bb)) {
-                        apr_brigade_cleanup(bb);
                         break;
                     }
 
@@ -1977,25 +1976,10 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
              * requested, such that mod_ssl can check if it is requested to do
              * so.
              */
-            if (is_ssl) {
-                proxy_dir_conf *dconf;
-                const char *ssl_hostname;
-
-                /*
-                 * In the case of ProxyPreserveHost on use the hostname of
-                 * the request if present otherwise use the one from the
-                 * backend request URI.
-                 */
-                dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
-                if ((dconf->preserve_host != 0) && (r->hostname != NULL)) {
-                    ssl_hostname = r->hostname;
-                }
-                else {
-                    ssl_hostname = uri->hostname;
-                }
-
-                apr_table_set(backend->connection->notes, "proxy-request-hostname",
-                              ssl_hostname);
+            if (backend->ssl_hostname) {
+                apr_table_setn(backend->connection->notes,
+                               "proxy-request-hostname",
+                               backend->ssl_hostname);
             }
         }
 

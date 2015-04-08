@@ -188,6 +188,7 @@ ualoc_getAppleParent(const char* localeID,
     int32_t len;
     UErrorCode tempStatus;
     char locbuf[ULOC_FULLNAME_CAPACITY+1];
+    char * foundDoubleUnderscore;
 
     if (U_FAILURE(*err)) {
         return 0;
@@ -196,13 +197,18 @@ ualoc_getAppleParent(const char* localeID,
         *err = U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
-    len = uloc_canonicalize(localeID, locbuf, ULOC_FULLNAME_CAPACITY, err);
+    len = uloc_getBaseName(localeID, locbuf, ULOC_FULLNAME_CAPACITY, err); /* canonicalize and strip keywords */
     if (U_FAILURE(*err)) {
         return 0;
     }
     if (*err == U_STRING_NOT_TERMINATED_WARNING) {
         locbuf[ULOC_FULLNAME_CAPACITY] = 0;
         *err = U_ZERO_ERROR;
+    }
+    foundDoubleUnderscore = uprv_strstr(locbuf, "__"); /* __ comes from bad/missing subtag or variant */
+    if (foundDoubleUnderscore != NULL) {
+        *foundDoubleUnderscore = 0; /* terminate at the __ */
+        len = uprv_strlen(locbuf);
     }
     if (len >= 2 && uprv_strncmp(locbuf, "zh", 2) == 0) {
         const char ** forceParentPtr = forceParent;

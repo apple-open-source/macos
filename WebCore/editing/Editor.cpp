@@ -1170,7 +1170,11 @@ Editor::~Editor()
 
 void Editor::clear()
 {
-    m_compositionNode = 0;
+    if (m_compositionNode) {
+        m_compositionNode = nullptr;
+        if (EditorClient* client = this->client())
+            client->discardedComposition(&m_frame);
+    }
     m_customCompositionUnderlines.clear();
     m_shouldStyleWithCSS = false;
     m_defaultParagraphSeparator = EditorParagraphSeparatorIsDiv;
@@ -2499,7 +2503,7 @@ void Editor::markAndReplaceFor(PassRefPtr<SpellCheckRequest> request, const Vect
     const bool shouldMarkSpelling = textCheckingOptions & TextCheckingTypeSpelling;
     const bool shouldMarkGrammar = textCheckingOptions & TextCheckingTypeGrammar;
     const bool shouldMarkLink = textCheckingOptions & TextCheckingTypeLink;
-    const bool shouldPerformReplacement = textCheckingOptions & TextCheckingTypeReplacement;
+    const bool shouldPerformReplacement = textCheckingOptions & (TextCheckingTypeQuote | TextCheckingTypeDash | TextCheckingTypeReplacement);
     const bool shouldShowCorrectionPanel = textCheckingOptions & TextCheckingTypeShowCorrectionPanel;
     const bool shouldCheckForCorrection = shouldShowCorrectionPanel || (textCheckingOptions & TextCheckingTypeCorrection);
 #if !USE(AUTOCORRECTION_PANEL)
@@ -3355,7 +3359,7 @@ bool Editor::shouldDetectTelephoneNumbers()
     return document().isTelephoneNumberParsingEnabled() && TelephoneNumberDetector::isSupported();
 }
 
-void Editor::scanSelectionForTelephoneNumbers(Timer<Editor>&)
+void Editor::scanSelectionForTelephoneNumbers(Timer&)
 {
     scanSelectionForTelephoneNumbers();
 }
@@ -3382,15 +3386,8 @@ void Editor::scanSelectionForTelephoneNumbers()
     Position start = visibleSelection.start();
     Position end = visibleSelection.end();
     for (int i = 0; i < charactersToExtend; ++i) {
-        if (directionOfEnclosingBlock(start) == LTR)
-            start = start.previous(Character);
-        else
-            start = start.next(Character);
-
-        if (directionOfEnclosingBlock(end) == LTR)
-            end = end.next(Character);
-        else
-            end = end.previous(Character);
+        start = start.previous(Character);
+        end = end.next(Character);
     }
 
     FrameSelection extendedSelection;
@@ -3462,7 +3459,7 @@ void Editor::updateEditorUINowIfScheduled()
     editorUIUpdateTimerFired(m_editorUIUpdateTimer);
 }
 
-void Editor::editorUIUpdateTimerFired(Timer<Editor>&)
+void Editor::editorUIUpdateTimerFired(Timer&)
 {
     VisibleSelection oldSelection = m_oldSelectionForEditorUIUpdate;
 

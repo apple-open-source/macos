@@ -91,6 +91,9 @@ ONE_TEST(otr_00_identity)
 ONE_TEST(otr_30_negotiation)
 ONE_TEST(otr_otrdh)
 ONE_TEST(otr_packetdata)
+ONE_TEST(otr_40_edgecases)
+ONE_TEST(otr_50_roll)
+ONE_TEST(otr_60_slowroll)
 
 #if TARGET_OS_IPHONE
 ONE_TEST(so_01_serverencryption)

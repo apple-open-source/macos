@@ -22,7 +22,9 @@
 #define InlineBox_h
 
 #include "RenderBoxModelObject.h"
+#include "TextBreakIterator.h"
 #include "TextDirection.h"
+
 
 namespace WebCore {
 
@@ -243,7 +245,7 @@ public:
     void invalidateParentChildList();
 #endif
 
-    int expansion() const { return m_bitfields.expansion(); }
+    //int expansion() const { return m_bitfields.expansion(); }
 
     bool visibleToHitTesting() const { return renderer().style().visibility() == VISIBLE && renderer().style().pointerEvents() != PE_NONE; }
 
@@ -270,6 +272,19 @@ public:
 
     bool dirOverride() const { return m_bitfields.dirOverride(); }
     void setDirOverride(bool dirOverride) { m_bitfields.setDirOverride(dirOverride); }
+
+    void setExpansion(float newExpansion)
+    {
+        m_logicalWidth -= m_bitfields.expansion();
+        m_bitfields.setExpansion(newExpansion);
+        m_logicalWidth += m_bitfields.expansion();
+    }
+    void setExpansionWithoutGrowing(float newExpansion)
+    {
+        ASSERT(!m_bitfields.expansion());
+        m_bitfields.setExpansion(newExpansion);
+    }
+    float expansion() const { return m_bitfields.expansion(); }
 
 private:
     InlineBox* m_next; // The next element on the same line as us.
@@ -407,8 +422,6 @@ protected:
     void setHasHyphen(bool hasHyphen) { m_bitfields.setHasEllipsisBoxOrHyphen(hasHyphen); }    
     bool canHaveLeadingExpansion() const { return m_bitfields.hasSelectedChildrenOrCanHaveLeadingExpansion(); }
     void setCanHaveLeadingExpansion(bool canHaveLeadingExpansion) { m_bitfields.setHasSelectedChildrenOrCanHaveLeadingExpansion(canHaveLeadingExpansion); }
-    int expansion() { return m_bitfields.expansion(); }
-    void setExpansion(int expansion) { m_bitfields.setExpansion(expansion); }
     
     // For InlineFlowBox and InlineTextBox
     bool extracted() const { return m_bitfields.extracted(); }

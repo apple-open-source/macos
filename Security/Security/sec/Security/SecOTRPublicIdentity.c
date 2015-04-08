@@ -65,7 +65,7 @@ CFGiblisFor(SecOTRPublicIdentity);
 
 static bool sAdvertiseHashes = false;
 
-static CF_RETURNS_RETAINED CFStringRef SecOTRPublicIdentityCopyDescription(CFTypeRef cf) {
+static CF_RETURNS_RETAINED CFStringRef SecOTRPublicIdentityCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SecOTRPublicIdentityRef requestor = (SecOTRPublicIdentityRef)cf;
    return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTRPublicIdentity: %p %02x%02x%02x%02x%02x%02x%02x%02x>"),
                                     requestor,

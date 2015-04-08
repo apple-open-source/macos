@@ -24,7 +24,7 @@ SOSTransportMessageRef SOSTransportMessageCreateForSubclass(size_t size,
 }
 
 
-static CFStringRef SOSTransportMessageCopyDescription(CFTypeRef aObj){
+static CFStringRef SOSTransportMessageCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions){
     SOSTransportMessageRef t = (SOSTransportMessageRef) aObj;
     
     return t->copyDescription ? t->copyDescription(t)

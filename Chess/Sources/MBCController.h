@@ -45,6 +45,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <GameKit/GameKit.h>
+#import <AppKit/AppKit.h>
 
 #import "MBCBoard.h"
 
@@ -55,7 +56,7 @@
 @class NSSpeechSynthesizer;
 @class MBCDocument;
 
-@interface MBCController : NSObject <GKTurnBasedEventHandlerDelegate>
+@interface MBCController : NSObject <GKLocalPlayerListener>
 {
     IBOutlet NSObjectController *   fCurrentDocument;
     

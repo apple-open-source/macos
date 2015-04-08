@@ -4,13 +4,13 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2014-07-10</string>
+		<string>2014-1-15</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>f2ffb9c5ba32550aaa45b04c129412ed</string>
+		<string>d31629e9c2fb5f438ab2dc0aa597cd82</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
@@ -21,11 +21,11 @@
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceMD5</key>
-		<string>b53e5f47c59ffbe26d20957636695baa</string>
+		<string>23d2275b653a9c038dbfa9cf64151e17</string>
 		<key>OpenSourceURL</key>
 		<string>http://php.net/downloads.php</string>
 		<key>OpenSourceVersion</key>
-		<string>5.5.14</string>
+		<string>5.5.20</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>

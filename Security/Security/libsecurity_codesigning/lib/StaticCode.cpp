@@ -34,7 +34,6 @@
 #include "resources.h"
 #include "detachedrep.h"
 #include "csdatabase.h"
-#include "csutilities.h"
 #include "dirscanner.h"
 #include <CoreFoundation/CFURLAccess.h>
 #include <Security/SecPolicyPriv.h>
@@ -51,6 +50,7 @@
 #include <security_utilities/logging.h>
 #include <dirent.h>
 #include <sstream>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 
 namespace Security {
@@ -88,7 +88,8 @@ static inline OSStatus errorForSlot(CodeDirectory::SpecialSlot slot)
 SecStaticCode::SecStaticCode(DiskRep *rep)
 	: mRep(rep),
 	  mValidated(false), mExecutableValidated(false), mResourcesValidated(false), mResourcesValidContext(NULL),
-	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mEvalDetails(NULL)
+	  mProgressQueue("com.apple.security.validation-progress", false, DISPATCH_QUEUE_PRIORITY_DEFAULT),
+	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL), mEvalDetails(NULL)
 {
 	CODESIGN_STATIC_CREATE(this, rep);
 	CFRef<CFDataRef> codeDirectory = rep->codeDirectory();
@@ -104,12 +105,20 @@ SecStaticCode::SecStaticCode(DiskRep *rep)
 SecStaticCode::~SecStaticCode() throw()
 try {
 	::free(const_cast<Requirement *>(mDesignatedReq));
-	if (mResourcesValidContext)
-		delete mResourcesValidContext;
+	delete mResourcesValidContext;
+	delete mLimitedAsync;
 } catch (...) {
 	return;
 }
 
+//
+// Initialize a nested SecStaticCode object from its parent
+//
+void SecStaticCode::initializeFromParent(const SecStaticCode& parent) {
+	setMonitor(parent.monitor());
+	if (parent.mLimitedAsync)
+		mLimitedAsync = new LimitedAsync(*parent.mLimitedAsync);
+}
 
 //
 // CF-level comparison of SecStaticCode objects compares CodeDirectory hashes if signed,
@@ -148,10 +157,9 @@ CFTypeRef SecStaticCode::reportEvent(CFStringRef stage, CFDictionaryRef info)
 
 void SecStaticCode::prepareProgress(unsigned int workload)
 {
-	{
-		StLock<Mutex> _(mCancelLock);
+	dispatch_sync(mProgressQueue, ^{
 		mCancelPending = false;			// not cancelled
-	}
+	});
 	if (mValidationFlags & kSecCSReportProgress) {
 		mCurrentWork = 0;				// nothing done yet
 		mTotalWork = workload;			// totally fake - we don't know how many files we'll get to chew
@@ -161,15 +169,17 @@ void SecStaticCode::prepareProgress(unsigned int workload)
 void SecStaticCode::reportProgress(unsigned amount /* = 1 */)
 {
 	if (mMonitor && (mValidationFlags & kSecCSReportProgress)) {
-		{
-			// if cancellation is pending, abort now
-			StLock<Mutex> _(mCancelLock);
-			if (mCancelPending)
-				MacOSError::throwMe(errSecCSCancelled);
-		}
 		// update progress and report
-		mCurrentWork += amount;
-		mMonitor(this->handle(false), CFSTR("progress"), CFTemp<CFDictionaryRef>("{current=%d,total=%d}", mCurrentWork, mTotalWork));
+		__block bool cancel = false;
+		dispatch_sync(mProgressQueue, ^{
+			if (mCancelPending)
+				cancel = true;
+			mCurrentWork += amount;
+			mMonitor(this->handle(false), CFSTR("progress"), CFTemp<CFDictionaryRef>("{current=%d,total=%d}", mCurrentWork, mTotalWork));
+		});
+		// if cancellation is pending, abort now
+		if (cancel)
+			MacOSError::throwMe(errSecCSCancelled);
 	}
 }
 
@@ -204,10 +214,11 @@ void SecStaticCode::setValidationModifiers(CFDictionaryRef conditions)
 //
 void SecStaticCode::cancelValidation()
 {
-	StLock<Mutex> _(mCancelLock);
 	if (!(mValidationFlags & kSecCSReportProgress))		// not using progress reporting; cancel won't make it through
 		MacOSError::throwMe(errSecCSInvalidFlags);
-	mCancelPending = true;
+	dispatch_sync(mProgressQueue, ^{
+		mCancelPending = true;
+	});
 }
 
 
@@ -784,7 +795,12 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 		if (!(flags & kSecCSCheckNestedCode) || mResourcesDeep)	// was deep or need no deep scan
 			doit = false;
 	}
+
 	if (doit) {
+		if (mLimitedAsync == NULL) {
+			mLimitedAsync = new LimitedAsync(diskRep()->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
+		}
+
 		try {
 			// sanity first
 			CFDictionaryRef sealedResources = resourceDictionary();
@@ -809,6 +825,7 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 			else
 				mResourcesValidContext = new ValidationContext(*this);		// simple bug-out on first error
 
+			// use V2 resource seal if available, otherwise fall back to V1
 			CFDictionaryRef rules;
 			CFDictionaryRef files;
 			uint32_t version;
@@ -823,6 +840,7 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 			}
 			if (!rules || !files)
 				MacOSError::throwMe(errSecCSResourcesInvalid);
+
 			// check for weak resource rules
 			bool strict = flags & kSecCSStrictValidate;
 			if (strict) {
@@ -833,16 +851,29 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 					if (mTolerateErrors.find(errSecCSWeakResourceEnvelope) == mTolerateErrors.end())
 						MacOSError::throwMe(errSecCSWeakResourceEnvelope);
 			}
+
+			Dispatch::Group group;
+			Dispatch::Group &groupRef = group;  // (into block)
+
+			// scan through the resources on disk, checking each against the resourceDirectory
 			__block CFRef<CFMutableDictionaryRef> resourceMap = makeCFMutableDictionary(files);
 			string base = cfString(this->resourceBase());
 			ResourceBuilder resources(base, base, rules, codeDirectory()->hashType, strict, mTolerateErrors);
 			diskRep()->adjustResources(resources);
-			resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const char *relpath, ResourceBuilder::Rule *rule) {
-				validateResource(files, relpath, ent->fts_info == FTS_SL, *mResourcesValidContext, flags, version);
-				reportProgress();
+
+			resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const string relpath, ResourceBuilder::Rule *rule) {
 				CFDictionaryRemoveValue(resourceMap, CFTempString(relpath));
+				bool isSymlink = (ent->fts_info == FTS_SL);
+
+				void (^validate)() = ^{
+					validateResource(files, relpath, isSymlink, *mResourcesValidContext, flags, version);
+					reportProgress();
+				};
+
+				mLimitedAsync->perform(groupRef, validate);
 			});
-			
+			group.wait();	// wait until all async resources have been validated as well
+
 			unsigned leftovers = unsigned(CFDictionaryGetCount(resourceMap));
 			if (leftovers > 0) {
 				secdebug("staticCode", "%d sealed resource(s) not found in code", int(leftovers));
@@ -917,6 +948,7 @@ bool SecStaticCode::hasWeakResourceRules(CFDictionaryRef rulesDict, uint32_t ver
 	string catchAllRule = (version == 1) ? "^Resources/" : "^.*";
 	__block bool coversAll = false;
 	__block bool forbiddenOmission = false;
+	CFArrayRef allowedRef = allowed.get();	// (into block)
 	CFDictionary rules(rulesDict, errSecCSResourceRulesInvalid);
 	rules.apply(^(CFStringRef key, CFTypeRef value) {
 		string pattern = cfString(key, errSecCSResourceRulesInvalid);
@@ -925,7 +957,7 @@ bool SecStaticCode::hasWeakResourceRules(CFDictionaryRef rulesDict, uint32_t ver
 			return;
 		}
 		if (isOmitRule(value))
-			forbiddenOmission |= !CFArrayContainsValue(allowed, range, key);
+			forbiddenOmission |= !CFArrayContainsValue(allowedRef, range, key);
 	});
 
 	return !coversAll || forbiddenOmission;
@@ -1124,7 +1156,7 @@ void SecStaticCode::validateNestedCode(CFURLRef path, const ResourceSeal &seal, 
 		if (!(flags & kSecCSCheckNestedCode))
 			flags |= kSecCSBasicValidateOnly;
 		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(cfString(path)));
-		code->setMonitor(this->monitor());
+		code->initializeFromParent(*this);
 		code->staticValidate(flags, SecRequirement::required(req));
 
 		if (isFramework && (flags & kSecCSStrictValidate))
@@ -1192,7 +1224,7 @@ void SecStaticCode::validateOtherVersions(CFURLRef path, SecCSFlags flags, SecRe
 				continue;
 
 			SecPointer<SecStaticCode> frameworkVersion = new SecStaticCode(DiskRep::bestGuess(real_full_path));
-			frameworkVersion->setMonitor(this->monitor());
+			frameworkVersion->initializeFromParent(*this);
 			frameworkVersion->staticValidate(flags, SecRequirement::required(req));
 		}
 	}
@@ -1488,6 +1520,7 @@ void SecStaticCode::ValidationContext::reportProblem(OSStatus rc, CFStringRef ty
 
 void SecStaticCode::CollectingContext::reportProblem(OSStatus rc, CFStringRef type, CFTypeRef value)
 {
+	StLock<Mutex> _(mLock);
 	if (mStatus == errSecSuccess)
 		mStatus = rc;			// record first failure for eventual error return
 	if (type) {
@@ -1535,6 +1568,13 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 	this->staticValidateCore(flags, req);
 	if (flags & kSecCSCheckAllArchitectures)
 		handleOtherArchitectures(^(SecStaticCode* subcode) {
+			if (flags & kSecCSCheckGatekeeperArchitectures) {
+				Universal *fat = subcode->diskRep()->mainExecutableImage();
+				assert(fat && fat->narrowed());	// handleOtherArchitectures gave us a focused architecture slice
+				Architecture arch = fat->bestNativeArch();	// actually, the ONLY one
+				if ((arch.cpuType() & ~CPU_ARCH_MASK) == CPU_TYPE_POWERPC)
+					return;	// irrelevant to Gatekeeper
+			}
 			subcode->detachedSignature(this->mDetachedSig);	// carry over explicit (but not implicit) architecture
 			subcode->staticValidateCore(flags, req);
 		});

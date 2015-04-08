@@ -239,7 +239,9 @@ else
 endif
 
 # even for a crossbuild host build, we want to use the target's latest tzdata as pointed to by latest_tzdata.tar.gz
-export TZDATA:=$(SDKPATH)/usr/local/share/tz/$(shell readlink $(SDKPATH)/usr/local/share/tz/latest_tzdata.tar.gz)
+ifeq "$(shell test -d $(SDKPATH)/usr/local/share/tz && echo YES )" "YES"
+	export TZDATA:=$(SDKPATH)/usr/local/share/tz/$(shell readlink $(SDKPATH)/usr/local/share/tz/latest_tzdata.tar.gz)
+endif
 $(info # TZDATA=$(TZDATA))
 
 ifeq "$(WINDOWS)" "YES"

@@ -65,7 +65,7 @@
 #include <xpc/private.h>
 #include <xpc/xpc.h>
 
-#if TARGET_OS_MAC
+#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
 #include <Security/SecTaskPriv.h>
 #endif
 
@@ -126,7 +126,7 @@ static CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task) {
     CFStringRef appID = SecTaskCopyApplicationIdentifier(task);
     CFIndex kagLen = keychainAccessGroups ? CFArrayGetCount(keychainAccessGroups) : 0;
     CFIndex asagLen = appleSecurityApplicationGroups ? CFArrayGetCount(appleSecurityApplicationGroups) : 0;
-#if TARGET_OS_MAC
+#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
     if ((appID || asagLen) && !SecTaskEntitlementsValidated(task)) {
         CFReleaseNull(appID);
         asagLen = 0;

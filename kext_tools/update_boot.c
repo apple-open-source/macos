@@ -763,8 +763,7 @@ checkRebuildAllCaches(struct bootCaches *caches,
         OSKextLog(NULL,oodLogSpec,"rebuilding %s",caches->efiloccache->rpath);
         if ((result = rebuild_loccache(caches))) {
             OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
-                      "Warning: Error %d rebuilding %s", result == -1
-                      ? errno : result, caches->efiloccache->rpath);
+                      "Warning: Error rebuilding %s", caches->efiloccache->rpath);
         } else {
             didUpdate = true;
         }

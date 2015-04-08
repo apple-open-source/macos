@@ -283,11 +283,11 @@ protected:
         void cancel();
     private:
         CachedResourceCallback(CachedResource*, CachedResourceClient*);
-        void timerFired(Timer<CachedResourceCallback>&);
+        void timerFired(Timer&);
 
         CachedResource* m_resource;
         CachedResourceClient* m_client;
-        Timer<CachedResourceCallback> m_callbackTimer;
+        Timer m_callbackTimer;
     };
     HashMap<CachedResourceClient*, OwnPtr<CachedResourceCallback>> m_clientsAwaitingCallback;
 
@@ -369,6 +369,7 @@ private:
 
     // These handles will need to be updated to point to the m_resourceToRevalidate in case we get 304 response.
     HashSet<CachedResourceHandleBase*> m_handlesToRevalidate;
+    unsigned m_liveObjectMarker;
 };
 
 #define CACHED_RESOURCE_TYPE_CASTS(ToClassName, FromClassName, CachedResourceType) \

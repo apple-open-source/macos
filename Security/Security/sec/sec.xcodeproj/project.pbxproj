@@ -276,6 +276,8 @@
 		CD0F8AF61899BF46003E0C52 /* SOSTransportCircle.c in Sources */ = {isa = PBXBuildFile; fileRef = CD0F8AF51899BF46003E0C52 /* SOSTransportCircle.c */; };
 		CD0F8AF81899BF57003E0C52 /* SOSTransportMessage.h in Headers */ = {isa = PBXBuildFile; fileRef = CD0F8AF71899BF57003E0C52 /* SOSTransportMessage.h */; };
 		CD0F8AFA1899BF63003E0C52 /* SOSTransportCircle.h in Headers */ = {isa = PBXBuildFile; fileRef = CD0F8AF91899BF63003E0C52 /* SOSTransportCircle.h */; };
+		CD303E301A32629700737AD7 /* otr-50-roll.c in Sources */ = {isa = PBXBuildFile; fileRef = CD303E2F1A32629700737AD7 /* otr-50-roll.c */; };
+		CD303E321A32650C00737AD7 /* otr-60-slowroll.c in Sources */ = {isa = PBXBuildFile; fileRef = CD303E311A32650C00737AD7 /* otr-60-slowroll.c */; };
 		CD32776B18F8AEFD006B5280 /* SOSPeerCoder.c in Sources */ = {isa = PBXBuildFile; fileRef = CD32776A18F8AEFD006B5280 /* SOSPeerCoder.c */; };
 		CD32776D18F8B06E006B5280 /* SOSPeerCoder.h in Headers */ = {isa = PBXBuildFile; fileRef = CD32776C18F8B06E006B5280 /* SOSPeerCoder.h */; };
 		CD32776F18F8B2FC006B5280 /* SOSTransportKeyParameterKVS.c in Sources */ = {isa = PBXBuildFile; fileRef = CD32776E18F8B2FC006B5280 /* SOSTransportKeyParameterKVS.c */; };
@@ -286,6 +288,7 @@
 		CD32777918F8B3B4006B5280 /* SOSTransportMessageKVS.h in Headers */ = {isa = PBXBuildFile; fileRef = CD32777818F8B3B4006B5280 /* SOSTransportMessageKVS.h */; };
 		CD3FD10716C3064B00A83BB6 /* SecuritydXPC.c in Sources */ = {isa = PBXBuildFile; fileRef = E7B01B8816572579000485F1 /* SecuritydXPC.c */; };
 		CD86DE4E18BD554D00C90CDF /* SOSTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = CD86DE4D18BD554D00C90CDF /* SOSTransport.c */; };
+		CD8E09011A2E918900A2503A /* otr-40-edgecases.c in Sources */ = {isa = PBXBuildFile; fileRef = CD8E09001A2E918900A2503A /* otr-40-edgecases.c */; };
 		CD95312B19228D8D005A76B2 /* SOSTransportTestTransports.c in Sources */ = {isa = PBXBuildFile; fileRef = CDAD4E9818EC8424007D4BC2 /* SOSTransportTestTransports.c */; };
 		CD95312C19228D92005A76B2 /* SOSTransportTestTransports.h in Headers */ = {isa = PBXBuildFile; fileRef = CDAD4E9A18EC8447007D4BC2 /* SOSTransportTestTransports.h */; };
 		CD95312D19228D96005A76B2 /* SOSAccountTesting.h in Headers */ = {isa = PBXBuildFile; fileRef = E7A10FAA1771245D00C4602F /* SOSAccountTesting.h */; };
@@ -529,7 +532,7 @@
 		4A5CCA4F15ACEFA500702357 /* libSecOtrOSX.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecOtrOSX.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A824B03158FF07000F932C0 /* libSecurityRegressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecurityRegressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A971682158FDEB800D439B7 /* SecOTR.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecOTR.h; sourceTree = "<group>"; };
-		4A971683158FDEB800D439B7 /* SecOTRDHKey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = SecOTRDHKey.c; path = ../../../SecOTRDHKey.c; sourceTree = "<group>"; };
+		4A971683158FDEB800D439B7 /* SecOTRDHKey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecOTRDHKey.c; sourceTree = "<group>"; };
 		4A971684158FDEB800D439B7 /* SecOTRDHKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecOTRDHKey.h; sourceTree = "<group>"; };
 		4A971685158FDEB800D439B7 /* SecOTRErrors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecOTRErrors.h; sourceTree = "<group>"; };
 		4A971686158FDEB800D439B7 /* SecOTRFullIdentity.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecOTRFullIdentity.c; sourceTree = "<group>"; };
@@ -731,6 +734,8 @@
 		CD0F8AF51899BF46003E0C52 /* SOSTransportCircle.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransportCircle.c; sourceTree = "<group>"; };
 		CD0F8AF71899BF57003E0C52 /* SOSTransportMessage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportMessage.h; sourceTree = "<group>"; };
 		CD0F8AF91899BF63003E0C52 /* SOSTransportCircle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportCircle.h; sourceTree = "<group>"; };
+		CD303E2F1A32629700737AD7 /* otr-50-roll.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "otr-50-roll.c"; sourceTree = "<group>"; };
+		CD303E311A32650C00737AD7 /* otr-60-slowroll.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "otr-60-slowroll.c"; sourceTree = "<group>"; };
 		CD32776A18F8AEFD006B5280 /* SOSPeerCoder.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSPeerCoder.c; sourceTree = "<group>"; };
 		CD32776C18F8B06E006B5280 /* SOSPeerCoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSPeerCoder.h; sourceTree = "<group>"; };
 		CD32776E18F8B2FC006B5280 /* SOSTransportKeyParameterKVS.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransportKeyParameterKVS.c; sourceTree = "<group>"; };
@@ -740,6 +745,7 @@
 		CD32777618F8B39B006B5280 /* SOSTransportMessageKVS.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransportMessageKVS.c; sourceTree = "<group>"; };
 		CD32777818F8B3B4006B5280 /* SOSTransportMessageKVS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportMessageKVS.h; sourceTree = "<group>"; };
 		CD86DE4D18BD554D00C90CDF /* SOSTransport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransport.c; sourceTree = "<group>"; };
+		CD8E09001A2E918900A2503A /* otr-40-edgecases.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "otr-40-edgecases.c"; sourceTree = "<group>"; };
 		CDA7729616B899F10069434D /* si-69-keydesc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-69-keydesc.c"; sourceTree = "<group>"; };
 		CDAD4E9818EC8424007D4BC2 /* SOSTransportTestTransports.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransportTestTransports.c; sourceTree = "<group>"; };
 		CDAD4E9A18EC8447007D4BC2 /* SOSTransportTestTransports.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportTestTransports.h; sourceTree = "<group>"; };
@@ -1014,6 +1020,7 @@
 				4A824AFA158FF05900F932C0 /* Regressions */,
 				52D0F026169CA72800F07D79 /* SecOnOSX.h */,
 				4A971682158FDEB800D439B7 /* SecOTR.h */,
+				4A971683158FDEB800D439B7 /* SecOTRDHKey.c */,
 				4A971684158FDEB800D439B7 /* SecOTRDHKey.h */,
 				4A971685158FDEB800D439B7 /* SecOTRErrors.h */,
 				4A971686158FDEB800D439B7 /* SecOTRFullIdentity.c */,
@@ -1205,6 +1212,9 @@
 				4CC92A1315A3ABD400C6D578 /* otr-30-negotiation.c */,
 				4CC92A1415A3ABD400C6D578 /* otr-otrdh.c */,
 				4CC92A1515A3ABD400C6D578 /* otr-packetdata.c */,
+				CD8E09001A2E918900A2503A /* otr-40-edgecases.c */,
+				CD303E2F1A32629700737AD7 /* otr-50-roll.c */,
+				CD303E311A32650C00737AD7 /* otr-60-slowroll.c */,
 			);
 			name = otr;
 			path = Regressions/otr;
@@ -1315,7 +1325,6 @@
 		4CC92A4F15A3ABD400C6D578 /* si-67-sectrust-blacklist */ = {
 			isa = PBXGroup;
 			children = (
-				4A971683158FDEB800D439B7 /* SecOTRDHKey.c */,
 				4CC92A5015A3ABD400C6D578 /* Global Trustee.cer.h */,
 				4CC92A5115A3ABD400C6D578 /* UTN-USERFirst-Hardware.cer.h */,
 				4CC92A5215A3ABD400C6D578 /* addons.mozilla.org.cer.h */,
@@ -2284,6 +2293,7 @@
 				4CC92A6615A3ABD400C6D578 /* si-05-add.c in Sources */,
 				4CC92A6715A3ABD400C6D578 /* si-10-find-internet.c in Sources */,
 				3A70988218CDF648009FD2CC /* si_77_SecAccessControl.c in Sources */,
+				CD8E09011A2E918900A2503A /* otr-40-edgecases.c in Sources */,
 				4CC92A6815A3ABD400C6D578 /* si-11-update-data.c in Sources */,
 				4CC92A6915A3ABD400C6D578 /* si-14-dateparse.c in Sources */,
 				4CC92A6A15A3ABD400C6D578 /* si-15-certificate.c in Sources */,
@@ -2306,6 +2316,7 @@
 				4CC92A7615A3ABD400C6D578 /* si-24-sectrust-nist.c in Sources */,
 				4CC92A7715A3ABD400C6D578 /* si-24-sectrust-otatasking.c in Sources */,
 				4CC92A7815A3ABD400C6D578 /* si-24-sectrust-shoebox.c in Sources */,
+				CD303E321A32650C00737AD7 /* otr-60-slowroll.c in Sources */,
 				4CC92A7915A3ABD400C6D578 /* si-25-sectrust-ipsec-eap.c in Sources */,
 				4CC92A7A15A3ABD400C6D578 /* si-26-applicationsigning.c in Sources */,
 				4CC92A7B15A3ABD400C6D578 /* si-27-sectrust-exceptions.c in Sources */,
@@ -2327,6 +2338,7 @@
 				4CC92A8815A3ABD400C6D578 /* si-50-secrandom.c in Sources */,
 				4CC92A8915A3ABD400C6D578 /* si-60-cms.c in Sources */,
 				5DE4A7BD17441CCD0036339E /* si-71-mobile-store-policy.c in Sources */,
+				CD303E301A32629700737AD7 /* otr-50-roll.c in Sources */,
 				CDD565A2173193AC00B6B074 /* si-73-secpasswordgenerate.c in Sources */,
 				4CC92A8A15A3ABD400C6D578 /* si-61-pkcs12.c in Sources */,
 				4CC92A8B15A3ABD400C6D578 /* si-62-csr.c in Sources */,

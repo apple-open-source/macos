@@ -1,3 +1,70 @@
+2015-02-11  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r179993. <rdar://problem/19813975>
+
+    2015-02-11  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] [64-bit] Work around MSVC2013 Runtime Bug
+            https://bugs.webkit.org/show_bug.cgi?id=141498
+            <rdar://problem/19803642>
+
+            Reviewed by Anders Carlsson.
+
+            Disable FMA3 instruction use in the MSVC math library to
+            work around a VS2013 runtime crash. We can remove this
+            workaround when we switch to VS2015.
+
+            * WebKitDLL.cpp: Call _set_FMA3_enable(0) to disable FMA3 support.
+
+2015-02-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r179841
+
+    2015-02-09  Brent Fulgham  <bfulgham@apple.com>
+
+            AX: [Win] OBJID_CLIENT comparisons broken in 64-bit builds
+            https://bugs.webkit.org/show_bug.cgi?id=141391
+            <rdar://problem/19767342>
+
+            Reviewed by Anders Carlsson.
+
+            * WebView.cpp:
+            (WebView::onGetObject): Cast lParam as LONG to ensure proper word size for
+            comparison against OBJID_CLIENT.
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177152. rdar://problem/19451288
+
+    2014-12-11  Alexey Proskuryakov  <ap@apple.com>
+
+            REGRESSION (Async Text Input): Text input method state is not reset when reloading a page
+            https://bugs.webkit.org/show_bug.cgi?id=139504
+            rdar://problem/19034674
+
+            Reviewed by Enrica Casucci.
+
+            Stub out new client calls, this patch doesn't attempt to make any changes on Windows.
+
+            * WebCoreSupport/WebEditorClient.cpp:
+            (WebEditorClient::discardedComposition):
+            * WebCoreSupport/WebEditorClient.h:
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r175719. rdar://problem/19424169
+
+    2014-11-05  Jer Noble  <jer.noble@apple.com>
+
+            De-templatize Timer
+            https://bugs.webkit.org/show_bug.cgi?id=138450
+
+            Reviewed by Anders Carlsson.
+
+            * FullscreenVideoController.cpp:
+            (FullscreenVideoController::timerFired):
+            * FullscreenVideoController.h:
+
 2014-11-21  Jer Noble  <jer.noble@apple.com>
 
         Support multiple signatures of diagnostic logging.

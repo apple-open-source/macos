@@ -670,12 +670,16 @@ static meta *metafix(request_rec *r, const char *buf)
                     p += 7;
                     while (apr_isspace(*p))
                         ++p;
+                    /* XXX Should we search for another content= pattern? */
                     if (*p != '=')
-                        continue;
+                        break;
                     while (*p && apr_isspace(*++p));
                     if ((*p == '\'') || (*p == '"')) {
                         delim = *p++;
-                        for (q = p; *q != delim; ++q);
+                        for (q = p; *q && *q != delim; ++q);
+                        /* No terminating delimiter found? Skip the boggus directive */
+                        if (*q != delim)
+                           break;
                     } else {
                         for (q = p; *q && !apr_isspace(*q) && (*q != '>'); ++q);
                     }
@@ -686,8 +690,8 @@ static meta *metafix(request_rec *r, const char *buf)
         }
         else if (!strncasecmp(header, "Content-Type", 12)) {
             ret = apr_palloc(r->pool, sizeof(meta));
-            ret->start = pmatch[0].rm_so;
-            ret->end = pmatch[0].rm_eo;
+            ret->start = offs+pmatch[0].rm_so;
+            ret->end = offs+pmatch[0].rm_eo;
         }
         if (header && content) {
 #ifndef GO_FASTER

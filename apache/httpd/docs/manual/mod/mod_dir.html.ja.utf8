@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_dir - Apache HTTP サーバ</title>
+<title>mod_dir - Apache HTTP サーバ バージョン 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -88,7 +88,7 @@
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>mod_dir</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>Available in 2.4.8 and later.  Releases prior to 2.4 implicitly
-act as if "DirectoryCheckHandler Off" was specified.</td></tr>
+act as if "DirectoryCheckHandler ON" was specified.</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。
             </p></div>

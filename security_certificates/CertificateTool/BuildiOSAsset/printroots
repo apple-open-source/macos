@@ -1,0 +1,494 @@
+#!/bin/sh
+#
+# printroots - output a human-readable summary of root certificates
+#              whose trust settings are installed as part of the OS.
+#
+# Change history:
+# Thu Jun 26 2014 (kcm) created
+# Fri Jun 27 2014 (kcm) fixed name parsing to stop when Subject Name ends
+# Fri Jun 27 2014 (kcm) process directory containing roots/revoked/distrusted
+# Fri Jun 27 2014 (kcm) generate HTML output
+# Sun Jun 29 2014 (kcm) use more CSS; add issuer, sig alg and EV policy fields
+# Mon Jun 30 2014 (kcm) use "Blocked" instead of "Revoked"; code cleanup
+# Tue Feb 17 2015 (kcm) accept text, configDir, and tmpDir options
+#
+
+usage()
+{
+	printf "Usage: `basename "$1"` [-t] [-c configDir] [-d tmpDir] certificatesDir\n"
+	printf "\n"
+	printf "Options:\n"
+	printf "  -t | --text      specify text output (default is HTML output)\n"
+	printf "\n"
+	printf "  -c configDir     (optional) path to the config source directory;\n"
+	printf "                   if not specified, assumes a 'config' directory\n"
+	printf "                   exists in parent directory of certificatesDir\n"
+	printf "\n"
+	printf "  -d tmpDir        (optional) path used for writing temporary files;\n"
+	printf "                   if not specified, assumes '/tmp' directory\n"
+	printf "\n"
+	printf "  certificatesDir  (required) path to certificate source directory\n"
+	printf "\n"
+	printf "The certificate source directory is expected to contain these items:\n"
+	printf "  roots/           (directory of certs which are always trusted)\n"
+	printf "  revoked/         (directory of certs which are never trusted)\n"
+	printf "  distrusted/      (directory of certs which have no trust settings)\n"
+	printf "  evroot.config    (EV OID mappings for root certificates)\n"
+	printf "\n"
+	printf "The config source directory is expected to contain these items:\n"
+	printf "  AssetVersion.plist  (plist file containing trust store version)\n"
+
+	exit 1
+}
+
+SRC=
+DST=/tmp
+CONFIG=
+HTML=1
+while [ $# != 0 ]; do
+	case "$1" in
+		--config|-c)
+			shift; CONFIG="$1"; shift;
+			;;
+		--tempdir|-d)
+			shift; DST="$1"; shift;
+			;;
+		--text|-t)
+			HTML=0; shift;
+			;;
+		*)
+			SRC="$1"; shift;
+			;;
+	esac;
+done;
+
+if [ -z "$SRC" ] ; then usage "$0" ; fi
+if [ ! -e "$DST" ] ; then mkdir -p "$DST" ; fi
+
+
+html_escaped_string()
+{
+# Replaces reserved HTML tag characters in the provided string
+# with escaped equivalents.
+
+	echo "$1" | sed \
+		-e 's/\&/\&#38;/g' \
+		-e 's/\</\&#60;/g' \
+		-e 's/\>/\&#62;/g'
+}
+
+start_output()
+{
+# Call this function to start generating output.
+# If generating an HTML page, this also writes the header and style sheet.
+
+	TSV="$1" ; if [ -z "$TSV" ] ; then TSV="n/a" ; fi
+		
+	if [ -z "$HTML" ] || [ "$HTML" -eq 0 ] ; then
+		printf "Trust store version: $TSV\n"
+		return
+	fi
+
+	printf "<html><head><meta charset=\"UTF-8\"></head>\n"
+	printf "<body bgcolor=#ffffff>\n"
+
+	printf "<style>\n"
+	printf " h1 {font:20px 'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:bold;color:black;margin:8px}\n"
+	printf " h2 {font:14px 'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:plain;color:black;margin:8px;line-height:18px}\n"
+	printf " table {font:12px 'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:plain;color:black;margin:8px;line-height:18px;width:100%%;border:0px solid;border-collapse:collapse}\n"
+	printf " th,td {padding:4px;}\n"
+	printf " tr:nth-child(even) {background:#f1f1f1;}\n"
+	printf "</style>\n\n"
+
+	printf "<h2 align=right>Trust store version: $TSV</h2>\n\n"
+}
+
+end_output()
+{
+# Call this function to finish generating output.
+# If generating an HTML page, this writes the closing body and html tags.
+# Otherwise, this does nothing.
+
+	if [ -z "$HTML" ] || [ "$HTML" -eq 0 ] ; then return ; fi
+
+	printf "</body></html>"
+}
+
+generate_html()
+{
+# This function takes the text created by summarize_keychain(),
+# where each line is a certificate record with fields delimited by '|',
+# and outputs an HTML table generated from the data.
+
+	CERTS="$1"
+	TITLE="$2"
+
+	if [ ! -z "$TITLE" ] ; then
+		printf "<h1>$TITLE<br>"
+		printf "<hr size=1 noshade>"
+		printf "</h1>"
+	fi
+
+	printf "\n<div>\n"
+	printf "<table>\n"
+
+	printf "<tr align=left>"
+	printf "<th width=18%%>Certificate name</th>"
+	printf "<th width=18%%>Issued by</th>"
+	printf "<th width=5%%>Type</th>"
+	printf "<th width=7%%>Key size</th>"
+	printf "<th width=7%%>Sig alg</th>"
+	printf "<th width=15%%>Serial number</th>"
+	printf "<th width=15%%>Expires</th>"
+	printf "<th width=10%%>EV policy</th>"
+	printf "<th width=5%%>Trust</th>"
+	printf "</tr>"
+
+	TMPIFS=$IFS ; IFS=$'\x0A'$'\x0D' 
+	for CERT in $CERTS ; do
+		printf "\n<tr>"
+		TTMPIFS=$IFS ; IFS='|'
+		for FIELD in $CERT ; do
+			printf "<td>`html_escaped_string $FIELD`</td>"
+		done
+		IFS=$TTMPIFS
+		printf "</tr>"
+	done
+	IFS=$TMPIFS
+	printf "\n</table>"
+
+	printf "\n</div><br>\n\n"
+}
+
+summarize_keychain()
+{
+# This function takes a single keychain file as input and
+# outputs a sorted, one-line-per-item summary representation
+# of all the certificates it contains.
+#
+# The '/usr/bin/certtool y' command spews multiple lines of
+# output per item. We break this stream into records at the lines
+# which start with "Serial Number", then extract the fields we want.
+#
+# Note: non-GNU awk only looks at the first character of RS, so
+# sed is used to insert a formfeed as a record separator character,
+# as well as to clean up leading and trailing whitespace in fields.
+
+export KC="$1"
+export TRUST="$2"
+export TITLE="$3"
+export EVOID="$4"
+export EVLIST="$5"
+
+FF=$'\x0C'
+SUMMARY=`certtool y k="$KC" | \
+sed -e 's/^Serial Number/'$FF'Serial Number/g' -e 's/^[ ]*//g' -e 's/[ ]*$//g' | \
+awk '\
+# specify separators before processing
+BEGIN {
+	RS="\f";
+	FS="\n";
+	ORS="\n";
+	OFS=" | ";
+}
+function format_cssmkey(i) {
+	for (j=i+1;j<=NF;j++) {
+	    split($j,tmpline," : ");
+	    tmplabel=tmpline[1];
+	    if (tmplabel ~ /Algorithm/) {
+		alg=tmpline[2];
+	    }
+	    if (tmplabel ~ /Key Size/) {
+		len=tmpline[2];
+	    }
+	    if (alg != "" && len != "")
+		break;
+	}
+}
+function format_sigalg(oid) {
+	sigalg="";
+	if (oid ~ /06 09 2A 86 48 86 F7 0D 01 01/) {
+		sbyte=substr(oid,33,2);
+		if (     sbyte == "02") { sigalg="MD2"; }
+		else if (sbyte == "03") { sigalg="MD4"; }
+		else if (sbyte == "04") { sigalg="MD5"; }
+		else if (sbyte == "05") { sigalg="SHA-1"; }
+		else if (sbyte == "0B") { sigalg="SHA-256"; }
+		else if (sbyte == "0C") { sigalg="SHA-384"; }
+		else if (sbyte == "0D") { sigalg="SHA-512"; }
+		else if (sbyte == "0E") { sigalg="SHA-224"; }
+	}
+	else if (oid ~ /06 08 2A 86 48 CE 3D 04 03/) {
+		sbyte=substr(oid,30,2);
+		if (     sbyte == "02") { sigalg="SHA-256"; }
+		else if (sbyte == "03") { sigalg="SHA-384"; }
+		else if (sbyte == "03") { sigalg="SHA-512"; }
+	}
+	if (sigalg == "") {
+		sigalg="n/a";
+	}
+}
+function format_ev(name,issuer,serial,expires,evoid,evlist)
+{
+	if (evoid != "") {
+		ev=evoid;
+	}
+	else if (evlist != "") {
+		ev=""
+		n=split(evlist,evlines);
+		for (x=1;x<=n;x++) {
+			thisline=evlines[x];
+			split(thisline,evcert,"|");
+			thisname=evcert[1];
+			thisissuer=evcert[2];
+			thisserial=evcert[6];
+			thisexpires=evcert[7];
+			thisevoid=evcert[8]
+			if (name " " == thisname &&
+			    " " issuer " " == thisissuer &&
+			    " " serial " " == thisserial &&
+			    " " expires " " == thisexpires) {
+			    m=split(ev,curevoids," ");
+			    dupe=0;
+			    for(y=1;y<=m;y++) {
+			    	curevoid=curevoids[y];
+			    	if (curevoid == thisevoid) {
+				    dupe=1;
+				    break;
+				}
+			    }
+			    if (dupe == 0) {
+			        ev=ev " " thisevoid
+			    }
+			}
+		}
+		if (ev == "") {
+			ev="Not EV"
+		}
+	}
+	else {
+		ev="n/a"
+	}
+}
+# process each record
+{
+	name=""
+	org=""
+	orgunit=""
+	issuer=""
+	serial=""
+	expires=""
+	alg=""
+	len=""
+	sigalg=""
+	label=""
+	evoid=ENVIRON["EVOID"];
+	evlist=ENVIRON["EVLIST"];
+	trust=ENVIRON["TRUST"]
+
+	for (i=1;i<=NF;i++) {
+	    split($i,line," : ");
+	    label=line[1];
+	    if (label == "") {
+	    	continue;
+	    }
+	    if (label ~ /Serial Number/) {
+		serial=line[2];
+	    }
+	    if (label ~ /Not After/) {
+	        expires=line[2];
+	    }
+	    if (label ~ /Issuer Name/) {
+		for (j=i+1;j<=NF;j++) {
+		    split($j,tmpline," : ");
+		    tmplabel=tmpline[1];
+		    if (tmplabel ~ /Subject Name/) {
+			# past the end of the issuer
+			break;
+		    }
+		    if (tmplabel ~ /Common Name/) {
+			issuer=tmpline[2];
+		    }
+		    if (tmplabel ~ /OrgUnit/) {
+			orgunit=tmpline[2];
+		    }
+		    if (tmplabel ~ /Org[\ \t]/) {
+			org=tmpline[2];
+		    }
+		    if (issuer != "")
+			break;
+		}
+		if (issuer == "") {
+		    issuer=orgunit;
+		    if (issuer == "") {
+		        issuer=org;
+			if (issuer == "") {
+		            issuer="n/a";
+		        }
+		    }
+		}
+	    }
+	    if (label ~ /Subject Name/) {
+		for (j=i+1;j<=NF;j++) {
+		    split($j,tmpline," : ");
+		    tmplabel=tmpline[1];
+		    if (tmplabel ~ /Cert Sig/) {
+			# past the end of the subject
+			break;
+		    }
+		    if (tmplabel ~ /Common Name/) {
+			name=tmpline[2];
+		    }
+		    if (tmplabel ~ /OrgUnit/) {
+			orgunit=tmpline[2];
+		    }
+		    if (tmplabel ~ /Org[\ ]/) {
+			org=tmpline[2];
+		    }
+		    if (name != "")
+			break;
+		}
+		if (name == "") {
+		    name=orgunit;
+		    if (name == "") {
+			name=org;
+			if (name == "") {
+			    name="n/a";
+			}
+		    }
+		}
+	    }
+	    if (label ~ /CSSM Key/) {
+	    	format_cssmkey(i);
+	    }
+	    if (label ~ /Cert Sig Algorithm/) {
+	    	format_sigalg(line[3]);
+	    }
+	}
+	
+	if (name) {
+	    format_ev(name,issuer,serial,expires,evoid,evlist);
+	    print name,issuer,alg,len,sigalg,serial,expires,ev,trust
+	}
+}
+# finish processing
+END {
+	total=sprintf("{ %d %s }",NR-1,"records found.")
+	#print total
+}' - | \
+sort --ignore-case`
+if [ ! -z "$EVOID" ] ; then
+	printf "$SUMMARY\n"
+elif [ ! -z "$HTML" ] && [ "$HTML" -eq 1 ] ; then
+	generate_html "$SUMMARY" "$TITLE"
+else
+	printf "\n"
+	printf "$TITLE\n"
+	printf "$SUMMARY\n"
+fi
+}
+
+get_trust_version()
+{
+# This function returns the trust store version number.
+# On iOS (and eventually, on both platforms), this is stored in the provided
+# AssetVersion.plist file. On OS X there is currently no such file.
+
+	if [ -e "$1" ] ; then
+		defaults read "$1" VersionNumber 
+	else
+		printf ""
+	fi
+}
+
+build_ev_list()
+{
+# This function parses the config file and roots directory,
+# building an in-memory summary representation of EV roots.
+# Output is produced by calling summarize_keychain with a temporary
+# keychain containing a single certificate, one EV OID at a time.
+# If a certificate can anchor multiple OIDs, then there will be
+# multiple output lines for that certificate in the list. These
+# are parsed later inside summarize_keychain once the full EV list
+# is available.
+
+    _EV_CONFIG="$1"
+    _ROOTS_DIR="$2"
+    _EV_KC="/tmp/_tmp_ev.keychain"
+
+    TMPIFS=$IFS
+    IFS=$'\x0A'$'\x0D'
+
+    for OID in `cat "$_EV_CONFIG"`; do
+	# ignore comments and blank lines
+	OID=`echo "$OID" | sed -e 's/^#.*//'`
+	if [ "$OID" = "" ]; then continue; fi
+	# grab OID key
+	OIDKEY=`echo "$OID" | awk '{print $1}'`
+	# convert rest of line into comma-delimited filename list
+	CERTFILES=`echo "$OID" | sed -e 's/^[0-9A-Z\.]* //' -e 's/\"\ */\:/g'`
+	IFS=$'\x3A'
+	for CERTFILE in $CERTFILES; do
+	    if [ "$CERTFILE" == "" ]; then continue; fi
+	    CERT_TO_ADD="$_ROOTS_DIR/$CERTFILE"
+	    rm -f "$_EV_KC"
+	    security create-keychain -p tmp "$_EV_KC"
+	    security -q add-certificates -k "$_EV_KC" "$CERT_TO_ADD"
+	    summarize_keychain "$_EV_KC" "Always" "" "$OIDKEY" ""
+	done
+	IFS=$'\x0A'$'\x0D'
+    done
+    IFS="$TMPIFS"
+}
+
+generate_keychain()
+{
+# This function creates a new empty keychain file and populates it
+# with certificates from the directory specified in the second argument.
+
+	KC="$1"
+	CERTS_DIR="$2"
+	
+	rm -f "$KC"
+	security create-keychain -p tmp "$KC"
+
+	TMPIFS=$IFS ; IFS=$'\x0A'$'\x0D'
+	for CERT in `ls -1 "$CERTS_DIR/"` ; do
+	    # skip the Apple Developer ID cert since it's the only
+	    # intermediate in this directory; it has no explicit trust
+	    if [ "$CERT" != "AppleDEVID.cer" ] ; then
+		security -q add-certificates -k "$KC" "$CERTS_DIR/$CERT"
+	    fi
+	done
+	IFS="$TMPIFS"
+}
+
+
+ROOTS_DIR="$SRC/roots"
+REVOKED_DIR="$SRC/revoked"
+DISTRUSTED_DIR="$SRC/distrusted"
+if [ -z "$CONFIG" ] ; then CONFIG="$SRC/../config" ; fi
+
+ROOTS_KC="$DST/_tmp_roots.keychain"
+REVOKED_KC="$DST/_tmp_revoked.keychain"
+DISTRUSTED_KC="$DST/_tmp_distrusted.keychain"
+
+EVCONFIG="$SRC/evroot.config"
+if [ -e "$CONFIG/evroot.config" ] ; then EVCONFIG="$CONFIG/evroot.config" ; fi
+ASSETPLIST="$CONFIG/AssetVersion.plist"
+
+TRUST_STORE_VERSION=`get_trust_version "$ASSETPLIST"`
+
+EVLIST=`build_ev_list "$EVCONFIG" "$ROOTS_DIR"`
+
+generate_keychain "$ROOTS_KC" "$ROOTS_DIR"
+generate_keychain "$REVOKED_KC" "$REVOKED_DIR"
+generate_keychain "$DISTRUSTED_KC" "$DISTRUSTED_DIR"
+
+start_output "$TRUST_STORE_VERSION"
+summarize_keychain "$ROOTS_KC" "Always" "Trusted Certificates" "" "$EVLIST"
+summarize_keychain "$DISTRUSTED_KC" "Ask" "Untrusted Certificates" "" "$EVLIST"
+summarize_keychain "$REVOKED_KC" "Never" "Blocked Certificates" "" "$EVLIST"
+end_output
+
+exit 0

@@ -130,7 +130,6 @@ extern const PlatformMedia NoPlatformMedia;
 
 class CachedResourceLoader;
 class ContentType;
-class FrameView;
 class GraphicsContext;
 class GraphicsContext3D;
 class HostWindow;
@@ -222,6 +221,7 @@ public:
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
     virtual bool mediaPlayerKeyNeeded(MediaPlayer*, Uint8Array*) { return false; }
+    virtual String mediaPlayerMediaKeysStorageDirectory() const { return emptyString(); }
 #endif
     
 #if ENABLE(IOS_AIRPLAY)
@@ -272,6 +272,8 @@ public:
     virtual void mediaPlayerHandlePlaybackCommand(MediaSession::RemoteControlCommandType) { }
 
     virtual String mediaPlayerSourceApplicationIdentifier() const { return emptyString(); }
+
+    virtual bool mediaPlayerIsInMediaDocument() const { return false; }
 };
 
 class MediaPlayerSupportsTypeClient {
@@ -320,13 +322,11 @@ public:
     String errorLog() const;
 #endif
 
-    IntSize naturalSize();
+    FloatSize naturalSize();
     bool hasVideo() const;
     bool hasAudio() const;
 
-    void setFrameView(FrameView* frameView) { m_frameView = frameView; }
-    FrameView* frameView() { return m_frameView; }
-    bool inMediaDocument();
+    bool inMediaDocument() const;
 
     IntSize size() const { return m_size; }
     void setSize(const IntSize& size);
@@ -359,20 +359,20 @@ public:
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
     std::unique_ptr<CDMSession> createSession(const String& keySystem);
+    void setCDMSession(CDMSession*);
 #endif
 
     bool paused() const;
     bool seeking() const;
 
     static double invalidTime() { return -1.0;}
-    double duration() const;
-    double currentTime() const;
-    void seek(double time);
-    void seekWithTolerance(double time, double negativeTolerance, double positiveTolerance);
+    MediaTime duration() const;
+    MediaTime currentTime() const;
+    void seek(const MediaTime&);
+    void seekWithTolerance(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance);
 
-    double startTime() const;
-
-    double initialTime() const;
+    MediaTime startTime() const;
+    MediaTime initialTime() const;
 
     double rate() const;
     void setRate(double);
@@ -382,8 +382,8 @@ public:
 
     std::unique_ptr<PlatformTimeRanges> buffered();
     std::unique_ptr<PlatformTimeRanges> seekable();
-    double minTimeSeekable();
-    double maxTimeSeekable();
+    MediaTime minTimeSeekable();
+    MediaTime maxTimeSeekable();
 
     bool didLoadingProgress();
 
@@ -400,8 +400,8 @@ public:
     bool autoplay() const;
     void setAutoplay(bool);
 
-    void paint(GraphicsContext*, const IntRect&);
-    void paintCurrentFrameInContext(GraphicsContext*, const IntRect&);
+    void paint(GraphicsContext*, const FloatRect&);
+    void paintCurrentFrameInContext(GraphicsContext*, const FloatRect&);
 
     // copyVideoTextureToPlatformTexture() is used to do the GPU-GPU textures copy without a readback to system memory.
     // The first five parameters denote the corresponding GraphicsContext, destination texture, requested level, requested type and the required internalFormat for destination texture.
@@ -505,7 +505,7 @@ public:
 
     bool didPassCORSAccessCheck() const;
 
-    double mediaTimeForTimeValue(double) const;
+    MediaTime mediaTimeForTimeValue(const MediaTime&) const;
 
     double maximumDurationToCacheMediaTime() const;
 
@@ -529,6 +529,7 @@ public:
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
     bool keyNeeded(Uint8Array* initData);
+    String mediaKeysStorageDirectory() const;
 #endif
 
     String referrer() const;
@@ -586,7 +587,7 @@ public:
     unsigned long totalVideoFrames();
     unsigned long droppedVideoFrames();
     unsigned long corruptedVideoFrames();
-    double totalFrameDelay();
+    MediaTime totalFrameDelay();
 #endif
 
     bool shouldWaitForResponseToAuthenticationChallenge(const AuthenticationChallenge&);
@@ -597,19 +598,18 @@ private:
     MediaPlayer(MediaPlayerClient*);
     MediaPlayerFactory* nextBestMediaEngine(MediaPlayerFactory*) const;
     void loadWithNextMediaEngine(MediaPlayerFactory*);
-    void reloadTimerFired(Timer<MediaPlayer>&);
+    void reloadTimerFired(Timer&);
 
     static void initializeMediaEngines();
 
     MediaPlayerClient* m_mediaPlayerClient;
-    Timer<MediaPlayer> m_reloadTimer;
+    Timer m_reloadTimer;
     OwnPtr<MediaPlayerPrivateInterface> m_private;
     MediaPlayerFactory* m_currentMediaEngine;
     URL m_url;
     String m_contentMIMEType;
     String m_contentTypeCodecs;
     String m_keySystem;
-    FrameView* m_frameView;
     IntSize m_size;
     Preload m_preload;
     bool m_visible;

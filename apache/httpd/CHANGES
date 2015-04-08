@@ -1,15 +1,260 @@
                                                          -*- coding: utf-8 -*-
 
+Changes with Apache 2.4.10
+
+  *) SECURITY: CVE-2014-0117 (cve.mitre.org)
+     mod_proxy: Fix crash in Connection header handling which 
+     allowed a denial of service attack against a reverse proxy
+     with a threaded MPM.  [Ben Reser]
+
+  *) SECURITY: CVE-2014-3523 (cve.mitre.org)
+     Fix a memory consumption denial of service in the WinNT MPM (used in all Windows
+     installations). Workaround: AcceptFilter <protocol> {none|connect}
+     [Jeff Trawick]
+
+  *) SECURITY: CVE-2014-0226 (cve.mitre.org)
+     Fix a race condition in scoreboard handling, which could lead to
+     a heap buffer overflow.  [Joe Orton, Eric Covener]
+
+  *) SECURITY: CVE-2014-0118 (cve.mitre.org)
+     mod_deflate: The DEFLATE input filter (inflates request bodies) now
+     limits the length and compression ratio of inflated request bodies to avoid
+     denial of sevice via highly compressed bodies.  See directives
+     DeflateInflateLimitRequestBody, DeflateInflateRatioLimit,
+     and DeflateInflateRatioBurst. [Yann Ylavic, Eric Covener]
+
+  *) SECURITY: CVE-2014-0231 (cve.mitre.org)
+     mod_cgid: Fix a denial of service against CGI scripts that do
+     not consume stdin that could lead to lingering HTTPD child processes
+     filling up the scoreboard and eventually hanging the server.  By
+     default, the client I/O timeout (Timeout directive) now applies to
+     communication with scripts.  The CGIDScriptTimeout directive can be
+     used to set a different timeout for communication with scripts.
+     [Rainer Jung, Eric Covener, Yann Ylavic]
+
+  *) mod_ssl: Extend the scope of SSLSessionCacheTimeout to sessions
+     resumed by TLS session resumption (RFC 5077). [Rainer Jung]
+
+  *) mod_deflate: Don't fail when flushing inflated data to the user-agent
+     and that coincides with the end of stream ("Zlib error flushing inflate
+     buffer"). PR 56196. [Christoph Fausak <christoph fausak glueckkanja.com>]
+
+  *) mod_proxy_ajp: Forward local IP address as a custom request attribute
+     like we already do for the remote port. [Rainer Jung]
+
+  *) core: Include any error notes set by modules in the canned error
+     response for 403 errors.  [Jeff Trawick]
+
+  *) mod_ssl: Set an error note for requests rejected due to
+     SSLStrictSNIVHostCheck.  [Jeff Trawick]
+
+  *) mod_ssl: Fix issue with redirects to error documents when handling
+     SNI errors.  [Jeff Trawick]
+
+  *) mod_ssl: Fix tmp DH parameter leak, adjust selection to prefer
+     larger keys and support up to 8192-bit keys.  [Ruediger Pluem,
+     Joe Orton]
+
+  *) mod_dav: Fix improper encoding in PROPFIND responses.  PR 56480.
+     [Ben Reser]
+
+  *) WinNT MPM: Improve error handling for termination events in child.
+     [Jeff Trawick]
+
+  *) mod_proxy: When ping/pong is configured for a worker, don't send or
+     forward "100 Continue" (interim) response to the client if it does
+     not expect one. [Yann Ylavic]
+
+  *) mod_ldap: Be more conservative with the last-used time for
+     LDAPConnectionPoolTTL. PR54587 [Eric Covener]
+
+  *) mod_ldap: LDAP connections used for authn were not respecting
+     LDAPConnectionPoolTTL. PR54587 [Eric Covener]
+
+  *) mod_proxy_fcgi: Fix occasional high CPU when handling request bodies.
+     [Jeff Trawick]
+
+  *) event MPM: Fix possible crashes (third-party modules accessing c->sbh) 
+     or occasional missed mod_status updates under load. PR 56639.
+     [Edward Lu <Chaosed0 gmail com>]
+
+  *) mod_authnz_ldap: Support primitive LDAP servers do not accept
+     filters, such as "SDBM-backed LDAP" on z/OS, by allowing a special
+     filter "none" to be specified in AuthLDAPURL. [Eric Covener]
+
+  *) mod_deflate: Fix inflation of files larger than 4GB. PR 56062.
+     [Lukas Bezdicka <social v3.sk>]
+
+  *) mod_deflate: Handle Zlib header and validation bytes received in multiple
+     chunks. PR 46146. [Yann Ylavic]
+
+  *) mod_proxy: Allow reverse-proxy to be set via explicit handler.
+     [ryo takatsuki <ryotakatsuki gmail com>]
+
+  *) ab: support custom HTTP method with -m argument. PR 56604.
+     [Roman Jurkov <winfinit gmail.com>]
+
+  *) mod_proxy_balancer: Correctly encode user provided data in management
+     interface. PR 56532 [Maksymilian, <max cert.cx>]
+
+  *) mod_proxy_fcgi: Support iobuffersize parameter.  [Jeff Trawick]
+
+  *) mod_auth_form: Add a debug message when the fields on a form are not
+     recognised. [Graham Leggett]
+
+  *) mod_cache: Preserve non-cacheable headers forwarded from an origin 304
+     response. PR 55547.  [Yann Ylavic]
+
+  *) mod_proxy_wstunnel: Fix the use of SSL connections with the "wss:"
+     scheme. PR55320. [Alex Liu <alex.leo.ca gmail.com>]
+
+  *) mod_socache_shmcb: Correct counting of expirations for status display.
+     Expirations happening during retrieval were not counted. [Rainer Jung]
+
+  *) mod_cache: Retry unconditional request with the full URL (including the
+     query-string) when the origin server's 304 response does not match the
+     conditions used to revalidate the stale entry.  [Yann Ylavic].
+
+  *) mod_alias: Stop setting CONTEXT_PREFIX and CONTEXT_DOCUMENT environment
+     variables as a result of AliasMatch. [Eric Covener]
+ 
+  *) mod_cache: Don't add cached/revalidated entity headers to a 304 response.
+     PR 55547.  [Yann Ylavic]
+
+  *) mod_proxy_scgi: Support Unix sockets.  ap_proxy_port_of_scheme():
+     Support default SCGI port (4000).  [Jeff Trawick]
+
+  *) mod_cache: Fix AH00784 errors on Windows when the the CacheLock directive
+     is enabled.  [Eric Covener]
+
+  *) mod_expires: don't add Expires header to error responses (4xx/5xx),
+     be they generated or forwarded. PR 55669.  [Yann Ylavic]
+
+  *) mod_proxy_fcgi: Don't segfault when failing to connect to the backend.
+     (regression in 2.4.9 release) [Jeff Trawick]
+
+  *) mod_authn_socache: Fix crash at startup in certain configurations.
+     PR 56371. (regression in 2.4.7) [Jan Kaluza]
+
+  *) mod_ssl: restore argument structure for "exec"-type SSLPassPhraseDialog
+     programs to the form used in releases up to 2.4.7, and emulate
+     a backwards-compatible behavior for existing setups. [Kaspar Brand]
+
+  *) mod_ssl: Add SSLOCSPUseRequestNonce directive to control whether or not
+     OCSP requests should use a nonce to be checked against the responder's
+     one. PR 56233. [Yann Ylavic, Kaspar Brand]
+
+  *) mod_ssl: "SSLEngine off" will now override a Listen-based default
+     and does disable mod_ssl for the vhost.  [Joe Orton]
+
+  *) mod_lua: Enforce the max post size allowed via r:parsebody()
+     [Daniel Gruno]
+
+  *) mod_lua: Use binary comparison to find boundaries for multipart 
+     objects, as to not terminate our search prematurely when hitting
+     a NULL byte. [Daniel Gruno]
+
+  *) mod_ssl: add workaround for SSLCertificateFile when using OpenSSL
+     versions before 0.9.8h and not specifying an SSLCertificateChainFile
+     (regression introduced with 2.4.8). PR 56410. [Kaspar Brand]
+
+  *) mod_ssl: bring SNI behavior into better conformance with RFC 6066:
+     no longer send warning-level unrecognized_name(112) alerts,
+     and limit startup warnings to cases where an OpenSSL version
+     without TLS extension support is used. PR 56241. [Kaspar Brand]
+
+  *) mod_proxy_html: Avoid some possible memory access violation in case of
+     specially crafted files, when the ProxyHTMLMeta directive is turned on.
+     Follow up of PR 56287 [Christophe Jaillet]
+
+  *) mod_auth_form: Make sure the optional functions are loaded even when
+     the AuthFormProvider isn't specified. [Graham Leggett]
+
+  *) mod_ssl: avoid processing bogus SSLCertificateKeyFile values
+     (and logging garbled file names). PR 56306. [Kaspar Brand]
+
+  *) mod_ssl: fix merging of global and vhost-level settings with the
+     SSLCertificateFile, SSLCertificateKeyFile, and SSLOpenSSLConfCmd
+     directives. PR 56353. [Kaspar Brand]
+
+  *) mod_headers: Allow the "value" parameter of Header and RequestHeader to 
+     contain an ap_expr expression if prefixed with "expr=". [Eric Covener]
+
+  *) rotatelogs: Avoid creation of zombie processes when -p is used on
+     Unix platforms.  [Joe Orton]
+
+  *) mod_authnz_fcgi: New module to enable FastCGI authorizer
+     applications to authenticate and/or authorize clients.
+     [Jeff Trawick]
+
+  *) mod_proxy: Do not try to parse the regular expressions passed by
+     ProxyPassMatch as URL as they do not follow their syntax.
+     PR 56074. [Ruediger Pluem]
+
+  *) mod_reqtimeout: Resolve unexpected timeouts on keepalive requests 
+     under the Event MPM. PR56216.  [Frank Meier <frank meier ergon ch>]
+
+  *) mod_proxy_fcgi: Fix sending of response without some HTTP headers
+     that might be set by filters.  [Jim Riggs <jim riggs.me>]
+
+  *) mod_proxy_html: Do not delete the wrong data from HTML code when a
+     "http-equiv" meta tag specifies a Content-Type behind any other
+     "http-equiv" meta tag. PR 56287 [Micha Lenk <micha lenk info>]
+
+  *) mod_proxy: Don't reuse a SSL backend connection whose requested SNI
+     differs. PR 55782.  [Yann Ylavic]
+
+  *) Add suspend_connection and resume_connection hooks to notify modules
+     when the thread/connection relationship changes.  (Should be implemented
+     for any third-party async MPMs.)  [Jeff Trawick]
+
+  *) mod_proxy_wstunnel: Don't issue AH02447 and log a 500 on routine 
+     hangups from websockets origin servers. PR 56299
+     [Yann Ylavic, Edward Lu <Chaosed0 gmail com>, Eric Covener] 
+
+  *) mod_proxy_wstunnel: Don't pool backend websockets connections,
+     because we need to handshake every time. PR 55890.
+     [Eric Covener]
+
+  *) mod_lua: Redesign how request record table access behaves,
+     in order to utilize the request record from within these tables.
+     [Daniel Gruno]
+
+  *) mod_lua: Add r:wspeek for peeking at WebSocket frames. [Daniel Gruno]
+ 
+  *) mod_lua: Log an error when the initial parsing of a Lua file fails.
+     [Daniel Gruno, Felipe Daragon <filipe syhunt com>]
+
+  *) mod_lua: Reformat and escape script error output.
+     [Daniel Gruno, Felipe Daragon <filipe syhunt com>]
+
+  *) mod_lua: URL-escape cookie keys/values to prevent tainted cookie data
+     from causing response splitting.
+     [Daniel Gruno, Felipe Daragon <filipe syhunt com>]
+
+  *) mod_lua: Disallow newlines in table values inside the request_rec, 
+     to prevent HTTP Response Splitting via tainted headers.
+     [Daniel Gruno, Felipe Daragon <filipe syhunt com>]
+
+  *) mod_lua: Remove the non-working early/late arguments for 
+     LuaHookCheckUserID. [Daniel Gruno]
+
+  *) mod_lua: Change IVM storage to use shm [Daniel Gruno]
+
+  *) mod_lua: More verbose error logging when a handler function cannot be
+     found. [Daniel Gruno]
+
+
 Changes with Apache 2.4.9
 
   *) mod_ssl: Work around a bug in some older versions of OpenSSL that
      would cause a crash in SSL_get_certificate for servers where the
      certificate hadn't been sent. [Stephen Henson]
 
-   *) mod_lua: Add a fixups hook that checks if the original request is intended 
-      for LuaMapHandler. This fixes a bug where FallbackResource invalidates the 
-      LuaMapHandler directive in certain cases by changing the URI before the map 
-      handler code executes [Daniel Gruno, Daniel Ferradal <dferradal gmail com>].
+  *) mod_lua: Add a fixups hook that checks if the original request is intended 
+     for LuaMapHandler. This fixes a bug where FallbackResource invalidates the 
+     LuaMapHandler directive in certain cases by changing the URI before the map 
+     handler code executes [Daniel Gruno, Daniel Ferradal <dferradal gmail com>].
 
 Changes with Apache 2.4.8
 
@@ -30,7 +275,10 @@ Changes with Apache 2.4.8
      non-ancient PCRE library) [Graham Leggett]
 
   *) core: draft-ietf-httpbis-p1-messaging-23 corrections regarding
-     TE/CL conflicts. [Yann Ylavic <ylavic.dev gmail com>, Jim Jagielski]
+     TE/CL conflicts. [Yann Ylavic, Jim Jagielski]
+
+  *) core: Detect incomplete request and response bodies, log an error and
+     forward it to the underlying filters. PR 55475 [Yann Ylavic]
 
   *) mod_dir: Add DirectoryCheckHandler to allow a 2.2-like behavior, skipping 
      execution when a handler is already set. PR53929. [Eric Covener]
@@ -102,10 +350,6 @@ Changes with Apache 2.4.8
   *) mod_proxy_fcgi: Use apr_socket_timeout_get instead of hard-coded
      30 seconds timeout. [Jan Kaluza]
 
-  *) mod_proxy: Added support for unix domain sockets as the
-     backend server endpoint [Jim Jagielski, Blaise Tarr
-     <blaise tarr gmail com>]
-
   *) build: only search for modules (config*.m4) in known subdirectories, see
      build/config-stubs. [Stefan Fritsch]
 
@@ -132,6 +376,11 @@ Changes with Apache 2.4.8
      to prevent truncating files. [Daniel Gruno]
 
 Changes with Apache 2.4.7
+
+  *) SECURITY: CVE-2013-4352 (cve.mitre.org)
+     mod_cache: Fix a NULL pointer deference which allowed untrusted
+     origin servers to crash mod_cache in a forward proxy
+     configuration.  [Graham Leggett]
 
   *) APR 1.5.0 or later is now required for the event MPM.
   
@@ -243,9 +492,6 @@ Changes with Apache 2.4.7
   *) mod_proxy: Add a note in the balancer manager stating whether changes
      will or will not be persisted and whether settings are inherited.
      [Daniel Ruggeri, Jim Jagielski]
-
-  *) mod_cache: Avoid a crash with strcmp() when the hostname is not provided.
-     [Graham Leggett]
 
   *) core: Add util_fcgi.h and associated definitions and support
      routines for FastCGI, based largely on mod_proxy_fcgi.

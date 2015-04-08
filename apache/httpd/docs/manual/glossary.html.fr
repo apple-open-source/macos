@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Glossaire - Serveur Apache HTTP</title>
+<title>Glossaire - Serveur Apache HTTP Version 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -53,7 +53,7 @@
       Voir : <a href="ssl/">chiffrement SSL/TLS</a>
     </dd>
 
-    <dt><a name="apr" id="apr">APR</a></dt>
+    <dt><a name="apr" id="APR">APR</a></dt>
     <dd>Voir "Bibliothèques pour la portabilité d'Apache"
     </dd>
 

@@ -27,6 +27,7 @@
 
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <CoreFoundation/CFDate.h>
 
 #include <Security/SecOTR.h>
 #include <corecrypto/ccn.h>
@@ -39,6 +40,7 @@
 
 #include <Security/SecOTRMath.h>
 #include <Security/SecOTRDHKey.h>
+#include <Security/SecOTRSession.h>
 
 __BEGIN_DECLS
 
@@ -67,6 +69,7 @@ struct _SecOTRCacheElement {
 typedef struct _SecOTRCacheElement SecOTRCacheElement;
 
 #define kOTRKeyCacheSize 4
+#define kSecondsPerMinute 60
 
 struct _SecOTRSession {
     CFRuntimeBase _base;
@@ -97,10 +100,24 @@ struct _SecOTRSession {
     
     bool _textOutput;
     bool _compactAppleMessages;
+    bool _includeHashes;
+    uint64_t _stallSeconds;
+
+    bool _stallingTheirRoll;
+    CFAbsoluteTime _timeToRoll;
+
+    bool _missedAck;
+    bool _receivedAck;
 };
 
 CFDataRef SecOTRCopyIncomingBytes(CFDataRef incomingMessage);
 void SecOTRPrepareOutgoingBytes(CFMutableDataRef destinationMessage, CFMutableDataRef protectedMessage);
+
+OSStatus SecOTRSetupInitialRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef initialKey);
+void SOSOTRSRoll(SecOTRSessionRef session);
+int SecOTRSGetKeyID(SecOTRSessionRef session);
+int SecOTRSGetTheirKeyID(SecOTRSessionRef session);
+void SecOTRSKickTimeToRoll(SecOTRSessionRef session);
 
 __END_DECLS
 

@@ -233,6 +233,7 @@ simple(void *context,
   case SASL_CB_AUTHZ_PRSID:
   case SASL_CB_ATOKEN_TOKEN:
   case SASL_CB_CLIENTTOKEN_TOKEN:
+  case SASL_CB_OAUTH2_BEARER_TOKEN:
     *result = value;
     if (len)
       *len = value ? (unsigned) strlen(value) : 0;
@@ -457,7 +458,8 @@ main(int argc, char *argv[])
     *authnPrsid = NULL,
     *authzPrsid = NULL,
     *atokenToken = NULL,
-    *clienttokenToken = NULL;
+    *clienttokenToken = NULL,
+    *oauthToken = NULL;
   sasl_ssf_t *ssf;
     
 #ifdef WIN32
@@ -482,7 +484,7 @@ main(int argc, char *argv[])
   secprops.max_ssf = UINT_MAX;
 
   verbose = 0;
-  while ((c = getopt(argc, argv, "vhldb:e:m:f:i:p:r:s:n:u:a:N:Z:T:C:?")) != EOF)
+  while ((c = getopt(argc, argv, "vhldb:e:m:f:i:p:r:s:n:u:a:N:Z:T:C:O:?")) != EOF)
     switch (c) {
     case 'v':
 	verbose = 1;
@@ -637,6 +639,10 @@ main(int argc, char *argv[])
     case 'C':
       clienttokenToken = optarg;
       break;
+
+    case 'O':
+      oauthToken = optarg;
+      break;
            
     default:			/* unknown flag */
       errflag = 1;
@@ -676,6 +682,7 @@ main(int argc, char *argv[])
 	    "\t-N ID\tprsid to authenticate as\n"
 	    "\t-Z ID\tprsid to authorize as\n"
 	    "\t-T ID\tauthentication token\n"
+	    "\t-O ID\toauth access token\n"
 	    "\t-C ID\tclient token\n"
 	    "\t-a ID\tid to authenticate as\n"
 	    "\t-d\tDisable client-send-first\n"
@@ -744,7 +751,14 @@ main(int argc, char *argv[])
     ++callback;
   }
 
- 
+  /* OAUTHs */
+  if (oauthToken) {
+    callback->id = SASL_CB_OAUTH2_BEARER_TOKEN;
+    callback->proc = &simple;
+    callback->context = oauthToken;
+    ++callback;
+  }
+
   if (realm!=NULL)
   {
     callback->id = SASL_CB_GETREALM;

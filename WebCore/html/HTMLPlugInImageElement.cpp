@@ -223,6 +223,14 @@ RenderPtr<RenderElement> HTMLPlugInImageElement::createElementRenderer(PassRef<R
     return HTMLPlugInElement::createElementRenderer(WTF::move(style));
 }
 
+bool HTMLPlugInImageElement::childShouldCreateRenderer(const Node& child) const
+{
+    if (renderer()->isSnapshottedPlugIn() && !hasShadowRootParent(child)) 
+        return false;
+
+    return HTMLPlugInElement::childShouldCreateRenderer(child);
+}
+
 bool HTMLPlugInImageElement::willRecalcStyle(Style::Change change)
 {
     // Make sure style recalcs scheduled by a child shadow tree don't trigger reconstruction and cause flicker.
@@ -333,6 +341,9 @@ void HTMLPlugInImageElement::updateSnapshot(PassRefPtr<Image> image)
         return;
 
     m_snapshotImage = image;
+    
+     if (!renderer())
+         return;
 
     if (renderer()->isSnapshottedPlugIn()) {
         toRenderSnapshottedPlugIn(renderer())->updateSnapshot(image);
@@ -394,14 +405,17 @@ void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
     JSC::call(exec, overlay, callType, callData, globalObject, argList);
 }
 
-bool HTMLPlugInImageElement::partOfSnapshotOverlay(Node* node)
+bool HTMLPlugInImageElement::partOfSnapshotOverlay(const Node* node) const
 {
     DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, selector, (".snapshot-overlay", AtomicString::ConstructFromLiteral));
-    RefPtr<Element> snapshotLabel = ensureUserAgentShadowRoot().querySelector(selector, ASSERT_NO_EXCEPTION);
+    ShadowRoot* shadow = userAgentShadowRoot();
+    if (!shadow)
+        return false;
+    RefPtr<Element> snapshotLabel = shadow->querySelector(selector, ASSERT_NO_EXCEPTION);
     return node && snapshotLabel && (node == snapshotLabel.get() || node->isDescendantOf(snapshotLabel.get()));
 }
 
-void HTMLPlugInImageElement::removeSnapshotTimerFired(Timer<HTMLPlugInImageElement>&)
+void HTMLPlugInImageElement::removeSnapshotTimerFired(Timer&)
 {
     m_snapshotImage = nullptr;
     m_isRestartedPlugin = false;

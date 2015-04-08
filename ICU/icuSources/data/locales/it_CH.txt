@@ -22,7 +22,7 @@ it_CH{
     calendar{
         generic{
             DateTimePatterns{
-                "HH.mm:ss 'h' zzzz",
+                "HH:mm:ss 'h' zzzz",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
@@ -39,7 +39,7 @@ it_CH{
         }
         gregorian{
             DateTimePatterns{
-                "HH.mm:ss 'h' zzzz",
+                "HH:mm:ss 'h' zzzz",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",

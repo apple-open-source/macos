@@ -94,6 +94,7 @@ private:
 	CFDataRef loadRegularFile(CFURLRef url);
 	void recordStrictError(OSStatus error);
 	void validateFrameworkRoot(std::string root);
+	void checkMoved(CFURLRef oldPath, CFURLRef newPath);
 
 private:
 	CFRef<CFBundleRef> mBundle;

@@ -70,7 +70,7 @@ static CFStringRef sSigningKeyName = CFSTR("OTR Signing Key");
 
 CFGiblisFor(SecOTRFullIdentity);
 
-static CF_RETURNS_RETAINED CFStringRef SecOTRFullIdentityCopyDescription(CFTypeRef cf) {
+static CF_RETURNS_RETAINED CFStringRef SecOTRFullIdentityCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SecOTRFullIdentityRef requestor = (SecOTRFullIdentityRef)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTRPublicIdentity: %p %02x%02x%02x%02x%02x%02x%02x%02x>"),
                                     requestor,

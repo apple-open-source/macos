@@ -33,6 +33,7 @@ struct __OpaqueSOSTestDevice {
     SOSDataSourceFactoryRef dsf;
     SOSDataSourceRef ds;
     CFMutableArrayRef peers;
+    bool mute;
 };
 
 CFStringRef SOSMessageCopyDigestHex(SOSMessageRef message);
@@ -43,6 +44,9 @@ SOSTestDeviceRef SOSTestDeviceCreateWithDb(CFAllocatorRef allocator, CFStringRef
 SOSTestDeviceRef SOSTestDeviceCreateWithDbNamed(CFAllocatorRef allocator, CFStringRef engineID, CFStringRef dbName);
 SOSTestDeviceRef SOSTestDeviceCreateWithTestDataSource(CFAllocatorRef allocator, CFStringRef engineID);
 SOSTestDeviceRef SOSTestDeviceSetPeerIDs(SOSTestDeviceRef td, CFArrayRef peerIDs, CFIndex version);
+
+SOSTestDeviceRef SOSTestDeviceSetMute(SOSTestDeviceRef td, bool mute);
+bool SOSTestDeviceIsMute(SOSTestDeviceRef td);
 
 CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID);
 

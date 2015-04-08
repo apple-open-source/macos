@@ -498,6 +498,7 @@ p = NULL;					\
 #define UNLOCK_HISTORY_W()		lck_rw_unlock_exclusive(&BC_cache->c_history_lock)
 
 #define LOCK_EXTENT(e)			lck_mtx_lock(&(e)->ce_lock)
+#define LOCK_EXTENT_TRY(e)		lck_mtx_try_lock(&(e)->ce_lock)
 #define UNLOCK_EXTENT(e)		lck_mtx_unlock(&(e)->ce_lock)
 
 /* mount locks should only be held while also holding the cache lock */
@@ -549,7 +550,7 @@ static int	BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u
 static int	BC_find_cache_mount(dev_t dev);
 static struct BC_cache_extent**	BC_find_extent(struct BC_cache_mount* cm, u_int64_t offset, u_int64_t length, int contained, int* pnum_extents);
 static int	BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
-static int	BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length);
+static int	BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, int data_is_overwritten);
 static int	BC_blocks_present(struct BC_cache_extent *ce, int base, int nblk);
 static void	BC_reader_thread(void *param0, wait_result_t param1);
 static int	BC_strategy(struct buf *bp);
@@ -674,6 +675,29 @@ BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t le
 		((offset + length) > ce->ce_diskoffset))
 		return 1;
 	return 0;
+}
+
+/*
+ * Return the number of bytes of intersection for the given range in this extent.
+ */
+static inline u_int64_t
+BC_intersection_size(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
+{
+	u_int64_t lower_bounds = ce->ce_diskoffset;
+	if (offset > lower_bounds) {
+		lower_bounds = offset;
+	}
+	
+	u_int64_t upper_bounds = ce->ce_diskoffset + ce->ce_length;
+	if (offset + length < upper_bounds) {
+		upper_bounds = offset + length;
+	}
+	
+	if (lower_bounds >= upper_bounds) {
+		return 0;
+	}
+	
+	return upper_bounds - lower_bounds;
 }
 
 /*
@@ -1287,9 +1311,9 @@ BC_reader_thread(void *param0, wait_result_t param1)
 					BC_ADD_STAT(initiated_reads, 1);
 					if (cd->cd_disk_num < STAT_DISKMAX) {
 						if (ce->ce_flags & CE_LOWPRI) {
-							BC_ADD_STAT(disk_initiated_reads_lowpri[cd->cd_disk_num], 1);
+							BC_ADD_STAT(batch_initiated_reads_lowpri[cd->cd_disk_num], 1);
 						} else {
-							BC_ADD_STAT(disk_initiated_reads[cd->cd_disk_num], 1);
+							BC_ADD_STAT(batch_initiated_reads[cd->cd_disk_num][MIN(cd->cd_batch, STAT_BATCHMAX)], 1);
 						}
 					}
 					
@@ -2231,7 +2255,7 @@ bypass:
 		if (cm_idx != -1) {
 			LOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
 			if (BC_cache->c_mounts[cm_idx].cm_state == CM_READY) {
-				discards += BC_handle_discards(BC_cache->c_mounts + cm_idx, disk_offset, nbytes);
+				discards += BC_handle_discards(BC_cache->c_mounts + cm_idx, disk_offset, nbytes, !(bufflags & B_READ));
 			}
 			
 			/* Check if we should throttle this IO */
@@ -2360,6 +2384,14 @@ bypass:
 	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, (should_throttle ? DBG_BC_IO_MISS_CUT_THROUGH : DBG_BC_IO_MISS)) | DBG_FUNC_NONE, buf_kernel_addrperm_addr(bp_void), 0, 0, 0, 0);
 	
 	if (should_throttle && throttle_tier < IOPOL_THROTTLE) {
+		
+		char procname[MAXCOMLEN+1];
+		proc_selfname(procname, sizeof(procname));
+		if (0 == strncmp(procname, "securityd", strlen("securityd"))) {
+			BC_ADD_STAT(strategy_nonthrottled, 1);
+			return 0;
+		}
+		
 		/*
 		 * We need to indicate to spec_strategy that we want to
 		 * throttle this IO to avoid cutting through readahead
@@ -2385,12 +2417,15 @@ bypass:
  * Returns the number of bytes discarded
  */
 static int
-BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length)
+BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, int data_is_overwritten)
 {
 	struct BC_cache_extent **pce, **p;
 	int count, total_discards;
+	boolean_t locked;
 	
 	total_discards = 0;
+	
+	int try_lock_failed = 0; /* Only count this IO once even if we fail to grab the lock for multiple extents */
 	
 	/*
 	 * Look for an extent that we overlap.
@@ -2400,11 +2435,27 @@ BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length
 	
 	/*
 	 * Discard bytes in the matched extent.
+	 * LOCK_EXTENT_TRY is used so we don't block this thread for this optimization rdar://19542373
 	 */
-	LOCK_EXTENT(*pce);
-	count = BC_discard_bytes((*pce), offset, length);
-	UNLOCK_EXTENT(*pce);
-	total_discards += count;
+	if (data_is_overwritten) {
+		// If the data was overwritten, we must discard the now obsolete data we've cached
+		locked = 1;
+		LOCK_EXTENT(*pce);
+	} else {
+		locked = LOCK_EXTENT_TRY(*pce);
+	}
+	if (locked) {
+		count = BC_discard_bytes((*pce), offset, length);
+		UNLOCK_EXTENT(*pce);
+		total_discards += count;
+	} else {
+		count = BC_intersection_size((*pce), offset, length);
+		BC_ADD_STAT(unable_to_discard_bytes, count);
+		if (!try_lock_failed) {
+			BC_ADD_STAT(unable_to_discard_count, 1);
+			try_lock_failed = 1;
+		}
+	}
 	
 	/*
 	 * Scan adjacent extents for possible overlap and discard there as well.
@@ -2412,23 +2463,53 @@ BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length
 	p = pce - 1;
 	while (p >= cm->cm_pextents && 
 		   BC_check_intersection((*p), offset, length)) {
-		LOCK_EXTENT(*p);
-		count = BC_discard_bytes((*p), offset, length);
-		UNLOCK_EXTENT(*p);
-		if (count == 0)
-			break;
-		total_discards += count;
+		if (data_is_overwritten) {
+			// If the data was overwritten, we must discard the now obsolete data we've cached
+			locked = 1;
+			LOCK_EXTENT(*p);
+		} else {
+			locked = LOCK_EXTENT_TRY(*p);
+		}
+		if (locked) {
+			count = BC_discard_bytes((*p), offset, length);
+			UNLOCK_EXTENT(*p);
+			if (count == 0)
+				break;
+			total_discards += count;
+		} else {
+			count = BC_intersection_size((*p), offset, length);
+			BC_ADD_STAT(unable_to_discard_bytes, count);
+			if (!try_lock_failed) {
+				BC_ADD_STAT(unable_to_discard_count, 1);
+				try_lock_failed = 1;
+			}
+		}
 		p--;
 	}
 	p = pce + 1;
-	while (p < (cm->cm_pextents + cm->cm_nextents) && 
+	while (p < (cm->cm_pextents + cm->cm_nextents) &&
 		   BC_check_intersection((*p), offset, length)) {
-		LOCK_EXTENT(*p);
-		count = BC_discard_bytes((*p), offset, length);
-		UNLOCK_EXTENT(*p);
-		if (count == 0)
-			break;
-		total_discards += count;
+		if (data_is_overwritten) {
+			// If the data was overwritten, we must discard the now obsolete data we've cached
+			locked = 1;
+			LOCK_EXTENT(*p);
+		} else {
+			locked = LOCK_EXTENT_TRY(*p);
+		}
+		if (locked) {
+			count = BC_discard_bytes((*p), offset, length);
+			UNLOCK_EXTENT(*p);
+			if (count == 0)
+				break;
+			total_discards += count;
+		} else {
+			count = BC_intersection_size((*p), offset, length);
+			BC_ADD_STAT(unable_to_discard_bytes, count);
+			if (!try_lock_failed) {
+				BC_ADD_STAT(unable_to_discard_count, 1);
+				try_lock_failed = 1;
+			}
+		}
 		p++;
 	}
 	
@@ -3212,7 +3293,7 @@ BC_fill_in_mount(struct BC_cache_mount *cm, mount_t mount, vfs_context_t context
 						context)) {
 		if (cm->cm_maxread > max_block_count * cm->cm_blocksize && max_block_count > 0) {
 			cm->cm_maxread = max_block_count * cm->cm_blocksize;
-			debug("MAXBLOCKCOUNTREAD is %#llx, BLOCKSIZE is %#llx, (multiplied %#llx)", max_block_count, cm->cm_blocksize, max_block_count * cm->cm_blocksize, cm->cm_maxread);
+			debug("MAXBLOCKCOUNTREAD is %#llx, BLOCKSIZE is %#llx, (multiplied %#llx)", max_block_count, cm->cm_blocksize, max_block_count * cm->cm_blocksize);
 		}
 	}
 

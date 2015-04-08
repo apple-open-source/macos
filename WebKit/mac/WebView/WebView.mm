@@ -902,7 +902,6 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         RetainPtr<NSImmediateActionGestureRecognizer> recognizer = adoptNS([(NSImmediateActionGestureRecognizer *)[gestureClass alloc] initWithTarget:nil action:NULL]);
         _private->immediateActionController = [[WebImmediateActionController alloc] initWithWebView:self recognizer:recognizer.get()];
         [recognizer setDelegate:_private->immediateActionController];
-        [self addGestureRecognizer:recognizer.get()];
     }
 #endif
 
@@ -2451,6 +2450,10 @@ static bool needsSelfRetainWhileLoadingQuirk()
     [[self window] setTilePaintCountsVisible:[preferences showRepaintCounter]];
     [[self window] setAcceleratedDrawingEnabled:[preferences acceleratedDrawingEnabled]];
     [WAKView _setInterpolationQuality:[preferences _interpolationQuality]];
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+    settings.setMediaKeysStorageDirectory([preferences mediaKeysStorageDirectory]);
 #endif
 }
 
@@ -5298,6 +5301,17 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
 
 #if !PLATFORM(IOS)
     _private->page->setDeviceScaleFactor([self _deviceScaleFactor]);
+#endif
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    if (_private->immediateActionController) {
+        NSImmediateActionGestureRecognizer *recognizer = [_private->immediateActionController immediateActionRecognizer];
+        if ([self window]) {
+            if (![[self gestureRecognizers] containsObject:recognizer])
+                [self addGestureRecognizer:recognizer];
+        } else
+            [self removeGestureRecognizer:recognizer];
+    }
 #endif
 
     [self _updateActiveState];
@@ -8574,6 +8588,10 @@ static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity
 
 - (NSRect)_convertRectFromRootView:(NSRect)rect
 {
+#if PLATFORM(MAC)
+    if (self.isFlipped)
+        return rect;
+#endif
     return NSMakeRect(rect.origin.x, [self bounds].size.height - rect.origin.y - rect.size.height, rect.size.width, rect.size.height);
 }
 
@@ -8651,8 +8669,9 @@ static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity
     if (!_private->textIndicatorWindow)
         _private->textIndicatorWindow = std::make_unique<TextIndicatorWindow>(self);
 
-    NSRect contentRect = [self.window convertRectToScreen:textIndicator->textBoundingRectInWindowCoordinates()];
-    _private->textIndicatorWindow->setTextIndicator(textIndicator, NSRectToCGRect(contentRect), fadeOut);
+    NSRect textBoundingRectInWindowCoordinates = [self convertRect:[self _convertRectFromRootView:textIndicator->textBoundingRectInRootViewCoordinates()] toView:nil];
+    NSRect textBoundingRectInScreenCoordinates = [self.window convertRectToScreen:textBoundingRectInWindowCoordinates];
+    _private->textIndicatorWindow->setTextIndicator(textIndicator, NSRectToCGRect(textBoundingRectInScreenCoordinates), fadeOut);
 }
 
 - (void)_clearTextIndicator

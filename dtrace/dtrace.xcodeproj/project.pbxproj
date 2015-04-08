@@ -99,6 +99,8 @@
 		2429654E0AA424030092EC56 /* dt_dof_byteswap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2429654C0AA424030092EC56 /* dt_dof_byteswap.c */; };
 		2429654F0AA424030092EC56 /* dt_dof_byteswap.h in Headers */ = {isa = PBXBuildFile; fileRef = 2429654D0AA424030092EC56 /* dt_dof_byteswap.h */; };
 		242965BC0AA426C80092EC56 /* arch.h in Headers */ = {isa = PBXBuildFile; fileRef = 242965BB0AA426C80092EC56 /* arch.h */; };
+		451A3ABE19A2A567004A628A /* dt_pq.c in Sources */ = {isa = PBXBuildFile; fileRef = 451A3ABC19A2A567004A628A /* dt_pq.c */; };
+		451A3ABF19A2A567004A628A /* dt_pq.h in Headers */ = {isa = PBXBuildFile; fileRef = 451A3ABD19A2A567004A628A /* dt_pq.h */; };
 		459D2F9D1819548400F1C284 /* dt_isadep_arm.c in Sources */ = {isa = PBXBuildFile; fileRef = 459D2F9C1819548400F1C284 /* dt_isadep_arm.c */; };
 		45BB66CB1883D7A400D579C9 /* lockstat.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 45BB66CA1883D79900D579C9 /* lockstat.1 */; };
 		45BB66CC1883DA9D00D579C9 /* lockstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 456E1F551883D6E00039DA74 /* lockstat.c */; };
@@ -970,6 +972,8 @@
 		2429654C0AA424030092EC56 /* dt_dof_byteswap.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dt_dof_byteswap.c; path = libdtrace/dt_dof_byteswap.c; sourceTree = "<group>"; };
 		2429654D0AA424030092EC56 /* dt_dof_byteswap.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dt_dof_byteswap.h; path = libdtrace/dt_dof_byteswap.h; sourceTree = "<group>"; };
 		242965BB0AA426C80092EC56 /* arch.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = arch.h; path = head/arch.h; sourceTree = "<group>"; };
+		451A3ABC19A2A567004A628A /* dt_pq.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dt_pq.c; path = libdtrace/dt_pq.c; sourceTree = "<group>"; };
+		451A3ABD19A2A567004A628A /* dt_pq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dt_pq.h; path = libdtrace/dt_pq.h; sourceTree = "<group>"; };
 		456E1F551883D6E00039DA74 /* lockstat.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = lockstat.c; path = lockstat/lockstat.c; sourceTree = "<group>"; };
 		456E1F611883D7040039DA74 /* lockstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lockstat; sourceTree = BUILT_PRODUCTS_DIR; };
 		459D2F9C1819548400F1C284 /* dt_isadep_arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dt_isadep_arm.c; path = libdtrace/dt_isadep_arm.c; sourceTree = "<group>"; };
@@ -1651,6 +1655,8 @@
 		6EBC9759099BFACF0001019C /* libdtrace */ = {
 			isa = PBXGroup;
 			children = (
+				451A3ABC19A2A567004A628A /* dt_pq.c */,
+				451A3ABD19A2A567004A628A /* dt_pq.h */,
 				D22AB6010A39CA4900D04435 /* exports */,
 				6EBC97EF099BFBBF0001019C /* dt_aggregate.c */,
 				6EBC97F0099BFBBF0001019C /* dt_as.c */,
@@ -2246,6 +2252,7 @@
 				6E63A176099D6A8E005979DE /* ctf.h in Headers */,
 				6E63A177099D6A8F005979DE /* ctf_api.h in Headers */,
 				6E63A178099D6A8F005979DE /* elf_386.h in Headers */,
+				451A3ABF19A2A567004A628A /* dt_pq.h in Headers */,
 				6E63A19D099D6A9B005979DE /* lwp.h in Headers */,
 				6E63A19E099D6A9C005979DE /* machelf.h in Headers */,
 				6E63A19F099D6ACB005979DE /* dt_as.h in Headers */,
@@ -2698,6 +2705,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				451A3ABE19A2A567004A628A /* dt_pq.c in Sources */,
 				6EBC982D099BFBBF0001019C /* dt_aggregate.c in Sources */,
 				6EBC982E099BFBBF0001019C /* dt_as.c in Sources */,
 				6EBC9830099BFBBF0001019C /* dt_buf.c in Sources */,

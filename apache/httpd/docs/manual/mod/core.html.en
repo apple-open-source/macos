@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>core - Apache HTTP Server</title>
+<title>core - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -125,8 +125,6 @@ available</td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache httpd 2.1.5 and later.
-On Windows from Apache httpd 2.3.3 and later.</td></tr>
 </table>
     <p>This directive enables operating system specific optimizations for a
        listening socket by the <code class="directive">Protocol</code> type.
@@ -669,6 +667,7 @@ headers</td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.4.2 and later</td></tr>
 </table>
     <p>The <code class="directive">DefaultRuntimeDir</code> directive sets the
     directory in which the server will create various run-time files
@@ -1390,7 +1389,6 @@ ErrorDocument 403 Forbidden!</pre>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache httpd 2.3.9 and later</td></tr>
 </table>
     <p><code class="directive">ErrorLogFormat</code> allows to specify what
     supplementary information is logged in the error log in addition to the
@@ -1753,9 +1751,9 @@ filenames</td></tr>
     <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>. In order to prevent confusion, numbered
     (unnamed) backreferences are ignored. Use named groups instead.</p>
 
-<pre class="prettyprint lang-config">&lt;FileMatch ^(?&lt;sitename&gt;[^/]+)&gt;
+<pre class="prettyprint lang-config">&lt;FilesMatch ^(?&lt;sitename&gt;[^/]+)&gt;
     require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
-&lt;/FileMatch&gt;</pre>
+&lt;/FilesMatch&gt;</pre>
 
 
 <h3>See also</h3>
@@ -1900,7 +1898,7 @@ satisfied by a request at runtime</td></tr>
 
     <p>would match HTTP/1.0 requests without a <var>Host:</var> header.
     Expressions may contain various shell-like operators for string
-    comparison (<code>=</code>, <code>!=</code>, <code>&lt;</code>, ...),
+    comparison (<code>==</code>, <code>!=</code>, <code>&lt;</code>, ...),
     integer comparison (<code>-eq</code>, <code>-ne</code>, ...),
     and others (<code>-n</code>, <code>-z</code>, <code>-f</code>, ...).
     It is also possible to use regular expressions, </p>
@@ -2181,8 +2179,6 @@ requests on a persistent connection</td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Specifying a value in milliseconds is available in
-Apache httpd 2.3.2 and later</td></tr>
 </table>
     <p>The number of seconds Apache httpd will wait for a subsequent
     request before closing the connection. By adding a postfix of ms the

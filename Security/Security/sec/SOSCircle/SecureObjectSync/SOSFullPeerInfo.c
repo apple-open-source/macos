@@ -199,7 +199,7 @@ static CFHashCode   SOSFullPeerInfoHash(CFTypeRef cf) {
     return CFHash(peer->peer_info);
 }
 
-static CFStringRef SOSFullPeerInfoCopyDescription(CFTypeRef aObj) {
+static CFStringRef SOSFullPeerInfoCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
     SOSFullPeerInfoRef fpi = (SOSFullPeerInfoRef) aObj;
 
     return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SOSFullPeerInfo@%p: \"%@\">"), fpi, fpi->peer_info);

@@ -871,14 +871,14 @@ bool SecDbItemDecrypt(SecDbItemRef item, CFDataRef edata, CFDataRef *neededAuth,
 
     if (!ks_decrypt_data(SecDbItemGetKeybag(item), item->cryptoOp, &access_control, &item->credHandle, edata, item->class, item->callerAccessGroups, &dict, &version, error)) {
         // Copy access control data, which might indicate why decryption failed.
-        if (neededAuth)
+        if (access_control && neededAuth)
             *neededAuth = SecAccessControlCopyData(access_control);
         ok = false;
         goto out;
     }
 
     if (!dict) {
-        if (neededAuth)
+        if (access_control && neededAuth)
             *neededAuth = SecAccessControlCopyData(access_control);
         else
             require_quiet(ok = SecError(errSecInteractionNotAllowed, error, CFSTR("auth needed, but caller does not provide it")), out);

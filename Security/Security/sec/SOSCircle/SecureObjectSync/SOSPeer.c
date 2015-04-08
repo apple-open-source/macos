@@ -119,7 +119,7 @@ static CFStringRef SOSPeerCreateManifestArrayDescriptionWithKey(SOSPeerRef peer,
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR(" %@[%" PRIdCFIndex "]%@"), label, count, SOSEngineGetManifestForDigest(peer->engine, digest));
 }
 
-static CFStringRef SOSPeerCopyDescription(CFTypeRef cf) {
+static CFStringRef SOSPeerCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SOSPeerRef peer = (SOSPeerRef)cf;
     if(peer){
         CFStringRef po = SOSManifestCreateOptionalDescriptionWithLabel(SOSPeerGetPendingObjects(peer), CFSTR("O"));

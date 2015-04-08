@@ -151,7 +151,7 @@ static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *er
 #pragma mark SecDbRef
 
 static CFStringRef
-SecDbCopyDescription(CFTypeRef value)
+SecDbCopyFormatDescription(CFTypeRef value, CFDictionaryRef formatOptions)
 {
     SecDbRef db = (SecDbRef)value;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SecDb path:%@ connections: %@>"), db->db_path, db->connections);
@@ -944,7 +944,7 @@ bool SecDbPerformWrite(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConn
 }
 
 static CFStringRef
-SecDbConnectionCopyDescription(CFTypeRef value)
+SecDbConnectionCopyFormatDescription(CFTypeRef value, CFDictionaryRef formatOptions)
 {
     SecDbConnectionRef dbconn = (SecDbConnectionRef)value;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SecDbConnection %s %s>"),
@@ -1098,8 +1098,9 @@ bool SecDbClearBindings(sqlite3_stmt *stmt, CFErrorRef *error) {
 }
 
 bool SecDbFinalize(sqlite3_stmt *stmt, CFErrorRef *error) {
+    sqlite3 *handle = sqlite3_db_handle(stmt);
     int s3e = sqlite3_finalize(stmt);
-    return s3e == SQLITE_OK ? true : SecDbErrorWithDb(s3e, sqlite3_db_handle(stmt), error, CFSTR("finalize: %p"), stmt);
+    return s3e == SQLITE_OK ? true : SecDbErrorWithDb(s3e, handle, error, CFSTR("finalize: %p"), stmt);
 }
 
 sqlite3_stmt *SecDbPrepareV2(SecDbConnectionRef dbconn, const char *sql, size_t sqlLen, const char **sqlTail, CFErrorRef *error) {
@@ -1158,7 +1159,7 @@ sqlite3_stmt *SecDbCopyStmt(SecDbConnectionRef dbconn, CFStringRef sql, CFString
  TODO: Better yet make a full blow SecDbStatement instance whenever SecDbCopyStmt is called.  Then, when the statement is released, in the Dispose method, we Reset and ClearBindings the sqlite3_stmt * and hand it back to the SecDb with the original CFStringRef for the sql (or hash thereof) as an argument. */
 bool SecDbReleaseCachedStmt(SecDbConnectionRef dbconn, CFStringRef sql, sqlite3_stmt *stmt, CFErrorRef *error) {
     if (stmt) {
-        return SecDbReset(stmt, error) && SecDbClearBindings(stmt, error) && SecDbFinalize(stmt, error);
+        return SecDbFinalize(stmt, error);
     }
     return true;
 }

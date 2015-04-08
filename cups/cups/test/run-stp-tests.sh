@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: run-stp-tests.sh 12104 2014-08-20 15:23:40Z msweet $"
+# "$Id: run-stp-tests.sh 12183 2014-10-01 13:02:28Z msweet $"
 #
 # Perform the complete set of IPP compliance tests specified in the
 # CUPS Software Test Plan.
@@ -231,7 +231,7 @@ echo ""
 
 case "$usevalgrind" in
 	Y* | y*)
-		VALGRIND="valgrind --tool=memcheck --log-file=$BASE/log/valgrind.%p --error-limit=no --leak-check=yes --trace-children=yes --read-var-info=yes"
+		VALGRIND="valgrind --tool=memcheck --log-file=$BASE/log/valgrind.%p --error-limit=no --leak-check=yes --trace-children=yes"
 		if test `uname` = Darwin; then
 			VALGRIND="$VALGRIND --dsymutil=yes"
 		fi
@@ -1066,5 +1066,5 @@ if test $fail != 0; then
 fi
 
 #
-# End of "$Id: run-stp-tests.sh 12104 2014-08-20 15:23:40Z msweet $"
+# End of "$Id: run-stp-tests.sh 12183 2014-10-01 13:02:28Z msweet $"
 #

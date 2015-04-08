@@ -328,6 +328,14 @@ _SecGenerateSelfSignedCertificate
 //
 // OTR
 //
+_SecOTRSKickTimeToRoll
+_SecOTRSGetTheirKeyID
+_SecOTRSGetKeyID
+_SecFDHKAppendCompactPublicSerialization
+_SecFDHKAppendPublicSerialization
+_SecOTRCopyIncomingBytes
+_SecOTRPublicDHKCreateFromSerialization
+_SecOTRPublicDHKCreateFromCompactSerialization
 _SecOTRDHKGenerateOTRKeys
 _SecOTRFullDHKCreate
 _SecOTRPublicDHKCreateFromFullKey

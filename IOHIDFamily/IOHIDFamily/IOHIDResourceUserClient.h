@@ -129,6 +129,7 @@ private:
     IOHIDResourceQueue *    _queue;
     OSSet *                 _pending;
     uint32_t                _maxClientTimeoutUS;
+    u_int64_t               _tokenIndex;
 
     static const IOExternalMethodDispatch _methods[kIOHIDResourceDeviceUserClientMethodCount];
 

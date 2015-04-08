@@ -144,7 +144,7 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 		
 		CFRef<SecRequirementRef> requirement;
 		MacOSError::check(SecRequirementCreateWithString(CFTempString(reqString), kSecCSDefaultFlags, &requirement.aref()));
-		switch (OSStatus rc = SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, requirement)) {
+		switch (OSStatus rc = SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly | kSecCSCheckGatekeeperArchitectures, requirement)) {
 		case errSecSuccess:
 			break;						// rule match; process below
 		case errSecCSReqFailed:

@@ -1277,6 +1277,14 @@ pl{
         }
     }
     contextTransforms{
+        day-format-except-narrow:intvector{
+            0,
+            1,
+        }
+        day-standalone-except-narrow:intvector{
+            0,
+            1,
+        }
         month-format-except-narrow:intvector{
             0,
             1,

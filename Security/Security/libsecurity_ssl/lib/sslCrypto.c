@@ -187,11 +187,15 @@ static OSStatus sslVerifyCertChain(
 	OSStatus status;
 	SecTrustRef trust = NULL;
 
-    assert(certChain);
-
     if (arePeerCerts) {
 		/* renegotiate - start with a new SecTrustRef */
         CFReleaseNull(ctx->peerSecTrust);
+    }
+
+    if(certChain==NULL) {
+        sslErrorLog("***Error: NULL cert chain\n");
+        status = errSSLXCertChainInvalid;
+        goto errOut;
     }
 
 	status = sslCreateSecTrust(ctx, certChain, arePeerCerts, &trust);
@@ -446,8 +450,14 @@ tls_verify_peer_cert(SSLContext *ctx)
     if(err)
         goto out;
 
-    /* Set the public key */
-    tls_set_peer_pubkey(ctx->hdsk, certs);
+    /* Set the public key, only if we have certs.
+       We don't return an handshake error if there is no cert,
+       The fact that there is no cert should be reflected in the
+       trust results above, or will be handle when the application
+       does its own trust evaluation. */
+    if(certs) {
+        require_noerr(err=tls_set_peer_pubkey(ctx->hdsk, certs), out);
+    }
 
     /* Now that cert verification is done, update context state */
     /* (this code was formerly in SSLProcessHandshakeMessage, */

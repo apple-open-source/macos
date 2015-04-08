@@ -62,30 +62,28 @@
 #undef APLOG_MODULE_INDEX
 #define APLOG_MODULE_INDEX AP_CORE_MODULE_INDEX
 
+#define DEFAULT_HOOK_LINKS \
+    APR_HOOK_LINK(monitor) \
+    APR_HOOK_LINK(drop_privileges) \
+    APR_HOOK_LINK(mpm) \
+    APR_HOOK_LINK(mpm_query) \
+    APR_HOOK_LINK(mpm_register_timed_callback) \
+    APR_HOOK_LINK(mpm_get_name) \
+    APR_HOOK_LINK(end_generation) \
+    APR_HOOK_LINK(child_status) \
+    APR_HOOK_LINK(suspend_connection) \
+    APR_HOOK_LINK(resume_connection)
+
 #if AP_ENABLE_EXCEPTION_HOOK
 APR_HOOK_STRUCT(
     APR_HOOK_LINK(fatal_exception)
-    APR_HOOK_LINK(monitor)
-    APR_HOOK_LINK(drop_privileges)
-    APR_HOOK_LINK(mpm)
-    APR_HOOK_LINK(mpm_query)
-    APR_HOOK_LINK(mpm_register_timed_callback)
-    APR_HOOK_LINK(mpm_get_name)
-    APR_HOOK_LINK(end_generation)
-    APR_HOOK_LINK(child_status)
+    DEFAULT_HOOK_LINKS
 )
 AP_IMPLEMENT_HOOK_RUN_ALL(int, fatal_exception,
                           (ap_exception_info_t *ei), (ei), OK, DECLINED)
 #else
 APR_HOOK_STRUCT(
-    APR_HOOK_LINK(monitor)
-    APR_HOOK_LINK(drop_privileges)
-    APR_HOOK_LINK(mpm)
-    APR_HOOK_LINK(mpm_query)
-    APR_HOOK_LINK(mpm_register_timed_callback)
-    APR_HOOK_LINK(mpm_get_name)
-    APR_HOOK_LINK(end_generation)
-    APR_HOOK_LINK(child_status)
+    DEFAULT_HOOK_LINKS
 )
 #endif
 AP_IMPLEMENT_HOOK_RUN_ALL(int, monitor,
@@ -108,6 +106,12 @@ AP_IMPLEMENT_HOOK_VOID(end_generation,
 AP_IMPLEMENT_HOOK_VOID(child_status,
                        (server_rec *s, pid_t pid, ap_generation_t gen, int slot, mpm_child_status status),
                        (s,pid,gen,slot,status))
+AP_IMPLEMENT_HOOK_VOID(suspend_connection,
+                       (conn_rec *c, request_rec *r),
+                       (c, r))
+AP_IMPLEMENT_HOOK_VOID(resume_connection,
+                       (conn_rec *c, request_rec *r),
+                       (c, r))
 
 /* hooks with no args are implemented last, after disabling APR hook probes */
 #if defined(APR_HOOK_PROBES_ENABLED)

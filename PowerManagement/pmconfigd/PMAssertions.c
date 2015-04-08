@@ -2655,7 +2655,7 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
         }
 
     }
-    else if ( (assertion->kassert == kDeclareUserActivityType) && CFEqual(key, kIOPMAssertionAppliesOnLidClose)) {
+    else if (CFEqual(key, kIOPMAssertionAppliesOnLidClose)) {
         if (!isA_CFBoolean(value)) return;
         if ((value == kCFBooleanTrue) && !(assertion->state & kAssertionLidStateModifier)) {
             assertType->lidSleepCount++;
@@ -3245,13 +3245,14 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
 
     assertionLevel = getAssertionLevel(assertType->kassert);
     activeExists = checkForActives(assertType, &activesForTheType);
-    updateAggregates(assertType, activesForTheType);
 
     if (op == kAssertionOpRaise) {
+        if (assertType->lidSleepCount) setClamshellSleepState(1);
         if ( !activeExists ) return;
         level = 1;
     }
     else if (op == kAssertionOpRelease) {
+        if (assertType->lidSleepCount == 0) setClamshellSleepState(0);
         if ( activeExists ) return;
         level = 0;
     }
@@ -3271,10 +3272,19 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
     if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL)
         return;
 
-    if (level && isA_DarkWakeState() ) {
-        set_NotificationDisplayWake( );
+    if (level) { 
+        if ((isA_DarkWakeState() || isA_SleepState())) {
+            set_NotificationDisplayWake( );
+        }
+    }
+    else {
+        cancel_NotificationDisplayWake( );
     }
 
+    // updateAggregates after set_NotificationDisplayWake() to
+    // avoid 'kIOPMUserPresentPassive' level when display is waking
+    // to display notification
+    updateAggregates(assertType, activesForTheType);
     IOConnectCallMethod(connect, kPMSetDisplayPowerOn, 
                         &level, 1, 
                         NULL, 0, NULL, 
@@ -3387,6 +3397,7 @@ static IOReturn raiseAssertion(assertion_t *assertion)
     CFTimeInterval      timeout = 0;
     assertionType_t     *assertType;
     uint64_t            assertion_id_64;
+    CFBooleanRef        val = NULL;
 
 
     assertionTypeRef = CFDictionaryGetValue(assertion->props, kIOPMAssertionTypeKey);
@@ -3434,7 +3445,6 @@ static IOReturn raiseAssertion(assertion_t *assertion)
 
     /* Check if this is appplicable on battery power also */
     if (assertType->flags & kAssertionTypeNotValidOnBatt) {
-        CFBooleanRef    val = NULL;
         val = CFDictionaryGetValue(assertion->props, kIOPMAssertionAppliesToLimitedPowerKey);
         if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
             assertion->state |= kAssertionStateValidOnBatt;
@@ -3446,12 +3456,9 @@ static IOReturn raiseAssertion(assertion_t *assertion)
         CFNumberGetValue(numRef, kCFNumberIntType, &assertion->causingPid);
     }
 
-    if (assertion->kassert == kDeclareUserActivityType) {
-        CFBooleanRef    val = NULL;
-        val = CFDictionaryGetValue(assertion->props, kIOPMAssertionAppliesOnLidClose);
-        if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
-            assertion->state |= kAssertionLidStateModifier;
-        }
+    val = CFDictionaryGetValue(assertion->props, kIOPMAssertionAppliesOnLidClose);
+    if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
+        assertion->state |= kAssertionLidStateModifier;
     }
 
     /* Is this timed */

@@ -191,8 +191,7 @@ public:
 
     ~FrameProgressTracker()
     {
-        ASSERT(!m_inProgress || m_frame.page());
-        if (m_inProgress)
+        if (m_inProgress && m_frame.page())
             m_frame.page()->progress().progressCompleted(m_frame);
     }
 
@@ -531,8 +530,10 @@ void FrameLoader::willTransitionToCommitted()
     if (m_frame.editor().hasComposition()) {
         // The text was already present in DOM, so it's better to confirm than to cancel the composition.
         m_frame.editor().confirmComposition();
-        if (EditorClient* editorClient = m_frame.editor().client())
+        if (EditorClient* editorClient = m_frame.editor().client()) {
             editorClient->respondToChangedSelection(&m_frame);
+            editorClient->discardedComposition(&m_frame);
+        }
     }
 }
 
@@ -852,7 +853,7 @@ void FrameLoader::checkCompleted()
         checkLoadComplete();
 }
 
-void FrameLoader::checkTimerFired(Timer<FrameLoader>&)
+void FrameLoader::checkTimerFired(Timer&)
 {
     Ref<Frame> protect(m_frame);
 
@@ -1423,6 +1424,44 @@ void FrameLoader::load(DocumentLoader* newDocumentLoader)
     loadWithDocumentLoader(newDocumentLoader, type, 0, AllowNavigationToInvalidURL::Yes);
 }
 
+static void logNavigation(MainFrame& frame, FrameLoadType type)
+{
+    String navigationDescription;
+    switch (type) {
+    case FrameLoadType::Standard:
+        navigationDescription = ASCIILiteral("standard");
+        break;
+    case FrameLoadType::Back:
+        navigationDescription = ASCIILiteral("back");
+        break;
+    case FrameLoadType::Forward:
+        navigationDescription = ASCIILiteral("forward");
+        break;
+    case FrameLoadType::IndexedBackForward:
+        navigationDescription = ASCIILiteral("indexedBackForward");
+        break;
+    case FrameLoadType::Reload:
+        navigationDescription = ASCIILiteral("reload");
+        break;
+    case FrameLoadType::Same:
+        navigationDescription = ASCIILiteral("same");
+        break;
+    case FrameLoadType::ReloadFromOrigin:
+        navigationDescription = ASCIILiteral("reloadFromOrigin");
+        break;
+    case FrameLoadType::Replace:
+    case FrameLoadType::RedirectWithLockedBackForwardList:
+        // Not logging those for now.
+        return;
+    }
+
+    if (frame.settings().diagnosticLoggingEnabled()) {
+        if (auto* client = frame.diagnosticLoggingClient())
+            client->logDiagnosticMessage(DiagnosticLoggingKeys::navigationKey(), navigationDescription);
+    }
+}
+
+
 void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType type, PassRefPtr<FormState> prpFormState, AllowNavigationToInvalidURL allowNavigationToInvalidURL)
 {
     // Retain because dispatchBeforeLoadEvent may release the last reference to it.
@@ -1440,6 +1479,10 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     if (m_frame.document())
         m_previousURL = m_frame.document()->url();
+
+    // Log main frame navigation types.
+    if (m_frame.isMainFrame())
+        logNavigation(static_cast<MainFrame&>(m_frame), type);
 
     policyChecker().setLoadType(type);
     RefPtr<FormState> formState = prpFormState;

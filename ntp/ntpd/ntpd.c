@@ -653,6 +653,7 @@ ntpdmain(
 	get_systime(&now);
 
 	ntp_srandom((int)(now.l_i * now.l_uf));
+	ntp_crypto_srandom();
 
 #if !defined(VMS)
 # ifndef NODETACH

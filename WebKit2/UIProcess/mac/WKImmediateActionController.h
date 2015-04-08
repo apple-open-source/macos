@@ -45,8 +45,7 @@ enum class ImmediateActionState {
 }
 
 @class DDActionContext;
-@class WKPagePreviewViewController;
-@class WKPreviewPopoverAnimationController;
+@class QLPreviewMenuItem;
 @class WKView;
 
 @interface WKImmediateActionController : NSObject <NSImmediateActionGestureRecognizerDelegate> {
@@ -58,25 +57,21 @@ enum class ImmediateActionState {
     WebKit::ActionMenuHitTestResult _hitTestResult;
     RefPtr<API::Object> _userData;
     _WKImmediateActionType _type;
-    NSImmediateActionGestureRecognizer *_immediateActionRecognizer;
-
-    NSPoint _eventLocationInView;
+    RetainPtr<NSImmediateActionGestureRecognizer> _immediateActionRecognizer;
 
     BOOL _hasActivatedActionContext;
     RetainPtr<DDActionContext> _currentActionContext;
+    RetainPtr<QLPreviewMenuItem> _currentQLPreviewMenuItem;
 
-    RetainPtr<WKPreviewPopoverAnimationController> _previewAnimationController;
+    BOOL _hasActiveImmediateAction;
 }
 
 - (instancetype)initWithPage:(WebKit::WebPageProxy&)page view:(WKView *)wkView recognizer:(NSImmediateActionGestureRecognizer *)immediateActionRecognizer;
 - (void)willDestroyView:(WKView *)view;
 - (void)didPerformActionMenuHitTest:(const WebKit::ActionMenuHitTestResult&)hitTestResult userData:(API::Object*)userData;
 - (void)wkView:(WKView *)wkView willHandleMouseDown:(NSEvent *)event;
-
-- (void)hidePreview;
-- (void)setPreviewTitle:(NSString *)previewTitle;
-- (void)setPreviewLoading:(BOOL)loading;
-- (void)setPreviewOverrideImage:(NSImage *)image;
+- (void)dismissContentRelativeChildWindows;
+- (BOOL)hasActiveImmediateAction;
 
 @end
 

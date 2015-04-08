@@ -240,7 +240,7 @@ CACHE_DECLARE(apr_int64_t) ap_cache_current_age(cache_info *info,
  * Try obtain a cache wide lock on the given cache key.
  *
  * If we return APR_SUCCESS, we obtained the lock, and we are clear to
- * proceed to the backend. If we return APR_EEXISTS, then the lock is
+ * proceed to the backend. If we return APR_EEXIST, then the lock is
  * already locked, someone else has gone to refresh the backend data
  * already, so we must return stale data with a warning in the mean
  * time. If we return anything else, then something has gone pear
@@ -735,9 +735,9 @@ int cache_check_freshness(cache_handle_t *h, cache_request_rec *cache,
                 r->unparsed_uri);
         return 0;
     }
-    else if (APR_EEXIST == status) {
+    else if (APR_STATUS_IS_EEXIST(status)) {
         /* lock already exists, return stale data anyway, with a warning */
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00783)
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, r, APLOGNO(00783)
                 "Cache already locked for stale cached URL, "
                 "pretend it is fresh: %s",
                 r->unparsed_uri);
@@ -1237,26 +1237,33 @@ CACHE_DECLARE(apr_table_t *)ap_cache_cacheable_headers_out(request_rec *r)
 {
     apr_table_t *headers_out;
 
-    headers_out = apr_table_overlay(r->pool, r->headers_out,
-                                        r->err_headers_out);
-
-    apr_table_clear(r->err_headers_out);
-
-    headers_out = ap_cache_cacheable_headers(r->pool, headers_out,
-                                                  r->server);
+    headers_out = ap_cache_cacheable_headers(r->pool,
+                                             cache_merge_headers_out(r),
+                                             r->server);
 
     cache_control_remove(r,
             cache_table_getm(r->pool, headers_out, "Cache-Control"),
             headers_out);
 
-    if (!apr_table_get(headers_out, "Content-Type")
-        && r->content_type) {
+    return headers_out;
+}
+
+apr_table_t *cache_merge_headers_out(request_rec *r)
+{
+    apr_table_t *headers_out;
+
+    headers_out = apr_table_overlay(r->pool, r->headers_out,
+                                    r->err_headers_out);
+    apr_table_clear(r->err_headers_out);
+
+    if (r->content_type
+            && !apr_table_get(headers_out, "Content-Type")) {
         apr_table_setn(headers_out, "Content-Type",
                        ap_make_content_type(r, r->content_type));
     }
 
-    if (!apr_table_get(headers_out, "Content-Encoding")
-        && r->content_encoding) {
+    if (r->content_encoding
+            && !apr_table_get(headers_out, "Content-Encoding")) {
         apr_table_setn(headers_out, "Content-Encoding",
                        r->content_encoding);
     }

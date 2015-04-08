@@ -452,7 +452,7 @@ delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl
 				break;
 			e = delbuf + endoff;
 		}
-		off = startcl * boot->SecPerClust + boot->ClusterOffset;
+		off = (startcl - CLUST_FIRST) * boot->SecPerClust + boot->ClusterOffset;
 		off *= boot->BytesPerSec;
 		if (lseek(fd, off, SEEK_SET) != off
 		    || read(fd, delbuf, clsz) != clsz) {
@@ -641,7 +641,7 @@ static errno_t isSubdirectory(int fd, struct bootblock *boot, struct dosDirEntry
         return ENOMEM;
     }
 
-    offset = ((off_t)dir->head * boot->SecPerClust + boot->ClusterOffset) * boot->BytesPerSec;
+    offset = (((off_t)dir->head - CLUST_FIRST) * boot->SecPerClust + boot->ClusterOffset) * boot->BytesPerSec;
     amount = pread(fd, buf, boot->BytesPerSec, offset);
     if (amount != boot->BytesPerSec) {
         pfatal("Unable to read cluster %u", dir->head);
@@ -712,7 +712,7 @@ readDosDirSection(f, boot, dir)
 			off = boot->ResSectors + boot->FATs * boot->FATsecs;
 		} else {
 			last = boot->SecPerClust * boot->BytesPerSec;
-			off = cl * boot->SecPerClust + boot->ClusterOffset;
+			off = (cl - CLUST_FIRST) * boot->SecPerClust + boot->ClusterOffset;
 		}
 
 		off *= boot->BytesPerSec;

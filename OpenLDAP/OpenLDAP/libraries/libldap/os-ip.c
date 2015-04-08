@@ -781,6 +781,15 @@ ldap_host_connected_to( Sockbuf *sb, const char *host )
 	switch (sa->sa_family) {
 #ifdef LDAP_PF_LOCAL
 	case AF_LOCAL:
+#ifdef __APPLE__    
+		{
+			char * fqdn = ldap_pvt_get_fqdn_from_sys_conf();
+			if (fqdn)
+			{
+				return fqdn; /* caller expects to be able to free the name. */
+			}
+		}
+#endif
 		return LDAP_STRDUP( ldap_int_hostname );
 #endif
 #ifdef LDAP_PF_INET6
@@ -803,6 +812,13 @@ ldap_host_connected_to( Sockbuf *sb, const char *host )
 			if( memcmp ( &((struct sockaddr_in *)sa)->sin_addr,
 				&localhost, sizeof(localhost) ) == 0 )
 			{
+#ifdef __APPLE__    
+				char * fqdn = ldap_pvt_get_fqdn_from_sys_conf();
+				if (fqdn)
+				{
+					return fqdn; /* caller expects to be able to free the name. */
+				}
+#endif
 				return LDAP_STRDUP( ldap_int_hostname );
 			}
 
@@ -812,6 +828,13 @@ ldap_host_connected_to( Sockbuf *sb, const char *host )
 			if( memcmp ( &((struct sockaddr_in *)sa)->sin_addr,
 				&localhost, sizeof(localhost) ) == 0 )
 			{
+#ifdef __APPLE__    
+				char * fqdn = ldap_pvt_get_fqdn_from_sys_conf();
+				if (fqdn)
+				{
+					return fqdn; /* caller expects to be able to free the name. */
+				}
+#endif
 				return LDAP_STRDUP( ldap_int_hostname );
 			}
 #endif

@@ -1353,7 +1353,7 @@ static NSString * 	sRankDefault[] = {
     case kCmdDrop: {
         NSString * format  	= LOC(@"drop_fmt", @"%@ %c %d.");
         NSString * pkey 	= [NSString stringWithFormat:@"%@_d", sPieceName[Piece(move->fPiece)]];
-        NSString * pdef 	= [NSString stringWithFormat:@"drop @% at", sPieceName[Piece(move->fPiece)]];
+        NSString * pdef 	= [NSString stringWithFormat:@"drop @%@", sPieceName[Piece(move->fPiece)]];
         NSString * ploc 	= LOC(pkey, pdef);
         char	   col  	= Col(move->fToSquare);
         int		   row  	= Row(move->fToSquare);

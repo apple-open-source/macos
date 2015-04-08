@@ -180,7 +180,6 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
-#include <IOKit/IOHibernatePrivate.h>
 #include <TargetConditionals.h>
 #include <Availability.h>
 #if ! TARGET_OS_EMBEDDED
@@ -534,7 +533,6 @@ static boolean_t		S_wake_event_sent;
 #endif /* ! TARGET_OS_EMBEDDED */
 static uint32_t			S_wake_generation;
 static absolute_time_t		S_wake_time;
-static boolean_t		S_woke_from_hibernation;
 
 static boolean_t		S_configure_ipv6 = TRUE;
 
@@ -6164,32 +6162,6 @@ runloop_observer(CFRunLoopObserverRef observer,
     return;
 }
 
-/*
- * Function: woke_from_hibernation
- *
- * Purpose:
- *   When we wake from sleep, check whether we woke from a hibernation
- *   image or a regular wake from sleep.
- */
-
-#define IO_PATH_PM_ROOT_DOMAIN kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain"
-STATIC boolean_t
-woke_from_hibernation(void)
-{
-    CFDataRef		hib_prop;
-    uint32_t		hibernate_state;
-
-    hibernate_state = kIOHibernateStateInactive;
-    hib_prop = myIORegistryEntryCopyProperty(IO_PATH_PM_ROOT_DOMAIN,
-					     CFSTR(kIOHibernateStateKey)); 
-    if (isA_CFData(hib_prop) != NULL 
-	&& CFDataGetLength(hib_prop) == sizeof(hibernate_state)) {
-	hibernate_state = *((uint32_t *)(void *)CFDataGetBytePtr(hib_prop));
-    }
-    my_CFRelease(&hib_prop);
-    return (hibernate_state == kIOHibernateStateWakingFromHibernate);
-}
-
 STATIC void
 S_ifstate_process_wake(IFStateRef ifstate)
 {
@@ -6199,12 +6171,9 @@ S_ifstate_process_wake(IFStateRef ifstate)
 
     link_status = if_get_link_status(if_p);
     event_data.flags = 0;
-    if (S_woke_from_hibernation) {
-	event_data.flags |= kWakeFlagsFromHibernation;
-    }
-    else if (link_status.valid 
-	     && link_status.active == FALSE
-	     && link_status.wake_on_same_network) {
+    if (link_status.valid 
+	&& link_status.active == FALSE
+	&& link_status.wake_on_same_network) {
 	my_log(LOG_DEBUG, "%s: wake on same network (link inactive)",
 	       if_name(if_p));
 	return;
@@ -6321,7 +6290,6 @@ power_changed(void * refcon, io_service_t service, natural_t msg_type,
 	S_awake = TRUE;
 	S_wake_time = timer_current_secs();
 	S_wake_generation++;
-	S_woke_from_hibernation = woke_from_hibernation();
 	S_deliver_wake_event();
 	break;
     case kIOMessageSystemHasPoweredOn:
@@ -6371,7 +6339,6 @@ new_power_changed(void * param,
 
     if ((capabilities & kIOPMCapabilityCPU) != 0) {
 	if (S_awake == FALSE) {
-	    S_woke_from_hibernation = woke_from_hibernation();
 	    S_wake_generation++;
 	    S_wake_time = timer_current_secs();
 	}

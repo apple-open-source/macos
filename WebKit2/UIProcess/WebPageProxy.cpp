@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2015 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Intel Corporation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -291,6 +291,8 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
     , m_textZoomFactor(1)
     , m_pageZoomFactor(1)
     , m_pageScaleFactor(1)
+    , m_pluginZoomFactor(1)
+    , m_pluginScaleFactor(1)
     , m_intrinsicDeviceScaleFactor(1)
     , m_customDeviceScaleFactor(0)
     , m_topContentInset(0)
@@ -663,6 +665,14 @@ void WebPageProxy::close()
 
     m_isClosed = true;
 
+    if (m_activePopupMenu)
+        m_activePopupMenu->cancelTracking();
+
+#if ENABLE(CONTEXT_MENUS)
+    if (m_activeContextMenu)
+        m_activeContextMenu->cancelTracking();
+#endif
+
     m_backForwardList->pageClosed();
     m_pageClient.pageClosed();
 
@@ -887,11 +897,19 @@ uint64_t WebPageProxy::reload(bool reloadFromOrigin)
 
 void WebPageProxy::recordNavigationSnapshot()
 {
+    if (WebBackForwardListItem* item = m_backForwardList->currentItem())
+        recordNavigationSnapshot(*item);
+}
+
+void WebPageProxy::recordNavigationSnapshot(WebBackForwardListItem& item)
+{
     if (!m_shouldRecordNavigationSnapshots)
         return;
 
 #if PLATFORM(COCOA)
-    ViewSnapshotStore::shared().recordSnapshot(*this);
+    ViewSnapshotStore::shared().recordSnapshot(*this, item);
+#else
+    UNUSED_PARAM(item);
 #endif
 }
 
@@ -1207,7 +1225,7 @@ void WebPageProxy::dispatchViewStateChange()
     if (m_viewWasEverInWindow && (changed & ViewState::IsInWindow) && isInWindow())
         m_viewStateChangeWantsSynchronousReply = true;
 
-    if (changed || m_viewStateChangeWantsSynchronousReply)
+    if (changed || m_viewStateChangeWantsSynchronousReply || !m_nextViewStateChangeCallbacks.isEmpty())
         m_process->send(Messages::WebPage::SetViewState(m_viewState, m_viewStateChangeWantsSynchronousReply, m_nextViewStateChangeCallbacks), m_pageID);
 
     m_nextViewStateChangeCallbacks.clear();
@@ -1991,6 +2009,24 @@ void WebPageProxy::setPageAndTextZoomFactors(double pageZoomFactor, double textZ
     m_process->send(Messages::WebPage::SetPageAndTextZoomFactors(m_pageZoomFactor, m_textZoomFactor), m_pageID); 
 }
 
+double WebPageProxy::pageZoomFactor() const
+{
+    // Zoom factor for non-PDF pages persists across page loads. We maintain a separate member variable for PDF
+    // zoom which ensures that we don't use the PDF zoom for a normal page.
+    if (m_mainFrame && m_mainFrame->isDisplayingPDFDocument())
+        return m_pluginZoomFactor;
+    return m_pageZoomFactor;
+}
+
+double WebPageProxy::pageScaleFactor() const
+{
+    // PDF documents use zoom and scale factors to size themselves appropriately in the window. We store them
+    // separately but decide which to return based on the main frame.
+    if (m_mainFrame && m_mainFrame->isDisplayingPDFDocument())
+        return m_pluginScaleFactor;
+    return m_pageScaleFactor;
+}
+
 void WebPageProxy::scalePage(double scale, const IntPoint& origin)
 {
     if (!isValid())
@@ -2249,9 +2285,14 @@ void WebPageProxy::pageScaleFactorDidChange(double scaleFactor)
     m_pageScaleFactor = scaleFactor;
 }
 
-void WebPageProxy::pageZoomFactorDidChange(double zoomFactor)
+void WebPageProxy::pluginScaleFactorDidChange(double pluginScaleFactor)
 {
-    m_pageZoomFactor = zoomFactor;
+    m_pluginScaleFactor = pluginScaleFactor;
+}
+
+void WebPageProxy::pluginZoomFactorDidChange(double pluginZoomFactor)
+{
+    m_pluginZoomFactor = pluginZoomFactor;
 }
 
 void WebPageProxy::findStringMatches(const String& string, FindOptions options, unsigned maxMatchCount)
@@ -2647,8 +2688,10 @@ void WebPageProxy::didCommitLoadForFrame(uint64_t frameID, uint64_t navigationID
     // WebPageProxy's cache of the value can get out of sync (e.g. in the case where a
     // plugin is handling page scaling itself) so we should reset it to the default
     // for standard main frame loads.
-    if (frame->isMainFrame() && static_cast<FrameLoadType>(opaqueFrameLoadType) == FrameLoadType::Standard)
+    if (frame->isMainFrame() && static_cast<FrameLoadType>(opaqueFrameLoadType) == FrameLoadType::Standard) {
         m_pageScaleFactor = 1;
+        m_pluginScaleFactor = 1;
+    }
 
     m_pageLoadState.commitChanges();
     m_loaderClient->didCommitLoadForFrame(this, frame, navigationID, userData.get());
@@ -3487,6 +3530,7 @@ void WebPageProxy::editorStateChanged(const EditorState& editorState)
 #if PLATFORM(MAC) && !USE(ASYNC_NSTEXTINPUTCLIENT)
     bool closedComposition = !editorState.shouldIgnoreCompositionSelectionChange && !editorState.hasComposition && (m_editorState.hasComposition || m_temporarilyClosedComposition);
     m_temporarilyClosedComposition = editorState.shouldIgnoreCompositionSelectionChange && (m_temporarilyClosedComposition || m_editorState.hasComposition) && !editorState.hasComposition;
+    bool editabilityChanged = m_editorState.isContentEditable != editorState.isContentEditable;
 #endif
 
     m_editorState = editorState;
@@ -3503,6 +3547,10 @@ void WebPageProxy::editorStateChanged(const EditorState& editorState)
 #if PLATFORM(MAC) && !USE(ASYNC_NSTEXTINPUTCLIENT)
     if (closedComposition)
         m_pageClient.notifyInputContextAboutDiscardedComposition();
+    if (editabilityChanged) {
+        // This is only needed in sync code path, because AppKit automatically refreshes input context for async clients (<rdar://problem/18604360>).
+        m_pageClient.notifyApplicationAboutInputContextChange();
+    }
     if (editorState.hasComposition) {
         // Abandon the current inline input session if selection changed for any other reason but an input method changing the composition.
         // FIXME: This logic should be in WebCore, no need to round-trip to UI process to cancel the composition.
@@ -3660,7 +3708,7 @@ void WebPageProxy::showPopupMenu(const IntRect& rect, uint64_t textDirection, co
         m_activePopupMenu->hidePopupMenu();
 #endif
         m_activePopupMenu->invalidate();
-        m_activePopupMenu = 0;
+        m_activePopupMenu = nullptr;
     }
 
     m_activePopupMenu = m_pageClient.createPopupMenuProxy(this);
@@ -3675,14 +3723,10 @@ void WebPageProxy::showPopupMenu(const IntRect& rect, uint64_t textDirection, co
     UNUSED_PARAM(data);
     m_uiPopupMenuClient.showPopupMenu(this, m_activePopupMenu.get(), rect, static_cast<TextDirection>(textDirection), m_pageScaleFactor, items, selectedIndex);
 #else
-    RefPtr<WebPopupMenuProxy> protectedActivePopupMenu = m_activePopupMenu;
 
-    protectedActivePopupMenu->showPopupMenu(rect, static_cast<TextDirection>(textDirection), m_pageScaleFactor, items, data, selectedIndex);
-
-    // Since Efl doesn't use a nested mainloop to show the popup and get the answer, we need to keep the client pointer valid.
-    // FIXME: The above comment doesn't make any sense since this code is compiled out for EFL.
-    protectedActivePopupMenu->invalidate();
-    protectedActivePopupMenu = 0;
+    // Showing a popup menu runs a nested runloop, which can handle messages that cause |this| to get closed.
+    Ref<WebPageProxy> protect(*this);
+    m_activePopupMenu->showPopupMenu(rect, static_cast<TextDirection>(textDirection), m_pageScaleFactor, items, data, selectedIndex);
 #endif
 }
 
@@ -3697,12 +3741,15 @@ void WebPageProxy::hidePopupMenu()
     m_activePopupMenu->hidePopupMenu();
 #endif
     m_activePopupMenu->invalidate();
-    m_activePopupMenu = 0;
+    m_activePopupMenu = nullptr;
 }
 
 #if ENABLE(CONTEXT_MENUS)
 void WebPageProxy::showContextMenu(const IntPoint& menuLocation, const ContextMenuContextData& contextMenuContextData, const Vector<WebContextMenuItemData>& proposedItems, IPC::MessageDecoder& decoder)
 {
+    // Showing a context menu runs a nested runloop, which can handle messages that cause |this| to get closed.
+    Ref<WebPageProxy> protect(*this);
+
     internalShowContextMenu(menuLocation, contextMenuContextData, proposedItems, ContextMenuClientEligibility::EligibleForClient, &decoder);
     
     // No matter the result of internalShowContextMenu, always notify the WebProcess that the menu is hidden so it starts handling mouse events again.
@@ -4439,7 +4486,7 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
     for (size_t i = 0, size = editCommandVector.size(); i < size; ++i)
         editCommandVector[i]->invalidate();
 
-    m_activePopupMenu = 0;
+    m_activePopupMenu = nullptr;
 }
 
 void WebPageProxy::resetStateAfterProcessExited()
@@ -4456,6 +4503,11 @@ void WebPageProxy::resetStateAfterProcessExited()
 
     m_isValid = false;
     m_isPageSuspended = false;
+
+    m_editorState = EditorState();
+#if PLATFORM(MAC) && !USE(ASYNC_NSTEXTINPUTCLIENT)
+     m_temporarilyClosedComposition = false;
+#endif
 
     if (m_mainFrame) {
         m_urlAtProcessExit = m_mainFrame->url();
@@ -4481,12 +4533,6 @@ void WebPageProxy::resetStateAfterProcessExited()
 
 #if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
     m_touchEventQueue.clear();
-#endif
-
-    // FIXME: Reset m_editorState.
-    // FIXME: Notify input methods about abandoned composition.
-#if PLATFORM(MAC) && !USE(ASYNC_NSTEXTINPUTCLIENT)
-    m_temporarilyClosedComposition = false;
 #endif
 
 #if PLATFORM(MAC)
@@ -4544,6 +4590,12 @@ WebPageCreationParameters WebPageProxy::creationParameters()
     parameters.availableScreenSize = availableScreenSize();
     parameters.textAutosizingWidth = textAutosizingWidth();
     parameters.mimeTypesWithCustomContentProviders = m_pageClient.mimeTypesWithCustomContentProviders();
+#endif
+
+#if PLATFORM(COCOA)
+    parameters.appleMailPaginationQuirkEnabled = appleMailPaginationQuirkEnabled();
+#else
+    parameters.appleMailPaginationQuirkEnabled = false;
 #endif
 
     return parameters;

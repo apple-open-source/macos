@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>ディレクティブ一覧 - Apache HTTP サーバ</title>
+<title>ディレクティブ一覧 - Apache HTTP サーバ バージョン 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -137,6 +137,8 @@
 <li><a href="mod_authn_socache.html#authncachesocache">AuthnCacheSOCache</a></li>
 <li><a href="mod_authn_socache.html#authncachetimeout">AuthnCacheTimeout</a></li>
 <li><a href="mod_authn_core.html#authnprovideralias">&lt;AuthnProviderAlias&gt;</a></li>
+<li><a href="mod_authnz_fcgi.html#authnzfcgicheckauthnprovider">AuthnzFcgiCheckAuthnProvider</a></li>
+<li><a href="mod_authnz_fcgi.html#authnzfcgidefineprovider">AuthnzFcgiDefineProvider</a></li>
 <li><a href="mod_authn_core.html#authtype">AuthType</a></li>
 <li><a href="mod_authn_file.html#authuserfile">AuthUserFile</a></li>
 <li><a href="mod_authz_dbd.html#authzdbdlogintoreferer">AuthzDBDLoginToReferer</a></li>
@@ -190,6 +192,7 @@
 <li><a href="mod_cache.html#cachestoreexpired">CacheStoreExpired</a></li>
 <li><a href="mod_cache.html#cachestorenostore">CacheStoreNoStore</a></li>
 <li><a href="mod_cache.html#cachestoreprivate">CacheStorePrivate</a></li>
+<li><a href="mod_cgid.html#cgidscripttimeout">CGIDScriptTimeout</a></li>
 <li><a href="core.html#cgimapextension">CGIMapExtension</a></li>
 <li><a href="mod_charset_lite.html#charsetdefault">CharsetDefault</a></li>
 <li><a href="mod_charset_lite.html#charsetoptions">CharsetOptions</a></li>
@@ -227,6 +230,9 @@
 <li><a href="mod_deflate.html#deflatebuffersize">DeflateBufferSize</a></li>
 <li><a href="mod_deflate.html#deflatecompressionlevel">DeflateCompressionLevel</a></li>
 <li><a href="mod_deflate.html#deflatefilternote">DeflateFilterNote</a></li>
+<li><a href="mod_deflate.html#deflateinflatelimitrequestbody">DeflateInflateLimitRequestBody</a></li>
+<li><a href="mod_deflate.html#deflateinflateratioburst">DeflateInflateRatioBurst</a></li>
+<li><a href="mod_deflate.html#deflateinflateratiolimit">DeflateInflateRatioLimit</a></li>
 <li><a href="mod_deflate.html#deflatememlevel">DeflateMemLevel</a></li>
 <li><a href="mod_deflate.html#deflatewindowsize">DeflateWindowSize</a></li>
 <li><a href="mod_access_compat.html#deny">Deny</a></li>
@@ -557,6 +563,7 @@
 <li><a href="mod_ssl.html#sslocsprespondertimeout">SSLOCSPResponderTimeout</a></li>
 <li><a href="mod_ssl.html#sslocspresponsemaxage">SSLOCSPResponseMaxAge</a></li>
 <li><a href="mod_ssl.html#sslocspresponsetimeskew">SSLOCSPResponseTimeSkew</a></li>
+<li><a href="mod_ssl.html#sslocspuserequestnonce">SSLOCSPUseRequestNonce</a></li>
 <li><a href="mod_ssl.html#sslopensslconfcmd">SSLOpenSSLConfCmd</a></li>
 <li><a href="mod_ssl.html#ssloptions">SSLOptions</a></li>
 <li><a href="mod_ssl.html#sslpassphrasedialog">SSLPassPhraseDialog</a></li>

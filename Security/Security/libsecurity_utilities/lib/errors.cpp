@@ -128,6 +128,9 @@ int MacOSError::unixError() const
 void MacOSError::throwMe(int error)
 { throw MacOSError(error); }
 
+MacOSError MacOSError::make(int error)
+{ return MacOSError(error); }
+
 
 //
 // CFError exceptions

@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_logio - Apache HTTP Sunucusu</title>
+<title>mod_logio - Apache HTTP Sunucusu Sürüm 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -70,7 +70,7 @@
 
     <p>İsteğin belirgin özellikleri için, biçem dizgesinde yer alan % imli
       biçem belirteçlerinin yerine günlük dosyasında değerleri yazılır. Bu
-      modül iki yeni biçem belirteci ekler:</p>
+      modül üç yeni biçem belirteci ekler:</p>
 
     <table class="bordered"><tr class="header"><th>Biçem&nbsp;Belirteci</th>
         <th>Açıklama</th></tr>
@@ -81,7 +81,8 @@
         <td>Başlıklar dahil gönderilen bayt sayısı; sıfır olamaz.</td></tr>
 <tr><td><code>%S</code></td>
         <td>Aktarılan bayt sayısı (alınan ve gönderilen), istekler ve başlıklar
-          dahil; sıfır olamaz. %I ve %O'nun birleşimidir.</td></tr>
+          dahil; sıfır olamaz. %I ve %O'nun birleşimidir.<br />
+          Apache 2.4.7 ve sonrasında kullanılabilmektedir.</td></tr>
 </table>
 
     <p>Genel olarak, işlevsellik şöyle kullanılır:</p>

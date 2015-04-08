@@ -118,16 +118,10 @@ UInt64 IOHIDevice::getGUID()
 
 SInt32 IOHIDevice::GenerateKey(OSObject *object)
 {
-	SInt32 key = 0;
-#if __LP64__
-	UInt64 temp = (UInt64)object;
-	temp -= 0xffffff8000111000; // Subtract out the kernel base address
-	temp >>= 4; // Assume that objects can't be closer than 16 bytes apart
-	key = (SInt32)temp;
-#else
-	key = (SInt32)object;
-#endif
-	return key;
+    if ( !object )
+        return NULL;
+    IORegistryEntry* temp = (IORegistryEntry*)(object);
+    return (SInt32)temp->getRegistryEntryID(); // Get unique key for this object;
 }
 
 bool IOHIDevice::updateProperties( void )

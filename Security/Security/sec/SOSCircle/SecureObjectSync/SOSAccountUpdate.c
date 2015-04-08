@@ -352,7 +352,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
     SOSCircleRef circleToPush = NULL;
 
     if (circle_action == leave) {
-        circle_action = ignore;
+        circle_action = ignore; (void) circle_action; // Acknowledge this is a dead store.
         
         if (me && SOSCircleHasPeer(oldCircle, me, NULL)) {
             if (sosAccountLeaveCircle(account, newCircle, error)) {

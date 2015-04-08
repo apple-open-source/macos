@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Caching Guide - Apache HTTP Server</title>
+<title>Caching Guide - Apache HTTP Server Version 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -180,6 +180,10 @@
               server processing is bypassed. This mode however also bypasses the
               authentication and authorization phases of server processing, so
               this mode should be chosen with care when this is important.</p>
+  
+              <p> Requests with an "Authorization" header (for example, HTTP Basic
+              Authentication) are neither cacheable nor served from the cache 
+              when <code class="module"><a href="./mod/mod_cache.html">mod_cache</a></code> is running in this phase.</p>
           </dd>
           <dt>Normal handler phase</dt>
           <dd>

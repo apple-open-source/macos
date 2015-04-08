@@ -21,8 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-
 #include <stdbool.h>
 #include <pthread.h>
 #include <fcntl.h>
@@ -145,6 +143,11 @@ static OSStatus SocketRead(SSLConnectionRef h, void *data, size_t *length)
         ptr[31]=ptr[31]^0x08^0xff; // expected padding was 8, changing it to 0xff to trigger integer underflow.
     }
 
+    /* We are reading the server cert */
+    if((*length==765) && (ptr[0]==0x0b) && (handle->test==3)) {
+        ptr[0xc] = 0x4; // version = 4 certificate should cause error, but not crash .
+    }
+
     /* We are reading a data application header */
     if(*length==5 && ptr[0]==0x17) {
         switch(handle->test) {
@@ -187,8 +190,7 @@ static void *securetransport_ssl_thread(void *arg)
     } while (ortn == errSSLWouldBlock
              || ortn == errSSLServerAuthCompleted);
 
-    require_noerr_action_quiet(ortn, out,
-                               fprintf(stderr, "Fell out of SSLHandshake with error: %d\n", (int)ortn));
+    require_noerr_quiet(ortn, out);
 
     unsigned char ibuf[8], obuf[8];
     size_t len;
@@ -255,7 +257,7 @@ tests(void)
 
     int i;
 
-    for(i=0; i<3; i++)
+    for(i=0; i<4; i++)
     {
         int sp[2];
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
@@ -283,10 +285,14 @@ tests(void)
         pthread_join(client_thread, (void*)&client_err);
         pthread_join(server_thread, (void*)&server_err);
 
-
-        ok(!server_err, "Server error = %d", server_err);
-        /* tests 0/1 should cause errSSLClosedAbort, 2 should cause errSSLBadRecordMac */
-        ok(client_err==((i==2)?errSSLBadRecordMac:errSSLClosedAbort), "Client error = %d", client_err);
+        ok(server_err==((i==3)?errSSLClosedGraceful:0), "Server error = %d", server_err);
+        /* tests 0/1 should cause errSSLClosedAbort, 2 should cause errSSLBadRecordMac, 3 can be either errSSLXCertChainInvalid or errSSLCrypto */
+#if TARGET_OS_IPHONE
+        int test_3_expected_error = errSSLXCertChainInvalid;
+#else
+        int test_3_expected_error = errSSLBadCert;
+#endif
+        ok(client_err==((i==3)?test_3_expected_error:(i==2)?errSSLBadRecordMac:errSSLClosedAbort), "Client error = %d", client_err);
 
 out:
         free(client);
@@ -299,7 +305,7 @@ out:
 int ssl_44_crashes(int argc, char *const *argv)
 {
 
-    plan_tests(3*2 + 1 /*cert*/);
+    plan_tests(4*2 + 1 /*cert*/);
 
 
     tests();

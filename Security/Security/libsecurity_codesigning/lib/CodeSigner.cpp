@@ -65,7 +65,7 @@ public:
 // Construct a SecCodeSigner
 //
 SecCodeSigner::SecCodeSigner(SecCSFlags flags)
-	: mOpFlags(flags), mDigestAlgorithm(kSecCodeSignatureDefaultDigestAlgorithm)
+	: mOpFlags(flags), mDigestAlgorithm(kSecCodeSignatureDefaultDigestAlgorithm), mLimitedAsync(NULL)
 {
 }
 
@@ -75,6 +75,7 @@ SecCodeSigner::SecCodeSigner(SecCSFlags flags)
 //
 SecCodeSigner::~SecCodeSigner() throw()
 try {
+	delete mLimitedAsync;
 } catch (...) {
 	return;
 }

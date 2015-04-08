@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_proxy - Serveur Apache HTTP</title>
+<title>mod_proxy - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -130,6 +130,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#forwardreverse">Mandataires directs et
     mandataires/passerelles inverses</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#examples">Exemples simples</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#handler">Accès via un gestionnaire</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#workers">Workers</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#access">Contrôler l'accès à votre
     mandataire</a></li>
@@ -230,6 +231,25 @@ ProxyVia On
   Require host internal.example.com
 &lt;/Proxy&gt;</pre>
 </div>
+    </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="handler" id="handler">Accès via un gestionnaire</a></h2>
+
+    <p>Vous pouvez aussi forcer le traitement d'une requête en tant que
+    requête de mandataire inverse en créant un gestionnaire de transfert
+    approprié. Dans l'exemple suivant, toutes les requêtes pour
+    des scripts PHP seront transmises au serveur FastCGI
+    spécifié via un mandat inverse :
+    </p>
+
+    <div class="example"><h3>Scripts PHP et mandataire inverse</h3><pre class="prettyprint lang-config">&lt;FilesMatch \.php$&gt;
+    SetHandler  "proxy:unix:/path/to/app.sock|fcgi://localhost/"
+&lt;/FilesMatch&gt;</pre>
+</div>
+
+      <p>Cette fonctionnalité est disponible à partir de la version
+      2.4.10 du serveur HTTP Apache.</p>
+
     </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="workers" id="workers">Workers</a></h2>
@@ -507,6 +527,9 @@ ProxyPass /examples http://backend.example.com/examples timeout=10</pre>
     <p>Voir aussi les directives <code class="directive"><a href="#proxypreservehost">ProxyPreserveHost</a></code> et <code class="directive"><a href="#proxyvia">ProxyVia</a></code> directives, qui permettent
     de contrôler d'autres en-têtes de requête.</p>
 
+    <p>Note : Si vous devez ajouter des en-têtes particuliers à la
+    requête mandatée, utilisez la directive  <code class="directive"><a href="../mod/mod_headers.html#requestheader">RequestHeader</a></code>.</p>
+
    </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="BalancerGrowth" id="BalancerGrowth">BalancerGrowth</a> <a name="balancergrowth" id="balancergrowth">Directive</a></h2>
@@ -537,7 +560,7 @@ serveur HTTP Apache</td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.5.0 du serveur
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur
     HTTP Apache.</td></tr>
 </table>
         <p>Cette directive permet d'attribuer au serveur virtuel courant
@@ -563,16 +586,16 @@ charge</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible depuis la version 2.2 du serveur HTTP Apache.</td></tr>
 </table>
-    <p>Cette directive parmet d'ajouter un membre à un groupe de
+    <p>Cette directive permet d'ajouter un membre à un groupe de
     répartition de charge. Elle peut se trouver dans un conteneur
     <code>&lt;Proxy <var>balancer://</var>...&gt;</code>, et accepte
     tous les paramètres de paires clé/valeur que supporte la directive
     <code class="directive"><a href="#proxypass">ProxyPass</a></code>.</p>
-    <p>La directive <code class="directive"><a href="#balancermember">BalancerMember</a></code> accepte un paramètre
+    <p>La directive <code class="directive">BalancerMember</code> accepte un paramètre
     supplémentaire : <var>loadfactor</var>. Il s'agit du facteur de
     charge du membre - un nombre entre 1 (valeur par défaut) et 100, qui
     définit la charge à appliquer au membre en question.</p>
-    <p>L'argument balancerurl n'est requis que s'il ne se trouve pas
+    <p>L'argument <var>balancerurl</var> n'est requis que s'il ne se trouve pas
     dèjà dans la directive de conteneur <code>&lt;Proxy
     <var>balancer://</var>...&gt;</code>. Il correspond à l'URL d'un
     répartiteur de charge défini par une directive <code class="directive"><a href="#proxypass">ProxyPass</a></code>.</p>
@@ -580,7 +603,7 @@ charge</td></tr>
     conteneur <code>&lt;Proxy <var>balancer://</var>...&gt;</code> est
     ignorée.</p>
     <p>En particulier, le slash de fin de l'URL d'un
-    <code>BalancerMember</code> doit être supprimé.</p>
+    <code class="directive">BalancerMember</code> doit être supprimé.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -595,7 +618,7 @@ charge</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>BalancerPersist n'est disponible qu'à partir de la
-    version 2.5.0 du serveur HTTP Apache.</td></tr>
+    version 2.4.4 du serveur HTTP Apache.</td></tr>
 </table>
         <p>Cette directive permet de conserver le contenu de l'espace
 	mémoire partagé associé aux répartiteurs de charge et à leurs
@@ -991,7 +1014,7 @@ mandatées correspondant à une expression rationnelle</td></tr>
     identique à la directive <code class="directive"><a href="#proxy">&lt;Proxy&gt;</a></code>, à l'exception qu'elle définit
     les URLs auxquelles elle s'applique en utilisant une <a class="glossarylink" href="../glossary.html#regex" title="voir glossaire">expression rationnelle</a>.</p>
 
-    <p>A partir de la version 2.5.0, les groupes nommés et les
+    <p>A partir de la version 2.4.8, les groupes nommés et les
     références arrières sont extraits et enregistrés dans
     l'environnement avec leur nom en majuscules et préfixé par "MATCH_". Ceci permet
     de référencer des URLs dans des <a href="../expr.html">expressions</a>
@@ -1001,7 +1024,7 @@ mandatées correspondant à une expression rationnelle</td></tr>
     nommés.</p>
 
 <pre class="prettyprint lang-config">&lt;ProxyMatch ^http://(?&lt;sitename&gt;[^/]+)&gt;
-    require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
+    Require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
 &lt;/ProxyMatch&gt;</pre>
 
 
@@ -1428,7 +1451,8 @@ ProxyPass /mirror/foo http://backend.example.com</pre>
 	d'application d'arrière-plan utilise des noms différents pour
 	les cookies et les identifiants codés d'URL (comme les
 	conteneurs de servlet), séparez-les par le caractère '|'. La
-	première partie contient le cookie et la seconde le chemin.
+	première partie contient le cookie et la seconde le chemin.<br />
+	Disponible depuis la version 2.4.4 du serveur HTTP Apache.
     </td></tr>
     <tr><td>stickysessionsep</td>
         <td>"."</td>
@@ -1469,7 +1493,7 @@ ProxyPass /mirror/foo http://backend.example.com</pre>
 	dépassé en entrée/sortie après envoi d'une requête au serveur
 	d'arrière-plan va mettre le processus en état d'erreur. La
 	sortie de cet état d'erreur se passe de la même façon que pour
-	les autres erreurs.
+	les autres erreurs.<br />
 	Disponible à partir de la version 2.4.5 du serveur HTTP Apache.
     </td></tr>
     <tr><td>nonce</td>
@@ -1500,7 +1524,8 @@ ProxyPass /mirror/foo http://backend.example.com</pre>
 	surchargé entre dans une situation critique si la relance de
 	tous les membres est forcée sans tenir compte du paramètre retry
 	de chaque membre. Dans ce cas, définissez ce paramètre à
-	<code>Off</code>.
+	<code>Off</code>.<br />
+	Disponible depuis la version 2.4.2 du serveur HTTP Apache.
     </td></tr>
 
     </table>
@@ -1559,8 +1584,7 @@ ProxyPass / balancer://mycluster/ stickysession=JSESSIONID|jsessionid nofailover
     souple, reportez-vous à la documentaion de la directive <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> et son drapeau
     <code>[P]</code>.</p>
 
-    <p>Le mot-clé optionnel <var>interpolate</var> (disponible depuis
-    httpd 2.2.9), en combinaison avec la directive
+    <p>Le mot-clé optionnel <var>interpolate</var>, en combinaison avec la directive
     <code class="directive">ProxyPassInterpolateEnv</code>, permet à ProxyPass
     d'interpoler les variables d'environnement à l'aide de la syntaxe
     <var>${VARNAME}</var>. Notez que de nombreuses variables
@@ -1596,7 +1620,7 @@ serveur principal</td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.5.0 du serveur
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur
 HTTP Apache.</td></tr>
 </table>
         <p>Cette directive permet à un serveur virtuel d'hériter des
@@ -1775,8 +1799,8 @@ ProxyPassReverseCookiePath  /  /mirror/foo/</pre>
     <code class="directive"><a href="#proxypass">ProxyPass</a></code>
     correspondante.</p>
 
-    <p>Le mot-clé optionnel <var>interpolate</var> (disponible depuis
-    httpd 2.2.9), utilisé en combinaison avec la directive
+    <p>Le mot-clé optionnel <var>interpolate</var>, en
+    combinaison avec la directive
     <code class="directive">ProxyPassInterpolateEnv</code>, permet
     l'interpolation des variables d'environnement spécifiées en
     utilisant le format <var>${VARNAME}</var> Notez que l'interpolation

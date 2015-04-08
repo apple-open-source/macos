@@ -85,7 +85,7 @@ void SOSTestDeviceForEachPeerID(SOSTestDeviceRef td, void(^peerBlock)(CFStringRe
     }
 }
 
-static CFStringRef SOSTestDeviceCopyDescription(CFTypeRef cf) {
+static CFStringRef SOSTestDeviceCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SOSTestDeviceRef td = (SOSTestDeviceRef)cf;
     CFMutableStringRef result = CFStringCreateMutable(kCFAllocatorDefault, 0);
     CFStringAppendFormat(result, NULL, CFSTR("<SOSTestDevice %@"), td->ds->engine);
@@ -103,6 +103,7 @@ CFGiblisFor(SOSTestDevice)
 static SOSTestDeviceRef SOSTestDeviceCreateInternal(CFAllocatorRef allocator, CFStringRef engineID) {
     SOSTestDeviceRef td = CFTypeAllocate(SOSTestDevice, struct __OpaqueSOSTestDevice, allocator);
     td->peers = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    td->mute = false;
     return td;
 }
 
@@ -171,6 +172,15 @@ SOSTestDeviceRef SOSTestDeviceSetPeerIDs(SOSTestDeviceRef td, CFArrayRef peerIDs
     }
     CFReleaseSafe(trustedPeersIDs);
     return td;
+}
+
+SOSTestDeviceRef SOSTestDeviceSetMute(SOSTestDeviceRef td, bool mute) {
+    td->mute = mute;
+    return td;
+}
+
+bool SOSTestDeviceIsMute(SOSTestDeviceRef td) {
+    return td->mute;
 }
 
 CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID) {
@@ -307,15 +317,17 @@ void SOSTestDeviceListSync(const char *name, const char *test_directive, const c
                 bool handled = false;
                 msgSentSinceLastChangeCount++;
                 if (msg && CFDataGetLength(msg) > 0) {
-                    handled = SOSTestDeviceHandleMessage(dest, sourceID, msg);
-                    if (handled) {
-                        noMsgSentCount = 0;
-                    }
+                    if (!source->mute) {
+                        handled = SOSTestDeviceHandleMessage(dest, sourceID, msg);
+                        if (handled) {
+                            noMsgSentCount = 0;
+                        }
 
-                    CFErrorRef error = NULL;
-                    message = SOSMessageCreateWithData(kCFAllocatorDefault, msg, &error);
-                    ok(handled, "%s %@->%@ %@", name, sourceID, destID, message);
-                    CFReleaseNull(error);
+                        CFErrorRef error = NULL;
+                        message = SOSMessageCreateWithData(kCFAllocatorDefault, msg, &error);
+                        ok(handled, "%s %@->%@ %@", name, sourceID, destID, message);
+                        CFReleaseNull(error);
+                    }
                 } else {
                     SOSManifestRef sourceManifest = SOSEngineCopyManifest(SOSDataSourceGetSharedEngine(source->ds, NULL), NULL);
                     pass("%s %@->%@ done L:%@", name, sourceID, destID, sourceManifest);

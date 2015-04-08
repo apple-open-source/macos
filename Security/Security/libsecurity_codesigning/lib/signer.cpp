@@ -41,6 +41,8 @@
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
 #include <security_utilities/cfmunge.h>
+#include <security_utilities/dispatch.h>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -284,6 +286,11 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 	CFDictionaryRef rules = cfget<CFDictionaryRef>(rulesDict, "rules");
 	assert(rules);
 
+	if (this->state.mLimitedAsync == NULL) {
+		this->state.mLimitedAsync =
+            new LimitedAsync(rep->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
+	}
+
 	CFDictionaryRef files2 = NULL;
 	if (!(state.signingFlags() & kSecCSSignV1)) {
 		CFCopyRef<CFDictionaryRef> rules2 = cfget<CFDictionaryRef>(rulesDict, "rules2");
@@ -294,35 +301,48 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 				"'^(Frameworks|SharedFrameworks|PlugIns|Plug-ins|XPCServices|Helpers|MacOS|Library/(Automator|Spotlight|LoginItems))/' = {nested=#T, weight=0}" // exclude dynamic repositories
 			"}", rules);
 		}
+
+		Dispatch::Group group;
+		Dispatch::Group &groupRef = group;  // (into block)
+
 		// build the modern (V2) resource seal
 		__block CFRef<CFMutableDictionaryRef> files = makeCFMutableDictionary();
+		CFMutableDictionaryRef filesRef = files.get();	// (into block)
 		ResourceBuilder resourceBuilder(root, relBase, rules2, digestAlgorithm(), strict, MacOSErrorSet());
 		ResourceBuilder	&resources = resourceBuilder;	// (into block)
 		rep->adjustResources(resources);
-		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const char *relpath, Rule *rule) {
-			CFRef<CFMutableDictionaryRef> seal;
-			if (ruleFlags & ResourceBuilder::nested) {
-				seal.take(signNested(ent, relpath));
-			} else if (ent->fts_info == FTS_SL) {
-				char target[PATH_MAX];
-				ssize_t len = ::readlink(ent->fts_accpath, target, sizeof(target)-1);
-				if (len < 0)
-					UnixError::check(-1);
-				target[len] = '\0';
-				seal.take(cfmake<CFMutableDictionaryRef>("{symlink=%s}", target));
-			} else {
-				seal.take(cfmake<CFMutableDictionaryRef>("{hash=%O}",
-					CFRef<CFDataRef>(resources.hashFile(ent->fts_accpath)).get()));
-			}
-			if (ruleFlags & ResourceBuilder::optional)
-				CFDictionaryAddValue(seal, CFSTR("optional"), kCFBooleanTrue);
-			CFTypeRef hash;
-			if ((hash = CFDictionaryGetValue(seal, CFSTR("hash"))) && CFDictionaryGetCount(seal) == 1) // simple form
-				CFDictionaryAddValue(files, CFTempString(relpath).get(), hash);
-			else
-				CFDictionaryAddValue(files, CFTempString(relpath).get(), seal.get());
-			code->reportProgress();
+
+		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const std::string relpath, Rule *rule) {
+			bool isSymlink = (ent->fts_info == FTS_SL);
+			const std::string path(ent->fts_path);
+			const std::string accpath(ent->fts_accpath);
+			this->state.mLimitedAsync->perform(groupRef, ^{
+				CFRef<CFMutableDictionaryRef> seal;
+				if (ruleFlags & ResourceBuilder::nested) {
+					seal.take(signNested(path, relpath));
+				} else if (isSymlink) {
+					char target[PATH_MAX];
+					ssize_t len = ::readlink(accpath.c_str(), target, sizeof(target)-1);
+					if (len < 0)
+						UnixError::check(-1);
+					target[len] = '\0';
+					seal.take(cfmake<CFMutableDictionaryRef>("{symlink=%s}", target));
+				} else {
+					seal.take(cfmake<CFMutableDictionaryRef>("{hash=%O}",
+						CFRef<CFDataRef>(resources.hashFile(accpath.c_str())).get()));
+				}
+				if (ruleFlags & ResourceBuilder::optional)
+					CFDictionaryAddValue(seal, CFSTR("optional"), kCFBooleanTrue);
+				CFTypeRef hash;
+				StLock<Mutex> _(resourceLock);
+				if ((hash = CFDictionaryGetValue(seal, CFSTR("hash"))) && CFDictionaryGetCount(seal) == 1) // simple form
+					CFDictionaryAddValue(filesRef, CFTempString(relpath).get(), hash);
+				else
+					CFDictionaryAddValue(filesRef, CFTempString(relpath).get(), seal.get());
+				code->reportProgress();
+			});
 		});
+		group.wait();
 		CFDictionaryAddValue(result, CFSTR("rules2"), resourceBuilder.rules());
 		files2 = files;
 		CFDictionaryAddValue(result, CFSTR("files2"), files2);
@@ -335,7 +355,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 		ResourceBuilder resourceBuilder(root, relBase, rules, digestAlgorithm(), strict, MacOSErrorSet());
 		ResourceBuilder	&resources = resourceBuilder;
 		rep->adjustResources(resources);	// DiskRep-specific adjustments
-		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const char *relpath, Rule *rule) {
+		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, std::string relpath, Rule *rule) {
 			if (ent->fts_info == FTS_F) {
 				CFRef<CFDataRef> hash;
 				if (files2)	// try to get the hash from a previously-made version
@@ -348,12 +368,12 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 				if (!hash)
 					hash.take(resources.hashFile(ent->fts_accpath));
 				if (ruleFlags == 0) {	// default case - plain hash
-					cfadd(files, "{%s=%O}", relpath, hash.get());
-					secdebug("csresource", "%s added simple (rule %p)", relpath, rule);
+					cfadd(files, "{%s=%O}", relpath.c_str(), hash.get());
+					secdebug("csresource", "%s added simple (rule %p)", relpath.c_str(), rule);
 				} else {	// more complicated - use a sub-dictionary
 					cfadd(files, "{%s={hash=%O,optional=%B}}",
-						relpath, hash.get(), ruleFlags & ResourceBuilder::optional);
-					secdebug("csresource", "%s added complex (rule %p)", relpath, rule);
+						relpath.c_str(), hash.get(), ruleFlags & ResourceBuilder::optional);
+					secdebug("csresource", "%s added complex (rule %p)", relpath.c_str(), rule);
 				}
 			}
 		});
@@ -368,11 +388,11 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 //
 // Deal with one piece of nested code
 //
-CFMutableDictionaryRef SecCodeSigner::Signer::signNested(FTSENT *ent, const char *relpath)
+CFMutableDictionaryRef SecCodeSigner::Signer::signNested(const std::string &path, const std::string &relpath)
 {
 	// sign nested code and collect nesting information
 	try {
-		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(ent->fts_path));
+		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(path));
 		if (state.signingFlags() & kSecCSSignNestedCode)
 			this->state.sign(code, state.signingFlags());
 		std::string dr = Dumper::dump(code->designatedRequirement());

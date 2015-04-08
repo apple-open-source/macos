@@ -927,8 +927,25 @@ static int proxy_handler(request_rec *r)
     struct dirconn_entry *list = (struct dirconn_entry *)conf->dirconn->elts;
 
     /* is this for us? */
-    if (!r->proxyreq || !r->filename || strncmp(r->filename, "proxy:", 6) != 0)
+    if (!r->filename) {
         return DECLINED;
+    }
+
+    if (!r->proxyreq) {
+        /* We may have forced the proxy handler via config or .htaccess */
+        if (r->handler &&
+            strncmp(r->handler, "proxy:", 6) == 0 &&
+            strncmp(r->filename, "proxy:", 6) != 0) {
+            r->proxyreq = PROXYREQ_REVERSE;
+            r->filename = apr_pstrcat(r->pool, r->handler, r->filename, NULL);
+            apr_table_setn(r->notes, "rewrite-proxy", "1");
+        }
+        else {
+            return DECLINED;
+        }
+    } else if (strncmp(r->filename, "proxy:", 6) != 0) {
+        return DECLINED;
+    }
 
     /* handle max-forwards / OPTIONS / TRACE */
     if ((str = apr_table_get(r->headers_in, "Max-Forwards"))) {
@@ -1584,13 +1601,26 @@ static const char *
     /* Distinguish the balancer from worker */
     if (ap_proxy_valid_balancer_name(r, 9)) {
         proxy_balancer *balancer = ap_proxy_get_balancer(cmd->pool, conf, r, 0);
+        char *fake_copy;
+
+        /*
+         * In the regex case supplying a fake URL doesn't make sense as it
+         * cannot be parsed anyway with apr_uri_parse later on in
+         * ap_proxy_define_balancer / ap_proxy_update_balancer
+         */
+        if (use_regex) {
+            fake_copy = NULL;
+        }
+        else {
+            fake_copy = f;
+        }
         if (!balancer) {
-            const char *err = ap_proxy_define_balancer(cmd->pool, &balancer, conf, r, f, 0);
+            const char *err = ap_proxy_define_balancer(cmd->pool, &balancer, conf, r, fake_copy, 0);
             if (err)
                 return apr_pstrcat(cmd->temp_pool, "ProxyPass ", err, NULL);
         }
         else {
-            ap_proxy_update_balancer(cmd->pool, balancer, f);
+            ap_proxy_update_balancer(cmd->pool, balancer, fake_copy);
         }
         for (i = 0; i < arr->nelts; i++) {
             const char *err = set_balancer_param(conf, cmd->pool, balancer, elts[i].key,
@@ -2618,6 +2648,8 @@ static void child_init(apr_pool_t *p, server_rec *s)
                 ap_proxy_hashfunc(conf->forward->s->name, PROXY_HASHFUNC_FNV);
             /* Do not disable worker in case of errors */
             conf->forward->s->status |= PROXY_WORKER_IGNORE_ERRORS;
+            /* Mark as the "generic" worker */
+            conf->forward->s->status |= PROXY_WORKER_GENERIC;
             ap_proxy_initialize_worker(conf->forward, s, conf->pool);
             /* Disable address cache for generic forward worker */
             conf->forward->s->is_address_reusable = 0;
@@ -2633,6 +2665,8 @@ static void child_init(apr_pool_t *p, server_rec *s)
                 ap_proxy_hashfunc(reverse->s->name, PROXY_HASHFUNC_FNV);
             /* Do not disable worker in case of errors */
             reverse->s->status |= PROXY_WORKER_IGNORE_ERRORS;
+            /* Mark as the "generic" worker */
+            reverse->s->status |= PROXY_WORKER_GENERIC;
             conf->reverse = reverse;
             ap_proxy_initialize_worker(conf->reverse, s, conf->pool);
             /* Disable address cache for generic reverse worker */

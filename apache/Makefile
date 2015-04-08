@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.9
+Version    = 2.4.10
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = patch-config.layout \
@@ -99,6 +99,7 @@ post-install:
 	$(INSTALL_FILE) $(SRCROOT)/PoweredByMacOSX*.gif $(DSTROOT)/Library/WebServer/Documents
 	$(MKDIR) $(DSTROOT)/System/Library/LaunchDaemons
 	$(INSTALL_SCRIPT) $(SRCROOT)/webpromotion.rb $(DSTROOT)/usr/sbin/webpromotion
+	$(INSTALL_SCRIPT) $(SRCROOT)/httpd-wrapper.rb $(DSTROOT)/usr/sbin/httpd-wrapper
 	$(INSTALL_FILE) $(SRCROOT)/org.apache.httpd.plist $(DSTROOT)/System/Library/LaunchDaemons
 	$(MKDIR) $(DSTROOT)/usr/local/OpenSourceVersions $(DSTROOT)/usr/local/OpenSourceLicenses
 	$(INSTALL_FILE) $(SRCROOT)/apache.plist $(DSTROOT)/usr/local/OpenSourceVersions/apache.plist

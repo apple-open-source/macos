@@ -714,7 +714,7 @@ static void SOSCircleDestroy(CFTypeRef aObj) {
     CFReleaseNull(c->signatures);
 }
 
-static CFStringRef SOSCircleCopyDescription(CFTypeRef aObj) {
+static CFStringRef SOSCircleCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
     SOSCircleRef c = (SOSCircleRef) aObj;
     
     SOSCircleAssertStable(c);

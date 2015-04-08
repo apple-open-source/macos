@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_logio - Serveur Apache HTTP</title>
+<title>mod_logio - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -73,7 +73,7 @@ d'Apache</a></li>
 <h2><a name="formats" id="formats">Formats de journaux personnalisés</a></h2>
 
 
-    <p>Ce module introduit deux nouvelles directives de journalisation.
+    <p>Ce module introduit trois nouvelles directives de journalisation.
     Les caractéristiques de la requête en elle-même sont journalisées en
     insérant des directives "<code>%</code>" dans la chaîne de format,
     qui seront remplacées comme suit dans le fichier journal :</p>
@@ -89,7 +89,8 @@ d'Apache</a></li>
 <tr><td><code>%S</code></td>
 	<td>Nombre d'octets transmis (en émission et réception), y
 	compris corps et en-têtes de requête. Ce nombre ne peut pas être
-	nul, et il correspond à la combinaison des formats %I et %O.</td></tr>
+	nul, et il correspond à la combinaison des formats %I et %O.<br />
+	Disponible depuis la version 2.4.7 du serveur HTTP Apache.</td></tr>
 </table>
 
     <p>En général, cette fonctionnalité s'utilise comme suit :</p>

@@ -355,10 +355,10 @@ it{
                 Timezone{"{0} {1}"}
             }
             availableFormats{
-                EHm{"E HH.mm"}
+                EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
                 Ed{"E d"}
-                Ehm{"E h.mm a"}
+                Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
@@ -975,10 +975,10 @@ it{
             start{"{0}, {1}"}
         }
         unit-narrow{
-            2{"{0}, {1}"}
-            end{"{0}, e {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-short{
             2{"{0}, {1}"}
@@ -1289,36 +1289,36 @@ it{
         }
         duration{
             day{
-                one{"{0} gg"}
-                other{"{0} gg"}
+                one{"{0}gg"}
+                other{"{0}gg"}
             }
             hour{
-                one{"{0} h"}
-                other{"{0} h"}
+                one{"{0}h"}
+                other{"{0}h"}
             }
             millisecond{
-                one{"{0} ms"}
-                other{"{0} ms"}
+                one{"{0}ms"}
+                other{"{0}ms"}
             }
             minute{
-                one{"{0} m"}
-                other{"{0} m"}
+                one{"{0}min"}
+                other{"{0}min"}
             }
             month{
-                one{"{0} mesi"}
-                other{"{0} mesi"}
+                one{"{0}mesi"}
+                other{"{0}mesi"}
             }
             second{
-                one{"{0} s"}
-                other{"{0} s"}
+                one{"{0}s"}
+                other{"{0}s"}
             }
             week{
-                one{"{0} sett."}
-                other{"{0} sett."}
+                one{"{0}sett."}
+                other{"{0}sett."}
             }
             year{
-                one{"{0} anno"}
-                other{"{0} anni"}
+                one{"{0}anno"}
+                other{"{0}anni"}
             }
         }
         energy{

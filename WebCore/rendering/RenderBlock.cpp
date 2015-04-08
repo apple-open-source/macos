@@ -758,10 +758,8 @@ void RenderBlock::collapseAnonymousBoxChild(RenderBlock* parent, RenderBlock* ch
     parent->setChildrenInline(child->childrenInline());
     RenderObject* nextSibling = child->nextSibling();
 
-    RenderFlowThread* childFlowThread = child->flowThreadContainingBlock();
-    CurrentRenderFlowThreadMaintainer flowThreadMaintainer(childFlowThread);
-    if (childFlowThread && childFlowThread->isRenderNamedFlowThread())
-        toRenderNamedFlowThread(childFlowThread)->removeFlowChildInfo(child);
+    if (auto* childFlowThread = child->flowThreadContainingBlock())
+        childFlowThread->removeFlowChildInfo(child);
 
     parent->removeChildInternal(*child, child->hasLayer() ? NotifyChildren : DontNotifyChildren);
     child->moveAllChildrenTo(parent, nextSibling, child->hasLayer());
@@ -1432,8 +1430,7 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren, bool fixedPosit
         if (relayoutChildren && r.needsPreferredWidthsRecalculation())
             r.setPreferredLogicalWidthsDirty(true, MarkOnlyThis);
         
-        if (!r.needsLayout())
-            r.markForPaginationRelayoutIfNeeded();
+        r.markForPaginationRelayoutIfNeeded();
         
         // We don't have to do a full layout.  We just have to update our position. Try that first. If we have shrink-to-fit width
         // and we hit the available width constraint, the layoutIfNeeded() will catch it and do a full layout.
@@ -1481,8 +1478,7 @@ void RenderBlock::markPositionedObjectsForLayout()
 
 void RenderBlock::markForPaginationRelayoutIfNeeded()
 {
-    ASSERT(!needsLayout());
-    if (needsLayout())
+    if (needsLayout() || !view().layoutState()->isPaginated())
         return;
 
     if (view().layoutState()->pageLogicalHeightChanged() || (view().layoutState()->pageLogicalHeight() && view().layoutState()->pageLogicalOffset(this, logicalTop()) != pageLogicalOffset()))
@@ -1965,7 +1961,7 @@ GapRects RenderBlock::selectionGaps(RenderBlock& rootBlock, const LayoutPoint& r
         result = blockSelectionGaps(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, lastLogicalTop, lastLogicalLeft, lastLogicalRight, cache, paintInfo);
 
     // Go ahead and fill the vertical gap all the way to the bottom of our block if the selection extends past our block.
-    if (&rootBlock == this && (selectionState() != SelectionBoth && selectionState() != SelectionEnd)) {
+    if (&rootBlock == this && (selectionState() != SelectionBoth && selectionState() != SelectionEnd) && !isRubyBase() && !isRubyText()) {
         result.uniteCenter(blockSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock,
             lastLogicalTop, lastLogicalLeft, lastLogicalRight, logicalHeight(), cache, paintInfo));
     }
@@ -2010,7 +2006,7 @@ GapRects RenderBlock::blockSelectionGaps(RenderBlock& rootBlock, const LayoutPoi
         }
 
         bool paintsOwnSelection = curr->shouldPaintSelectionGaps() || curr->isTable(); // FIXME: Eventually we won't special-case table like this.
-        bool fillBlockGaps = paintsOwnSelection || (curr->canBeSelectionLeaf() && childState != SelectionNone);
+        bool fillBlockGaps = (paintsOwnSelection || (curr->canBeSelectionLeaf() && childState != SelectionNone)) && !isRubyBase() && !isRubyText();
         if (fillBlockGaps) {
             // We need to fill the vertical gap above this object.
             if (childState == SelectionEnd || childState == SelectionInside) {

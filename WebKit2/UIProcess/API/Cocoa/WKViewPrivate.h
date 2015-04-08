@@ -112,6 +112,7 @@
 - (void)setMagnification:(double)magnification centeredAtPoint:(NSPoint)point;
 
 - (void)saveBackForwardSnapshotForCurrentItem;
+- (void)saveBackForwardSnapshotForItem:(WKBackForwardListItemRef)item;
 
 // Views must be layer-backed, have no transform applied, be in back-to-front z-order, and the whole set must be a contiguous opaque rectangle.
 - (void)_setCustomSwipeViews:(NSArray *)customSwipeViews;
@@ -128,14 +129,6 @@
 // do something custom, return an object that conforms to the NSImmediateActionAnimationController protocol.
 - (id)_immediateActionAnimationControllerForHitTestResult:(WKHitTestResultRef)hitTestResult withType:(_WKImmediateActionType)type userData:(WKTypeRef)userData;
 
-- (NSView *)_viewForPreviewingURL:(NSURL *)url initialFrameSize:(NSSize)initialFrameSize;
-- (NSString *)_titleForPreviewOfURL:(NSURL *)url;
-- (void)_setPreviewTitle:(NSString *)previewTitle;
-- (void)_setPreviewLoading:(BOOL)loading;
-- (void)_setPreviewOverrideImage:(NSImage *)image;
-- (void)_finishPreviewingURL:(NSURL *)url withPreviewView:(NSView *)previewView;
-- (void)_handleClickInPreviewView:(NSView *)previewView URL:(NSURL *)url;
-- (BOOL)_shouldUseStandardQuickLookPreview;
 #endif
 
 - (void)_dismissContentRelativeChildWindows;

@@ -38,6 +38,9 @@
 #include <IOKit/scsi/IOSCSIPeripheralDeviceNub.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
+#include <IOKit/IOHibernatePrivate.h>
 
 //--------------------------------------------------------------------------------------------------
 //	Defines
@@ -775,12 +778,60 @@ IOUSBMassStorageClass::stop ( IOService * provider )
 		fInterruptPipe = NULL;
 		
 	}
-
+	
+	DidWakeFromHibernationOrStandby	( );
+	
 	//	Release our retain on the provider's workLoop.
 	
     super::stop ( provider );
 }
 
+//--------------------------------------------------------------------------------------------------
+//	DidWakeFromHibernationOrStandby - leave a breadcrumb if termination was caused by a wake from
+//									  hibernation or standby							 [PROTECTED]
+//--------------------------------------------------------------------------------------------------
+
+bool
+IOUSBMassStorageClass::DidWakeFromHibernationOrStandby ( void )
+{
+	
+	bool		returnValue		= false;
+	OSData *	data			= NULL;
+	
+	data = OSDynamicCast ( OSData, ( IOService::getPMRootDomain ( ) )->getProperty ( kIOHibernateStateKey ) );
+	require ( data, ErrorExit );
+	
+	if ( * ( UInt32 * ) data->getBytesNoCopy ( ) == kIOHibernateStateWakingFromHibernate )
+	{
+		
+		OSNumber *	number		= NULL;
+		UInt32		sleepType	= 0;
+		
+		// Get the sleep type.
+		number = OSDynamicCast ( OSNumber, ( IOService::getPMRootDomain ( ) )->getProperty ( kIOPMSystemSleepTypeKey ) );
+		require ( number, ErrorExit );
+		
+		sleepType = number->unsigned32BitValue ( );
+		
+		// Since we have a valid hibernation state we know we can trust standby and hibernate sleep types.
+		if ( ( sleepType == kIOPMSleepTypeStandby ) || ( sleepType == kIOPMSleepTypeHibernate ) )
+		{
+			
+			IOLog ( "%s[%p] - Device termination caused by a wake from hibernation or standby!\n", getName(), this );
+			
+			returnValue = true;
+			
+		}
+		
+	}
+	
+	
+ErrorExit:
+	
+	
+	return returnValue;
+	
+}
 
 //--------------------------------------------------------------------------------------------------
 //	free - Called by IOKit to free any resources.					   						[PUBLIC]
@@ -2282,9 +2333,14 @@ IOUSBMassStorageClass::HandlePowerOn ( void )
 		 ( fRequiresResetOnResume == true ) )
 	{   
 		
-		RecordUSBTimeStamp ( UMC_TRACE ( kHandlePowerOnUSBReset ), ( uintptr_t ) this, NULL, NULL, NULL );
-							 
-        status = ResetDeviceNow ( true );
+        if ( fResetInProgress == false )
+        {
+            
+            RecordUSBTimeStamp ( UMC_TRACE ( kHandlePowerOnUSBReset ), ( uintptr_t ) this, NULL, NULL, NULL );
+            
+            status = ResetDeviceNow ( true );
+            
+        }
         
 	}
 #else // EMBEDDED

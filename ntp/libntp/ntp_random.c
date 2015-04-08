@@ -481,3 +481,63 @@ ntp_random( void )
 	}
 	return(i);
 }
+
+/*
+ * Crypto-quality random number functions
+ *
+ * Author: Harlan Stenn, 2014
+ *
+ * This file is Copyright (c) 2014 by Network Time Foundation.
+ * BSD terms apply: see the file COPYRIGHT in the distribution root for details.
+ */
+
+#include <openssl/err.h>
+#include <openssl/rand.h>
+
+int crypto_rand_init = 0;
+
+/*
+ * ntp_crypto_srandom:
+ *
+ * Initialize the random number generator, if needed by the underlying
+ * crypto random number generation mechanism.
+ */
+
+void
+ntp_crypto_srandom(
+	void
+	)
+{
+	if (!crypto_rand_init) {
+		RAND_poll();
+		crypto_rand_init = 1;
+	}
+}
+
+/*
+ * ntp_crypto_random_buf:
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int
+ntp_crypto_random_buf(
+	void *buf,
+	size_t nbytes
+	)
+{
+	int rc;
+
+	rc = RAND_bytes(buf, nbytes);
+	if (1 != rc) {
+		unsigned long err;
+		char *err_str;
+
+		err = ERR_get_error();
+		err_str = ERR_error_string(err, NULL);
+		/* XXX: Log the error */
+
+		return -1;
+	}
+	return 0;
+}
+

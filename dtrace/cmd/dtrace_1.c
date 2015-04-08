@@ -1605,6 +1605,7 @@ main(int argc, char *argv[])
 
 	(void) dtrace_setopt(g_dtp, "bufsize", "4m");
 	(void) dtrace_setopt(g_dtp, "aggsize", "4m");
+	(void) dtrace_setopt(g_dtp, "temporal", "yes");
 
 	(void) dtrace_setopt(g_dtp, "stacksymbols", "enabled");
 	(void) dtrace_setopt(g_dtp, "arch", string_for_arch(target_arch));

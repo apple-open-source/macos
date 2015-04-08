@@ -1943,8 +1943,8 @@ fr{
                 other{"{0} ms"}
             }
             minute{
-                one{"{0} min"}
-                other{"{0} min"}
+                one{"{0} mn"}
+                other{"{0} mn"}
             }
             month{
                 one{"{0} m"}

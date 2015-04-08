@@ -31,6 +31,7 @@
 #define _H_CSUTILITIES
 
 #include <Security/Security.h>
+#include <security_utilities/dispatch.h>
 #include <security_utilities/hashing.h>
 #include <security_utilities/unix++.h>
 #include <security_cdsa_utilities/cssmdata.h>
@@ -168,6 +169,32 @@ public:
 private:
 	uid_t mPrevious;
 };
+
+
+// This class provides resource limited parallelization,
+// used for work on nested bundles (e.g. signing or validating them).
+
+// We only spins off async workers if they are available right now,
+// otherwise we continue synchronously in the current thread.
+// This is important because we must progress at all times, otherwise
+// deeply nested bundles will deadlock on waiting for resource validation,
+// with no available workers to actually do so.
+// Their nested resources, however, may again spin off async workers if
+// available.
+
+class LimitedAsync {
+	NOCOPY(LimitedAsync)
+public:
+	LimitedAsync(bool async);
+	LimitedAsync(LimitedAsync& limitedAsync);
+	virtual ~LimitedAsync();
+
+	bool perform(Dispatch::Group &groupRef, void (^block)());
+
+private:
+	Dispatch::Semaphore *mResourceSemaphore;
+};
+
 
 
 } // end namespace CodeSigning

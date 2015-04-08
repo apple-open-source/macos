@@ -1,5 +1,5 @@
---- base_unidata/DerivedCoreProperties.txt	2014-03-09 16:20:00.000000000 -0700
-+++ DerivedCoreProperties.txt	2014-03-10 06:35:56.000000000 -0700
+--- base_unidata/DerivedCoreProperties.txt	2014-03-16 23:30:07.000000000 -0700
++++ DerivedCoreProperties.txt	2014-10-31 21:56:40.000000000 -0700
 @@ -162,6 +162,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
@@ -90,6 +90,15 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
+@@ -9979,7 +9998,7 @@
+ 1F3A0..1F3C4  ; Grapheme_Base
+ 1F3C6..1F3CA  ; Grapheme_Base
+ 1F3E0..1F3F0  ; Grapheme_Base
+-1F400..1F43E  ; Grapheme_Base
++1F3FB..1F43E  ; Grapheme_Base
+ 1F440         ; Grapheme_Base
+ 1F442..1F4F7  ; Grapheme_Base
+ 1F4F9..1F4FC  ; Grapheme_Base
 @@ -9995,7 +10014,7 @@
  2B740..2B81D  ; Grapheme_Base
  2F800..2FA1D  ; Grapheme_Base
@@ -99,8 +108,8 @@
  
  # ================================================
  
---- base_unidata/ppucd.txt	2014-03-09 16:20:00.000000000 -0700
-+++ ppucd.txt	2014-03-10 06:34:27.000000000 -0700
+--- base_unidata/ppucd.txt	2014-03-16 23:30:07.000000000 -0700
++++ ppucd.txt	2014-10-31 22:12:22.000000000 -0700
 @@ -17833,8 +17833,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;GCB=CN;lb=SG
  # DC00..DFFF Low Surrogates
@@ -151,8 +160,23 @@
  
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- base_unidata/UnicodeData.txt	2014-03-09 16:20:00.000000000 -0700
-+++ UnicodeData.txt	2014-03-09 16:20:01.000000000 -0700
+@@ -27053,7 +27092,13 @@
+ cp;1F3EE;na=IZAKAYA LANTERN
+ cp;1F3EF;na=JAPANESE CASTLE
+ cp;1F3F0;na=EUROPEAN CASTLE
+-cp;1F3F1..1F3FF;age=NA;bc=L;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
++cp;1F3F1..1F3FA;age=NA;bc=L;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
++# Early add of emoji modifiers for Fizpatrick types, slated for Unicode 8.0
++cp;1F3FB;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-1-2
++cp;1F3FC;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-3
++cp;1F3FD;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-4
++cp;1F3FE;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-5
++cp;1F3FF;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-6
+ # Animal symbols
+ cp;1F400;na=RAT
+ cp;1F401;na=MOUSE
+--- base_unidata/UnicodeData.txt	2014-03-16 23:30:07.000000000 -0700
++++ UnicodeData.txt	2014-10-31 21:51:42.000000000 -0700
 @@ -14443,7 +14443,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
@@ -220,8 +244,20 @@
  F900;CJK COMPATIBILITY IDEOGRAPH-F900;Lo;0;L;8C48;;;;N;;;;;
  F901;CJK COMPATIBILITY IDEOGRAPH-F901;Lo;0;L;66F4;;;;N;;;;;
  F902;CJK COMPATIBILITY IDEOGRAPH-F902;Lo;0;L;8ECA;;;;N;;;;;
---- norm2/base_norm2/nfc.txt	2014-03-08 23:07:17.000000000 -0800
-+++ norm2/nfc.txt	2014-03-09 16:14:50.000000000 -0700
+@@ -22937,6 +22995,11 @@
+ 1F3EE;IZAKAYA LANTERN;So;0;ON;;;;;N;;;;;
+ 1F3EF;JAPANESE CASTLE;So;0;ON;;;;;N;;;;;
+ 1F3F0;EUROPEAN CASTLE;So;0;ON;;;;;N;;;;;
++1F3FB;EMOJI MODIFIER FITZPATRICK TYPE-1-2;Sk;0;ON;;;;;N;;;;;
++1F3FC;EMOJI MODIFIER FITZPATRICK TYPE-3;Sk;0;ON;;;;;N;;;;;
++1F3FD;EMOJI MODIFIER FITZPATRICK TYPE-4;Sk;0;ON;;;;;N;;;;;
++1F3FE;EMOJI MODIFIER FITZPATRICK TYPE-5;Sk;0;ON;;;;;N;;;;;
++1F3FF;EMOJI MODIFIER FITZPATRICK TYPE-6;Sk;0;ON;;;;;N;;;;;
+ 1F400;RAT;So;0;ON;;;;;N;;;;;
+ 1F401;MOUSE;So;0;ON;;;;;N;;;;;
+ 1F402;OX;So;0;ON;;;;;N;;;;;
+--- norm2/base_norm2/nfc.txt	2014-03-16 23:30:07.000000000 -0700
++++ norm2/nfc.txt	2014-03-16 23:30:07.000000000 -0700
 @@ -272,6 +272,8 @@
  AAC1:230
  AAF6:9

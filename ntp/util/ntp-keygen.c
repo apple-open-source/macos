@@ -261,6 +261,8 @@ main(
 	fprintf(stderr, "Using OpenSSL version %lx\n", SSLeay());
 #endif /* OPENSSL */
 
+	ntp_crypto_srandom();
+
 	/*
 	 * Process options, initialize host name and timestamp.
 	 */
@@ -716,7 +718,14 @@ gen_md5(
 			int temp;
 
 			while (1) {
-				temp = ntp_random() & 0xff;
+				int rc;
+
+				rc = ntp_crypto_random_buf(&temp, 1);
+				if (-1 == rc) {
+					fprintf(stderr, "ntp_crypto_random_buf() failed.\n");
+					exit (-1);
+				}
+				temp &= 0xff;
 				if (temp == '#')
 					continue;
 

@@ -122,9 +122,8 @@ typedef struct {
 
 typedef enum {
     /* Bit fields */
-    kWakeFlagsFromHibernation 	= 0x1,
-    kWakeFlagsSSIDChanged	= 0x2,
-    kWakeFlagsBSSIDChanged	= 0x4,
+    kWakeFlagsSSIDChanged	= 0x1,
+    kWakeFlagsBSSIDChanged	= 0x2,
 } WakeFlags;
 
 typedef struct {

@@ -94,6 +94,8 @@ public:
     
     static void check(OSStatus status)	{ if (status != errSecSuccess) throwMe(status); }
     static void throwMe(int err) __attribute__((noreturn));
+
+    static MacOSError make(int err);
 };
 	
 typedef std::set<OSStatus> MacOSErrorSet;

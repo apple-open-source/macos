@@ -118,46 +118,8 @@ bool OpaqueWhitelist::contains(SecStaticCodeRef codeRef, SecAssessmentFeedback f
 		}
 	}
 
-	// prepare strings for use inside block
 	std::string currentHash = hashString(current);
 	std::string opaqueHash = hashString(opaque);
-	std::string identifier = code->identifier();
-	std::string longVersion = cfString(cfShortVersion) + " (" + cfString(cfVersion) + ")";
-
-	// check override killswitch
-	bool enableOverride = true;
-	SQLite::Statement killswitch(*this,
-		"SELECT 1 FROM whitelist"
-		" WHERE current='disable override'"
-		" OR (current=:current AND opaque='disable override')"
-		" LIMIT 1");
-	killswitch.bind(":current") = current.get();
-	if (killswitch.nextRow())
-		enableOverride = false;
-
-	// allow external program to override decision
-	__block bool override = false;
-	if (!match && enableOverride) {
-		dispatch_group_t group = dispatch_group_create();
-		dispatch_group_async(group, mOverrideQueue, ^{
-			const char *argv[] = {
-				"/usr/libexec/gkoverride",
-				currentHash.c_str(),
-				opaqueHash.c_str(),
-				identifier.c_str(),
-				longVersion.c_str(),
-				NULL	// sentinel
-			};
-			int pid, status = 0;
-			if (posix_spawn(&pid, argv[0], NULL, NULL, (char **)argv, NULL) == 0)
-				if (waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 42)
-					override = true;
-		});
-		dispatch_group_wait(group, dispatch_walltime(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
-		dispatch_release(group);
-		if (override)
-			match = true;
-	}
 
 	// send a trace indicating the result
 	MessageTrace trace("com.apple.security.assessment.whitelist2", code->identifier().c_str());
@@ -165,7 +127,6 @@ bool OpaqueWhitelist::contains(SecStaticCodeRef codeRef, SecAssessmentFeedback f
 	trace.add("signature3", "%s", opaqueHash.c_str());
 	trace.add("result", match ? "pass" : "fail");
 	trace.add("reason", "%d", reason);
-	trace.add("override", "%d", override);
 	if (!team.empty())
 		trace.add("teamid", "%s", team.c_str());
 	if (cfVersion)

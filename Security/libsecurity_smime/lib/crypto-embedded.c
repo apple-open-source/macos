@@ -238,17 +238,20 @@ static CFTypeRef CERT_FindByIssuerAndSN (CFTypeRef keychainOrArray, CFTypeRef cl
         CFIndex c, count = CFArrayGetCount((CFArrayRef)keychainOrArray);
         for (c = 0; c < count; c++) {
             SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex((CFArrayRef)keychainOrArray, c);
-            if (CFEqual(SecCertificateGetNormalizedIssuerContent(cert), issuer)) {
+            CFDataRef nic = (cert) ? SecCertificateGetNormalizedIssuerContent(cert) : NULL;
+            if (nic && CFEqual(nic, issuer)) {
                 CFDataRef cert_serial = SecCertificateCopySerialNumber(cert);
-                bool found = CFEqual(cert_serial, serial);
-                CFRelease(cert_serial);
-                if (found) {
+                if (cert_serial) {
+		  bool found = CFEqual(cert_serial, serial);
+		  CFRelease(cert_serial);
+		  if (found) {
                     CFRetain(cert);
                     ident = cert;
                     goto out;
-                }
-            }
-        }
+		  }
+		}
+	    }
+	}
     }
 
 	const void *keys[] = { kSecClass, kSecAttrIssuer, kSecAttrSerialNumber, kSecReturnRef };

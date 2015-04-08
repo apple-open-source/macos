@@ -189,6 +189,13 @@ __private_extern__ void evalTcpkaForPSChange()
     static int  prevPwrSrc = -1;
     int         pwrSrc;
 
+    pwrSrc = _getPowerSource();
+
+    if (pwrSrc == prevPwrSrc)
+        return; // If power source hasn't changed, there is nothing to do
+
+    prevPwrSrc = pwrSrc;
+
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
         return;
 
@@ -197,15 +204,6 @@ __private_extern__ void evalTcpkaForPSChange()
         // This case is handled when system is going to sleep
         return;
     }
-
-    pwrSrc = _getPowerSource();
-
-    if (pwrSrc == prevPwrSrc)
-        return; // If power source hasn't changed, there is nothing to do
-
-    prevPwrSrc = pwrSrc;
-
-
 
     if (_getPowerSource() == kBatteryPowered) 
         startTCPKeepAliveExpTimer();

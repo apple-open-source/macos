@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_log_config - Serveur Apache HTTP</title>
+<title>mod_log_config - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -307,7 +307,7 @@ d'Apache</a></li>
       fallait être très prudent lors de l'exploitation des journaux
       bruts.</p>
 
-      <p>A la différence de la version 1.3, dans httpd 2.0, les chaînes
+      <p>A la différence de la version 1.3, depuis httpd 2.0, les chaînes
       de format <code>%b</code> et <code>%B</code> ne représentent pas
       le nombre d'octets envoyés au client, mais simplement la taille en
       octets de la réponse HTTP (les deux étant différents, par exemple,

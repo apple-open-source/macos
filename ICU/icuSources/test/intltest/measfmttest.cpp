@@ -375,10 +375,10 @@ void MeasureFormatTest::TestFormatPeriodEn() {
 
     ExpectedResult abbrevData[] = {
             {t_1m_59_9996s, LENGTHOF(t_1m_59_9996s), "1 min, 59.9996 secs"},
-            {t_19m, LENGTHOF(t_19m), "19 mins"},
+            {t_19m, LENGTHOF(t_19m), "19 min"},
             {t_1h_23_5s, LENGTHOF(t_1h_23_5s), "1 hr, 23.5 secs"},
-            {t_1h_23_5m, LENGTHOF(t_1h_23_5m), "1 hr, 23.5 mins"},
-            {t_1h_0m_23s, LENGTHOF(t_1h_0m_23s), "1 hr, 0 mins, 23 secs"},
+            {t_1h_23_5m, LENGTHOF(t_1h_23_5m), "1 hr, 23.5 min"},
+            {t_1h_0m_23s, LENGTHOF(t_1h_0m_23s), "1 hr, 0 min, 23 secs"},
             {t_2y_5M_3w_4d, LENGTHOF(t_2y_5M_3w_4d), "2 yrs, 5 mths, 3 wks, 4 days"}};
 
     ExpectedResult narrowData[] = {

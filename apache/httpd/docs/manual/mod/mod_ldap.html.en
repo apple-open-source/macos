@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_ldap - Apache HTTP Server</title>
+<title>mod_ldap - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -471,13 +471,18 @@ LDAPTrustedGlobalCert CA_BASE64 /certs/cacert2.pem
 
     <p>A setting of 0 causes connections to never be saved in the backend
     connection pool.  The default value of -1, and any other negative value,
-     allows connections of any age to be reused.</p>
+    allows connections of any age to be reused.</p>
 
-    <p>The timemout is based on when the LDAP connection is returned to the
-    pool, not based on the last time I/O has been performed over the backend
-    connection.  If the information is cached, the apparent idle time can exceed
-    the <code class="directive">LDAPConnectionPoolTTL</code>. </p>
+    <p>For performance reasons, the reference time used by this directive is 
+    based on when the LDAP connection is returned to the pool, not the time
+    of the last successful I/O with the LDAP server.  </p>
 
+    <p>Since 2.4.10, new measures are in place to avoid the reference time
+    from being inflated by cache hits or slow requests.  First, the reference
+    time is not updated if no backend LDAP conncetions were needed. Second,
+    the reference time uses the time the HTTP request was received instead
+    of the time the request is completed.</p>
+    
     <div class="note"><p>This timeout defaults to units of seconds, but accepts
     suffixes for milliseconds (ms), minutes (min), and hours (h).
     </p></div>
@@ -582,7 +587,7 @@ valid</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ldap</td></tr>
 </table>
-    <p>This directive, if enabled by the <code>LDAPReferrals</code> directive,
+    <p>This directive, if enabled by the <code class="directive">LDAPReferrals</code> directive,
     limits the number of referral hops that are followed before terminating an
     LDAP query.</p>
 
@@ -601,6 +606,7 @@ valid</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>AuthConfig</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ldap</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>The <var>default</var> parameter is available in Apache 2.4.7 and later</td></tr>
 </table>
     <p>Some LDAP servers divide their directory among multiple domains and use referrals
     to direct a client when a domain boundary is crossed. This is similar to a HTTP redirect.
@@ -608,8 +614,7 @@ valid</td></tr>
     explicitly configures the referral chasing in the underlying SDK.</p>
 
 
-    <p><code class="directive">LDAPReferrals</code> takes the takes the following values:
-    </p>
+    <p><code class="directive">LDAPReferrals</code> takes the following values:</p>
     <dl>
      <dt>"on"</dt>
      <dd> <p> When set to "on", the underlying SDK's referral chasing state
@@ -626,10 +631,10 @@ valid</td></tr>
               registered.</p></dd>
     </dl>
 
-    <p> The directive <code>LDAPReferralHopLimit</code> works in conjunction with
+    <p>The directive <code class="directive">LDAPReferralHopLimit</code> works in conjunction with
     this directive to limit the number of referral hops to follow before terminating the LDAP query.
     When referral processing is enabled by a value of "On", client credentials will be provided,
-    via a rebind callback, for any LDAP server requiring them. </p>
+    via a rebind callback, for any LDAP server requiring them.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>

@@ -449,6 +449,7 @@
 		72756C31175D48C100F52070 /* cloud_keychain_diagnose.c in Sources */ = {isa = PBXBuildFile; fileRef = 72756C30175D48C100F52070 /* cloud_keychain_diagnose.c */; };
 		72CC327B175D6E0A00217455 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72756C9E175D566800F52070 /* CoreFoundation.framework */; };
 		72CC327C175D6E1800217455 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 722CF215175D5E5000BCE0A5 /* Security.framework */; };
+		7A21DAE619B7F27C0007D37F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18270EFD14CF429600B05E7F /* IOKit.framework */; };
 		AAF3DCCB1666D03300376593 /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F235F715CA0D9D00060520 /* libsecurity_utilities.a */; };
 		AC5688BC18B4396D00F0526C /* SecCMS.h in Headers */ = {isa = PBXBuildFile; fileRef = AC5688BA18B4396D00F0526C /* SecCMS.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		ACB6171918B5231800EBEDD7 /* libsecurity_smime_regressions.a in Frameworks */ = {isa = PBXBuildFile; fileRef = ACB6171818B5231800EBEDD7 /* libsecurity_smime_regressions.a */; };
@@ -2253,6 +2254,7 @@
 				182BB5AE146FEF43000BF1F3 /* libsqlite3.dylib in Frameworks */,
 				182BB5AC146FEF15000BF1F3 /* libpam.dylib in Frameworks */,
 				182BB5AA146FEE50000BF1F3 /* CoreFoundation.framework in Frameworks */,
+				7A21DAE619B7F27C0007D37F /* IOKit.framework in Frameworks */,
 				182BB4E1146F2591000BF1F3 /* libsecurity_manifest.a in Frameworks */,
 				182BB4E2146F2591000BF1F3 /* libsecurity_mds.a in Frameworks */,
 				182BB4E3146F2591000BF1F3 /* libsecurity_sd_cspdl.a in Frameworks */,

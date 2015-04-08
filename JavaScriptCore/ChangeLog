@@ -1,3 +1,688 @@
+2015-03-04  Filip Pizlo  <fpizlo@apple.com>
+
+        [FTL] inlined GetMyArgumentByVal with no arguments passed causes instant crash
+        https://bugs.webkit.org/show_bug.cgi?id=141180
+        rdar://problem/19677552
+
+        Reviewed by Benjamin Poulain.
+        
+        If we do a GetMyArgumentByVal on an inlined call frame that has no arguments, then the
+        bounds check already terminates execution. This means we can skip the part where we
+        previously did an out-of-bound array access on the inlined call frame arguments vector.
+
+        * ftl/FTLLowerDFGToLLVM.cpp:
+        (JSC::FTL::LowerDFGToLLVM::safelyInvalidateAfterTermination):
+        (JSC::FTL::LowerDFGToLLVM::compileGetMyArgumentByVal):
+        (JSC::FTL::LowerDFGToLLVM::terminate):
+        (JSC::FTL::LowerDFGToLLVM::didAlreadyTerminate):
+        (JSC::FTL::LowerDFGToLLVM::crash):
+        * tests/stress/get-my-argument-by-val-inlined-no-formal-parameters.js: Added.
+        (foo):
+        (bar):
+
+2015-03-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r180101
+
+    2015-02-13  Joseph Pecoraro  <pecoraro@apple.com>
+
+            JSContext Inspector: Do not stash console messages for non-debuggable JSContext
+            https://bugs.webkit.org/show_bug.cgi?id=141589
+
+            Reviewed by Timothy Hatcher.
+
+            Consider developer extras disabled for JSContext inspection if the
+            RemoteInspector server is not enabled (typically a non-debuggable
+            process rejected by webinspectord) or if remote debugging on the
+            JSContext was explicitly disabled via SPI.
+
+            When developer extras are disabled, console message will not be stashed.
+
+            * inspector/JSGlobalObjectInspectorController.cpp:
+            (Inspector::JSGlobalObjectInspectorController::developerExtrasEnabled):
+            * inspector/JSGlobalObjectInspectorController.h:
+
+2015-03-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r180452
+
+    2015-02-20  Mark Lam  <mark.lam@apple.com>
+
+            [JSObjCClassInfo reallocateConstructorAndOrPrototype] should also reallocate super class prototype chain.
+            <https://webkit.org/b/141809>
+
+            Reviewed by Geoffrey Garen.
+
+            A ObjC class that implement the JSExport protocol will have a JS prototype
+            chain and constructor automatically synthesized for its JS wrapper object.
+            However, if there are no more instances of that ObjC class reachable by a
+            JS GC root scan, then its synthesized prototype chain and constructors may
+            be released by the GC.  If a new instance of that ObjC class is subsequently
+            instantiated, then [JSObjCClassInfo reallocateConstructorAndOrPrototype]
+            should re-construct the prototype chain and constructor (if they were
+            previously released).  However, the current implementation only
+            re-constructs the immediate prototype, but not every other prototype
+            object upstream in the prototype chain.
+
+            To fix this, we do the following:
+            1. We no longer allocate the JSObjCClassInfo's prototype and constructor
+               eagerly.  Hence, -initWithContext:forClass: will no longer call
+               -allocateConstructorAndPrototypeWithSuperClassInfo:.
+            2. Instead, we'll always access the prototype and constructor thru
+               accessor methods.  The accessor methods will call
+               -allocateConstructorAndPrototype: if needed.
+            3. -allocateConstructorAndPrototype: will fetch the needed superClassInfo
+               from the JSWrapperMap itself.  This makes it so that we no longer
+               need to pass the superClassInfo all over.
+            4. -allocateConstructorAndPrototype: will get the super class prototype
+               by invoking -prototype: on the superClassInfo, thereby allowing the
+               super class to allocate its prototype and constructor if needed and
+               fixing the issue in this bug.
+
+            5. Also removed the GC warning comments, and ensured that needed JS
+               objects are kept alive by having a local var pointing to it from the
+               stack (which makes a GC root).
+
+            * API/JSWrapperMap.mm:
+            (-[JSObjCClassInfo initWithContext:forClass:]):
+            (-[JSObjCClassInfo allocateConstructorAndPrototype]):
+            (-[JSObjCClassInfo wrapperForObject:]):
+            (-[JSObjCClassInfo constructor]):
+            (-[JSObjCClassInfo prototype]):
+            (-[JSWrapperMap classInfoForClass:]):
+            (-[JSObjCClassInfo initWithContext:forClass:superClassInfo:]): Deleted.
+            (-[JSObjCClassInfo allocateConstructorAndPrototypeWithSuperClassInfo:]): Deleted.
+            (-[JSObjCClassInfo reallocateConstructorAndOrPrototype]): Deleted.
+            * API/tests/Regress141809.h: Added.
+            * API/tests/Regress141809.mm: Added.
+            (-[TestClassB name]):
+            (-[TestClassC name]):
+            (runRegress141809):
+            * API/tests/testapi.mm:
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2015-03-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r180234
+
+    2015-02-17  Filip Pizlo  <fpizlo@apple.com>
+
+            Throwing from an FTL call IC slow path may result in tag registers being clobbered on 64-bit CPUs
+            https://bugs.webkit.org/show_bug.cgi?id=141717
+            rdar://problem/19863382
+
+            Reviewed by Geoffrey Garen.
+
+            The best solution is to ensure that the engine catching an exception restores tag registers.
+
+            Each of these new test cases reliably crashed prior to this patch and they don't crash at all now.
+
+            * jit/JITOpcodes.cpp:
+            (JSC::JIT::emit_op_catch):
+            * llint/LowLevelInterpreter.asm:
+            * llint/LowLevelInterpreter64.asm:
+            * tests/stress/throw-from-ftl-call-ic-slow-path-cells.js: Added.
+            * tests/stress/throw-from-ftl-call-ic-slow-path-undefined.js: Added.
+            * tests/stress/throw-from-ftl-call-ic-slow-path.js: Added.
+
+2015-02-26  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge patch for r180247 and r180249.
+
+    2015-02-20  Michael Saboff  <msaboff@apple.com>
+
+            CrashTracer: DFG_CRASH beneath JSC::FTL::LowerDFGToLLVM::compileNode
+            https://bugs.webkit.org/show_bug.cgi?id=141730
+
+            Reviewed by Geoffrey Garen.
+
+            Added a new failure handler, loweringFailed(), to LowerDFGToLLVM that reports failures
+            while processing DFG lowering.  For debug builds, the failures are logged identical
+            to the way the DFG_CRASH() reports them.  For release builds, the failures are reported
+            and that FTL compilation is terminated, but the process is allowed to continue.
+            Wrapped calls to loweringFailed() in a macro LOWERING_FAILED so the function and
+            line number are reported at the point of the inconsistancy.
+
+            Converted instances of DFG_CRASH to LOWERING_FAILED.
+
+            * dfg/DFGPlan.cpp:
+            (JSC::DFG::Plan::compileInThreadImpl): Added lowerDFGToLLVM() failure check that
+            will fail the FTL compile.
+
+            * ftl/FTLLowerDFGToLLVM.cpp:
+            (JSC::FTL::LowerDFGToLLVM::LowerDFGToLLVM):
+            Added new member variable, m_loweringSucceeded, to stop compilation on the first
+            reported failure.
+
+            * ftl/FTLLowerDFGToLLVM.cpp:
+            (JSC::FTL::LowerDFGToLLVM::lower):
+            * ftl/FTLLowerDFGToLLVM.h:
+            Added check for compilation failures and now report those failures via a boolean
+            return value.
+
+            * ftl/FTLLowerDFGToLLVM.cpp:
+            (JSC::FTL::LowerDFGToLLVM::createPhiVariables):
+            (JSC::FTL::LowerDFGToLLVM::compileNode):
+            (JSC::FTL::LowerDFGToLLVM::compileUpsilon):
+            (JSC::FTL::LowerDFGToLLVM::compilePhi):
+            (JSC::FTL::LowerDFGToLLVM::compileDoubleRep):
+            (JSC::FTL::LowerDFGToLLVM::compileValueRep):
+            (JSC::FTL::LowerDFGToLLVM::compileValueToInt32):
+            (JSC::FTL::LowerDFGToLLVM::compilePutLocal):
+            (JSC::FTL::LowerDFGToLLVM::compileArithAddOrSub):
+            (JSC::FTL::LowerDFGToLLVM::compileArithMul):
+            (JSC::FTL::LowerDFGToLLVM::compileArithDiv):
+            (JSC::FTL::LowerDFGToLLVM::compileArithMod):
+            (JSC::FTL::LowerDFGToLLVM::compileArithMinOrMax):
+            (JSC::FTL::LowerDFGToLLVM::compileArithAbs):
+            (JSC::FTL::LowerDFGToLLVM::compileArithNegate):
+            (JSC::FTL::LowerDFGToLLVM::compileArrayifyToStructure):
+            (JSC::FTL::LowerDFGToLLVM::compileGetById):
+            (JSC::FTL::LowerDFGToLLVM::compileGetMyArgumentByVal):
+            (JSC::FTL::LowerDFGToLLVM::compileGetArrayLength):
+            (JSC::FTL::LowerDFGToLLVM::compileGetByVal):
+            (JSC::FTL::LowerDFGToLLVM::compilePutByVal):
+            (JSC::FTL::LowerDFGToLLVM::compileArrayPush):
+            (JSC::FTL::LowerDFGToLLVM::compileArrayPop):
+            (JSC::FTL::LowerDFGToLLVM::compileNewArray):
+            (JSC::FTL::LowerDFGToLLVM::compileToString):
+            (JSC::FTL::LowerDFGToLLVM::compileMakeRope):
+            (JSC::FTL::LowerDFGToLLVM::compileCompareEq):
+            (JSC::FTL::LowerDFGToLLVM::compileCompareStrictEq):
+            (JSC::FTL::LowerDFGToLLVM::compileSwitch):
+            (JSC::FTL::LowerDFGToLLVM::compare):
+            (JSC::FTL::LowerDFGToLLVM::boolify):
+            (JSC::FTL::LowerDFGToLLVM::opposite):
+            (JSC::FTL::LowerDFGToLLVM::lowJSValue):
+            (JSC::FTL::LowerDFGToLLVM::speculate):
+            (JSC::FTL::LowerDFGToLLVM::isArrayType):
+            (JSC::FTL::LowerDFGToLLVM::exitValueForAvailability):
+            (JSC::FTL::LowerDFGToLLVM::exitValueForNode):
+            (JSC::FTL::LowerDFGToLLVM::setInt52):
+            Changed DFG_CRASH() to LOWERING_FAILED().  Updated related control flow as appropriate.
+
+            (JSC::FTL::LowerDFGToLLVM::loweringFailed): New error reporting member function.
+
+2015-02-20  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180325. <rdar://problem/19828591>
+
+    2015-02-18  Filip Pizlo  <fpizlo@apple.com>
+
+            Effectful calls to length should only happen once on the varargs path.
+            rdar://problem/19828518
+
+            Reviewed by Michael Saboff.
+
+            * interpreter/Interpreter.cpp:
+            (JSC::sizeFrameForVarargs):
+            (JSC::loadVarargs):
+            * runtime/VM.cpp:
+            (JSC::VM::VM):
+            * runtime/VM.h:
+
+2015-02-20  Dana Burkart  <dburkart@apple.com>
+
+        Merged r180237. <rdar://problem/19870991>
+
+    2015-02-17  Filip Pizlo  <fpizlo@apple.com>
+
+            StackLayoutPhase should use CodeBlock::usesArguments rather than FunctionExecutable::usesArguments
+            https://bugs.webkit.org/show_bug.cgi?id=141721
+            rdar://problem/17198633
+
+            Reviewed by Michael Saboff.
+            
+            I've seen cases where the two are out of sync.  We know we can trust the CodeBlock::usesArguments because
+            we use it everywhere else.
+            
+            No test because I could never reproduce the crash.
+
+            * dfg/DFGGraph.h:
+            (JSC::DFG::Graph::usesArguments):
+            * dfg/DFGStackLayoutPhase.cpp:
+            (JSC::DFG::StackLayoutPhase::run):
+
+2015-02-19  Dana Burkart  <dburkart@apple.com>
+
+        Merged r178224. <rdar://problem/19861714>
+
+    2015-01-09  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Uncaught Exception in ProbeManager deleting breakpoint
+            https://bugs.webkit.org/show_bug.cgi?id=140279
+            rdar://problem/19422299
+
+            Reviewed by Oliver Hunt.
+
+            * runtime/MapData.cpp:
+            (JSC::MapData::replaceAndPackBackingStore):
+            The cell table also needs to have its values fixed.
+
+2015-02-12  Brent Fulgham  <bfulgham@apple.com>
+
+        Correct merge error from r180011.
+
+        * JavaScriptCore.vcxproj/JavaScriptCoreDLL.cpp: Added.
+        (DllMain):
+
+2015-02-11  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r179993. <rdar://problem/19813975>
+
+    2015-02-11  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] [64-bit] Work around MSVC2013 Runtime Bug
+            https://bugs.webkit.org/show_bug.cgi?id=141498
+            <rdar://problem/19803642>
+
+            Reviewed by Anders Carlsson.
+
+            Disable FMA3 instruction use in the MSVC math library to
+            work around a VS2013 runtime crash. We can remove this
+            workaround when we switch to VS2015.
+
+            * API/tests/testapi.c: Call _set_FMA3_enable(0) to disable
+            FMA3 support.
+            * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj: Add new files.
+            * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj.filters: Ditto.
+            * JavaScriptCore.vcxproj/JavaScriptCoreDLL.cpp: Added.
+            * JavaScriptCore.vcxproj/jsc/DLLLauncherMain.cpp: Call _set_FMA3_enable(0)
+            to disable FMA3 support.
+            * jsc.cpp: Ditto.
+            * testRegExp.cpp: Ditto.
+
+2015-02-04  Mark Lam  <mark.lam@apple.com>
+
+        Merge r179576, r179648.  rdar://problem/19709578
+
+    2015-02-04  Mark Lam  <mark.lam@apple.com>
+
+            r179576 introduce a deadlock potential during GC thread suspension.
+            <https://webkit.org/b/141268>
+
+            Reviewed by Michael Saboff.
+
+            http://trac.webkit.org/r179576 introduced a potential for deadlocking.
+            In the GC thread suspension loop, we currently delete
+            MachineThreads::Thread that we detect to be invalid.  This is unsafe
+            because we may have already suspended some threads, and one of those
+            suspended threads may still be holding the C heap lock which we need
+            for deleting the invalid thread.
+
+            The fix is to put the invalid threads in a separate toBeDeleted list,
+            and delete them only after GC has resumed all threads.
+
+            * heap/MachineStackMarker.cpp:
+            (JSC::MachineThreads::removeCurrentThread):
+            - Undo refactoring removeThreadWithLockAlreadyAcquired() out of
+            removeCurrentThread() since it is no longer needed.
+
+            (JSC::MachineThreads::tryCopyOtherThreadStacks):
+            - Put invalid Threads on a threadsToBeDeleted list, and delete those
+            Threads only after all threads have been resumed.
+
+            (JSC::MachineThreads::removeThreadWithLockAlreadyAcquired): Deleted.
+            * heap/MachineStackMarker.h:
+
+    2015-02-03  Mark Lam  <mark.lam@apple.com>
+
+            Workaround a thread library bug where thread destructors may not get called.
+            <https://webkit.org/b/141209>
+
+            Reviewed by Michael Saboff.
+
+            There's a bug where thread destructors may not get called.  As far as
+            we know, this only manifests on darwin ports.  We will work around this
+            by checking at GC time if the platform thread is still valid.  If not,
+            we'll purge it from the VM's registeredThreads list before proceeding
+            with thread scanning activity.
+
+            Note: it is important that we do this invalid thread detection during
+            suspension, because the validity (and liveness) of the other thread is
+            only guaranteed while it is suspended.
+
+            * API/tests/testapi.mm:
+            (threadMain):
+            - Added a test to enter the VM from another thread before we GC on
+              the main thread.
+
+            * heap/MachineStackMarker.cpp:
+            (JSC::MachineThreads::removeThreadWithLockAlreadyAcquired):
+            (JSC::MachineThreads::removeCurrentThread):
+            - refactored removeThreadWithLockAlreadyAcquired() out from
+              removeCurrentThread() so that we can also call it for purging invalid
+              threads.
+            (JSC::suspendThread):
+            - Added a return status to tell if the suspension succeeded or not.
+            (JSC::MachineThreads::tryCopyOtherThreadStacks):
+            - Check if the suspension failed, and purge the thread if we can't
+              suspend it.  Failure to suspend implies that the thread has
+              terminated without calling its destructor.
+            * heap/MachineStackMarker.h:
+
+2015-02-10  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r177849
+
+    2015-01-01  Jeff Miller  <jeffm@apple.com>
+
+            Update user-visible copyright strings to include 2015
+            https://bugs.webkit.org/show_bug.cgi?id=139880
+
+            Reviewed by Darin Adler.
+
+            * Info.plist:
+
+2015-02-04  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r178875. rdar://problem/19617631
+
+    2015-01-21  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: ASSERT expanding objects in console PrimitiveBindingTraits<T>::assertValueHasExpectedType
+            https://bugs.webkit.org/show_bug.cgi?id=140746
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/InjectedScriptSource.js:
+            Do not add impure properties to the descriptor object that will
+            eventually be sent to the frontend.
+
+2015-01-20  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r171691.
+
+    2014-07-28  Mark Hahnenberg  <mhahnenberg@apple.com>
+
+            REGRESSION: JSObjectSetPrototype() does not work on result of JSGetGlobalObject()
+            https://bugs.webkit.org/show_bug.cgi?id=135322
+
+            Reviewed by Oliver Hunt.
+
+            The prototype chain of the JSProxy object should match that of the JSGlobalObject. 
+
+            This is a separate but related issue with JSObjectSetPrototype which doesn't correctly 
+            account for JSProxies. I also audited the rest of the C API to check that we correctly 
+            handle JSProxies in all other situations where we expect a JSCallbackObject of some sort
+            and found some SPI calls (JSObject*PrivateProperty) that didn't behave correctly when 
+            passed a JSProxy.
+
+            I also added some new tests for these cases.
+
+            * API/JSObjectRef.cpp:
+            (JSObjectSetPrototype):
+            (JSObjectGetPrivateProperty):
+            (JSObjectSetPrivateProperty):
+            (JSObjectDeletePrivateProperty):
+            * API/JSWeakObjectMapRefPrivate.cpp:
+            * API/tests/CustomGlobalObjectClassTest.c:
+            (globalObjectSetPrototypeTest):
+            (globalObjectPrivatePropertyTest):
+            * API/tests/CustomGlobalObjectClassTest.h:
+            * API/tests/testapi.c:
+            (main):
+
+2015-01-28  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r178768. rdar://problem/19617631
+
+    2015-01-20  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Expanding event objects in console shows undefined for most values, it should have real values
+            https://bugs.webkit.org/show_bug.cgi?id=137306
+
+            Reviewed by Timothy Hatcher.
+
+            Provide another optional parameter to getProperties, to gather a list
+            of all own and getter properties.
+
+            * inspector/InjectedScript.cpp:
+            (Inspector::InjectedScript::getProperties):
+            * inspector/InjectedScript.h:
+            * inspector/InjectedScriptSource.js:
+            * inspector/agents/InspectorRuntimeAgent.cpp:
+            (Inspector::InspectorRuntimeAgent::getProperties):
+            * inspector/agents/InspectorRuntimeAgent.h:
+            * inspector/protocol/Runtime.json:
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r178365. rdar://problem/19617809
+
+    2015-01-13  Geoffrey Garen  <ggaren@apple.com>
+
+            Out of bounds access in BytecodeGenerator::emitGetById under DotAccessorNode::emitBytecode
+            https://bugs.webkit.org/show_bug.cgi?id=140397
+
+            Reviewed by Geoffrey Garen.
+
+            Patch by Alexey Proskuryakov.
+
+            Reviewed, performance tested, and ChangeLogged by Geoffrey Garen.
+
+            No performance change.
+
+            No test, since this is a small past-the-end read, which is very
+            difficult to turn into a reproducible failing test -- and existing tests
+            crash reliably using ASan.
+
+            * bytecompiler/NodesCodegen.cpp:
+            (JSC::BracketAccessorNode::emitBytecode):
+            (JSC::DotAccessorNode::emitBytecode):
+            (JSC::FunctionCallBracketNode::emitBytecode):
+            (JSC::PostfixNode::emitResolve):
+            (JSC::DeleteBracketNode::emitBytecode):
+            (JSC::DeleteDotNode::emitBytecode):
+            (JSC::PrefixNode::emitResolve):
+            (JSC::UnaryOpNode::emitBytecode):
+            (JSC::BitwiseNotNode::emitBytecode):
+            (JSC::BinaryOpNode::emitBytecode):
+            (JSC::EqualNode::emitBytecode):
+            (JSC::StrictEqualNode::emitBytecode):
+            (JSC::ThrowableBinaryOpNode::emitBytecode):
+            (JSC::AssignDotNode::emitBytecode):
+            (JSC::AssignBracketNode::emitBytecode): Use RefPtr in more places. Any
+            register used across a call to a function that might allocate a new
+            temporary register must be held in a RefPtr.
+
+2015-01-28  Matthew  <matthew_hanson@apple.com>
+
+        Merge r178311. rdar://problem/19617780
+
+    2015-01-12  Geoffrey Garen  <ggaren@apple.com>
+
+            Out of bounds read in IdentifierArena::makeIdentifier
+            https://bugs.webkit.org/show_bug.cgi?id=140376
+
+            Patch by Alexey Proskuryakov.
+
+            Reviewed and ChangeLogged by Geoffrey Garen.
+
+            No test, since this is a small past-the-end read, which is very
+            difficult to turn into a reproducible failing test -- and existing tests
+            crash reliably using ASan.
+
+            * parser/ParserArena.h:
+            (JSC::IdentifierArena::makeIdentifier):
+            (JSC::IdentifierArena::makeIdentifierLCharFromUChar): Check for a
+            zero-length string input, like we do in the literal parser, since it is
+            not valid to dereference characters in a zero-length string.
+
+            A zero-length string is allowed in JavaScript -- for example, "".
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174708. rdar://problem/19451256
+
+    2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r175629. rdar://problem/19465100
+
+        2014-11-05  Alexey Proskuryakov  <ap@apple.com>
+
+                Incorrect sandbox_check in RemoteInspector.mm
+                https://bugs.webkit.org/show_bug.cgi?id=138408
+
+                Reviewed by Joseph Pecoraro.
+
+                * inspector/remote/RemoteInspector.mm:
+                (Inspector::canAccessWebInspectorMachPort):
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174381. rdar://problem/19450841
+
+    2014-10-06  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Use of 1-bit Enum type behaves improperly
+            https://bugs.webkit.org/show_bug.cgi?id=137471
+            <rdar://problem/18559172>
+
+            Reviewed by Mark Lam.
+
+            Represent 1-bit enum element as 'unsigned', as we have done elsewhere
+            in WebKit to avoid problems when building with MSVC.
+
+            * debugger/Debugger.h:
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174371. rdar://problem/19450845
+
+    2014-10-06  Mark Lam  <mark.lam@apple.com>
+
+            Fixed compiler warnings on Windows build.
+            <https://webkit.org/b/135205>
+
+            Reviewed by Geoffrey Garen.
+
+            Benchmarking with jsc shows that perf is neutral with this change.
+
+            * assembler/MacroAssemblerX86_64.h:
+            (JSC::MacroAssemblerX86_64::call):
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::CodeBlock):
+            * dfg/DFGArgumentPosition.h:
+            (JSC::DFG::ArgumentPosition::mergeShouldNeverUnbox):
+            (JSC::DFG::ArgumentPosition::mergeArgumentUnboxingAwareness):
+            * dfg/DFGEdge.h:
+            (JSC::DFG::Edge::makeWord):
+            * dfg/DFGNodeFlags.h:
+            (JSC::DFG::nodeMayOverflow):
+            (JSC::DFG::nodeMayNegZero):
+            * dfg/DFGOSRExitCompilerCommon.cpp:
+            (JSC::DFG::reifyInlinedCallFrames):
+            * dfg/DFGVariableAccessData.cpp:
+            (JSC::DFG::VariableAccessData::mergeIsCaptured):
+            * dfg/DFGVariableAccessData.h:
+            (JSC::DFG::VariableAccessData::mergeIsProfitableToUnbox):
+            (JSC::DFG::VariableAccessData::mergeStructureCheckHoistingFailed):
+            (JSC::DFG::VariableAccessData::mergeCheckArrayHoistingFailed):
+            (JSC::DFG::VariableAccessData::mergeIsArgumentsAlias):
+            (JSC::DFG::VariableAccessData::mergeIsLoadedFrom):
+            * runtime/JSDataViewPrototype.cpp:
+            (JSC::getData):
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r178364. rdar://problem/19465091
+
+    2015-01-12  Michael Saboff  <msaboff@apple.com>
+
+            Local JSArray* "keys" in objectConstructorKeys() is not marked during garbage collection
+            https://bugs.webkit.org/show_bug.cgi?id=140348
+
+            Reviewed by Mark Lam.
+
+            We used to read registers in MachineThreads::gatherFromCurrentThread(), but that is too late
+            because those registers may have been spilled on the stack and replaced with other values by
+            the time we call down to gatherFromCurrentThread().
+
+            Now we get the register contents at the same place that we demarcate the current top of
+            stack using the address of a local variable, in Heap::markRoots().  The register contents
+            buffer is passed along with the demarcation pointer.  These need to be done at this level 
+            in the call tree and no lower, as markRoots() calls various functions that visit object
+            pointers that may be latter proven dead.  Any of those pointers that are left on the
+            stack or in registers could be incorrectly marked as live if we scan the stack contents
+            from a called function or one of its callees.  The stack demarcation pointer and register
+            saving need to be done in the same function so that we have a consistent stack, active
+            and spilled registers.
+
+            Because we don't want to make unnecessary calls to get the register contents, we use
+            a macro to allocated, and possibly align, the register structure and get the actual
+            register contents.
+
+
+            * heap/Heap.cpp:
+            (JSC::Heap::markRoots):
+            (JSC::Heap::gatherStackRoots):
+            * heap/Heap.h:
+            * heap/MachineStackMarker.cpp:
+            (JSC::MachineThreads::gatherFromCurrentThread):
+            (JSC::MachineThreads::gatherConservativeRoots):
+            * heap/MachineStackMarker.h:
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177448. rdar://problem/19451944
+
+    2014-12-17  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Correct DebugSuffix builds under MSBuild
+            https://bugs.webkit.org/show_bug.cgi?id=139733
+            <rdar://problem/19276880>
+
+            Reviewed by Simon Fraser.
+
+            * JavaScriptCore.vcxproj/JavaScriptCore.proj: Make sure to use the
+            '_debug' suffix when building the DebugSuffix target.
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r176896. rdar://problem/19451941
+
+    2014-12-05  Roger Fong  <roger_fong@apple.com>
+
+            [Win] proj files copying over too many resources..
+            https://bugs.webkit.org/show_bug.cgi?id=139315.
+            <rdar://problem/19148278>
+
+            Reviewed by Brent Fulgham.
+
+            * JavaScriptCore.vcxproj/JavaScriptCore.proj: Only copy resource folders and JavaScriptCore.dll.
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174162. rdar://problem/19451961
+
+    2014-10-01  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] 32-bit JavaScriptCore should limit itself to the C loop
+            https://bugs.webkit.org/show_bug.cgi?id=137304
+            <rdar://problem/18375370>
+
+            Reviewed by Michael Saboff.
+
+            * JavaScriptCore.vcxproj/LLInt/LLIntAssembly/build-LLIntAssembly.pl:
+            Use the C loop for 32-bit builds.
+
+2015-01-14  Dana Burkart  <dburkart@apple.com>
+
+        Merged r173318. <rdar://problem/19424143>
+
+    2014-06-06  Jer Noble  <jer.noble@apple.com>
+
+            Refactoring: make MediaTime the primary time type for audiovisual times.
+            https://bugs.webkit.org/show_bug.cgi?id=133579
+
+            Reviewed by Eric Carlson.
+
+            Add a utility function which converts a MediaTime to a JSNumber.
+
+            * runtime/JSCJSValue.h:
+            (JSC::jsNumber):
+
 2014-12-16  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r176399. rdar://problem/19267545

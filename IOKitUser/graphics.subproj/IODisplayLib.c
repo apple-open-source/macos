@@ -3412,6 +3412,81 @@ IODisplayDictAddValues(const void *key, const void *value, void *context)
     CFDictionaryAddValue(dict, key, value);
 }
 
+static Boolean
+IODisplayIsHDMISink(CFMutableDictionaryRef dict)
+{
+    CFDataRef   data = 0;
+    EDID *      edid = 0;
+    CFIndex     count;
+    UInt8 *     blocks;
+
+    if (! dict) {
+        return false;
+    }
+
+    data = CFDictionaryGetValue(dict, CFSTR(kIODisplayEDIDKey));
+    edid = (EDID *) CFDataGetBytePtr(data);
+    if (! (data && edid)) {
+        return false;
+    }
+
+    // limit to HDMI 1.3
+    if ((edid->version != 1) || (edid->revision != 3)) {
+        return false;
+    }
+
+    count = CFDataGetLength(data);
+    if ((size_t)count <= sizeof(EDID)) {
+        return false;
+    }
+
+    blocks = (UInt8 *)(edid + 1);
+    count -= sizeof(EDID);
+
+    while (count >= 128) {
+        UInt8 tag = blocks[0];
+
+        if (tag == kExtTagCEA) {
+            CEA861EXT * ext = (CEA861EXT *)blocks;
+            IOByteCount offset;
+
+            offset = ext->detailedTimingsOffset;
+            if (offset < 4) {
+                return false;
+            }
+            offset -= 4;
+
+            if (0x03 <= ext->version) {
+                IOByteCount index = 0;
+                while (index < offset) {
+                    IOByteCount length = (ext->data[index] & 0x1f) + 1;
+
+                    if (((ext->data[index] & 0xe0) == 0x60) && (length >= 4)) {
+                        // HDMI Vendor Specific Data Block (HDMI 1.3a p.119)
+                        if ((ext->data[index + 1] == 0x03) &&
+                            (ext->data[index + 2] == 0x0c) &&
+                            (ext->data[index + 3] == 0x00)) {
+                            // 24-bit IEEE Registration Identifier (0x000C03)
+                            return true;
+                        }
+                    }
+
+                    index += length;
+                }
+            }
+        }
+
+        count  -= 128;
+        blocks += 128;
+    }
+
+    return false;
+}
+
+#ifndef kIODisplayIsHDMISinkKey
+#define kIODisplayIsHDMISinkKey "IODisplayIsHDMISink"
+#endif
+
 CFDictionaryRef
 _IODisplayCreateInfoDictionary(
     IOFBConnectRef      connectRef __unused,
@@ -3700,6 +3775,12 @@ _IODisplayCreateInfoDictionary(
         fnum = edid->displayParams[3];
         fnum = (fnum + 100.0) / 100.0;
         addFloat( CFSTR( kDisplayWhiteGamma ) );
+
+        if (IODisplayIsHDMISink(dict)) {
+            CFDictionarySetValue(dict, CFSTR(kIODisplayIsHDMISinkKey), kCFBooleanTrue);
+        } else {
+            CFDictionarySetValue(dict, CFSTR(kIODisplayIsHDMISinkKey), kCFBooleanFalse);
+        }
 
     } while( false );
 

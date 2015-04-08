@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>rotatelogs - Piped logging program to rotate Apache logs - Apache HTTP Server</title>
+<title>rotatelogs - Piped logging program to rotate Apache logs - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -113,7 +113,8 @@ processed in real time by a further tool in the chain.</dd>
 <dt><code>-n <var>number-of-files</var></code></dt>
 <dd>Use a circular list of filenames without timestamps.
 With -n 3, the series of log files opened would be
-"logfile", "logfile.1", "logfile.2", then overwriting "logfile".</dd>
+"logfile", "logfile.1", "logfile.2", then overwriting "logfile".
+Available in 2.4.5 and later.</dd>
 
 <dt><code><var>logfile</var></code></dt>
 

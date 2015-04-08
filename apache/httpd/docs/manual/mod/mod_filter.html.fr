@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_filter - Serveur Apache HTTP</title>
+<title>mod_filter - Serveur Apache HTTP Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -435,7 +435,7 @@ particulier</td></tr>
     en spécifiant <code>change=no</code>.
     </p>
 
-    <p><var>drapeaux protocole</var> peut contenir un ou plusieurs
+    <p><var>drapeaux_protocole</var> peut contenir un ou plusieurs
     drapeaux parmi les suivants :</p>
 
     <dl>
@@ -444,7 +444,7 @@ particulier</td></tr>
     taille</dd>
 
     <dt><code>change=1:1</code></dt>
-    <dd>&gt;Le filtre modifie le contenu, mais pas sa taille</dd>
+    <dd>Le filtre modifie le contenu, mais pas sa taille</dd>
 
     <dt><code>byteranges=no</code></dt>
     <dd>Le filtre ne peut pas traiter de réponses à des sous-requêtes et

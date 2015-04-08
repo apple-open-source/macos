@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_proxy_express - Apache HTTP Server</title>
+<title>mod_proxy_express - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -63,10 +63,12 @@
     <li>It does not support regex or pattern matching at all.
     </li>
     <li>It emulates:
-      <div class="example"><p><code>
-        ProxyPass / backend.server:port<br />
-        ProxyPassReverse / backend.server:port<br />
-      </code></p></div>
+      <pre class="prettyprint lang-config">&lt;VirtualHost *:80&gt;
+   ServerName front.end.server
+   ProxyPass / back.end.server:port
+   ProxyPassReverse / back.end.server:port
+&lt;/VirtualHost&gt;</pre>
+
       That is, the entire URL is appended to the mapped backend
       URL. This is in keeping with the intent of being a simple
       but fast reverse proxy switch.

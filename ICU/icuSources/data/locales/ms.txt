@@ -1291,7 +1291,7 @@ ms{
         }
         length{
             centimeter{
-                other{"{0} sm"}
+                other{"{0} cm"}
             }
             foot{
                 other{"{0}'"}
@@ -1476,7 +1476,7 @@ ms{
         }
         length{
             centimeter{
-                other{"{0} sm"}
+                other{"{0} cm"}
             }
             foot{
                 other{"{0} ka"}

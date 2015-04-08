@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>사이트맵 - Apache HTTP Server</title>
+<title>사이트맵 - Apache HTTP Server Version 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -181,6 +181,7 @@
 <li><a href="mod/mod_authn_dbm.html">아파치 모듈 mod_authn_dbm</a></li>
 <li><a href="mod/mod_authn_file.html">아파치 모듈 mod_authn_file</a></li>
 <li><a href="mod/mod_authn_socache.html">아파치 모듈 mod_authn_socache</a></li>
+<li><a href="mod/mod_authnz_fcgi.html">아파치 모듈 mod_authnz_fcgi</a></li>
 <li><a href="mod/mod_authnz_ldap.html">아파치 모듈 mod_authnz_ldap</a></li>
 <li><a href="mod/mod_authz_core.html">아파치 모듈 mod_authz_core</a></li>
 <li><a href="mod/mod_authz_dbd.html">아파치 모듈 mod_authz_dbd</a></li>

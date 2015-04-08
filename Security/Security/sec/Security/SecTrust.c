@@ -114,7 +114,7 @@ struct __SecTrust {
 static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust);
 
 /* Static functions. */
-static CFStringRef SecTrustCopyDescription(CFTypeRef cf) {
+static CFStringRef SecTrustCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SecTrustRef trust = (SecTrustRef)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR("<SecTrustRef: %p>"), trust);

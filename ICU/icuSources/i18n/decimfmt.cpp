@@ -4106,7 +4106,7 @@ void DecimalFormat::setExponentSignAlwaysShown(UBool expSignAlways) {
 int32_t
 DecimalFormat::getGroupingSize() const
 {
-    return fGroupingSize;
+    return isGroupingUsed() ? fGroupingSize : 0;
 }
 
 //------------------------------------------------------------------------------

@@ -165,7 +165,7 @@ void SOSAccountSetToNew(SOSAccountRef a) {
 }
 
 
-static CFStringRef SOSAccountCopyDescription(CFTypeRef aObj) {
+static CFStringRef SOSAccountCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
     SOSAccountRef a = (SOSAccountRef) aObj;
     
     return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SOSAccount@%p: Gestalt: %@\n Circles: %@ CircleIDs: %@>"), a, a->gestalt, a->circles, a->circle_identities);
@@ -210,6 +210,10 @@ CFArrayRef SOSAccountCopyAccountIdentityPeerInfos(SOSAccountRef account, CFAlloc
 
 static bool SOSAccountThisDeviceCanSyncWithCircle(SOSAccountRef account, SOSCircleRef circle) {
     CFErrorRef error = NULL;
+
+    if (!SOSAccountHasPublicKey(account, &error))
+        return false;
+
     SOSFullPeerInfoRef myfpi = SOSAccountGetMyFullPeerInCircleNamedIfPresent(account, SOSCircleGetName(circle), &error);
     SOSPeerInfoRef mypi = SOSFullPeerInfoGetPeerInfo(myfpi);
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(mypi);

@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>How-To / Tutorials - Apache HTTP Server</title>
+<title>How-To / Tutorials - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -64,7 +64,7 @@
         <p>The CGI (Common Gateway Interface) defines a way for a web
         server to interact with external content-generating programs,
         which are often referred to as CGI programs or CGI scripts. It
-        is the simplest, and most common, way to put dynamic content on
+        is a simple way to put dynamic content on
         your web site. This document will be an introduction to setting
         up CGI on your Apache web server, and getting started writing
         CGI programs.</p>

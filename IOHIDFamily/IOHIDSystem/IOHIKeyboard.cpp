@@ -1141,20 +1141,8 @@ IOReturn IOHIKeyboard::newUserClient(task_t          owningTask,
                                      OSDictionary *  properties,
                                      IOUserClient ** handler )
 {
-    if ( type == IOHIDSecurePromptClient::clientID ) {
-        IOWorkLoop              *loop = getWorkLoop();
-        IOReturn                result = kIOReturnNotReady;
-        
-        if ( loop ) {
-            result = loop->runAction( OSMemberFunctionCast( IOWorkLoop::Action, this, &IOHIKeyboard::newUserClientGated ),
-                                     this, owningTask, security_id, NULL, handler );
-        }
-        else {
-            IOLog( "IOHIDDevice::newUserClient failed to get a workloop\n" );
-        }
-        
-        return result;
-    }
+    if ( type == IOHIDSecurePromptClient::clientID )
+        return kIOReturnUnsupported;
     
     return super::newUserClient( owningTask, security_id, type, properties, handler );
 }

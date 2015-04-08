@@ -146,7 +146,7 @@ PassRefPtr<TextIndicator> TextIndicator::createWithSelectionInFrame(Frame& frame
 
     // Store the selection rect in window coordinates, to be used subsequently
     // to determine if the indicator and selection still precisely overlap.
-    IntRect selectionRectInWindowCoordinates = frame.view()->contentsToWindow(selectionRect);
+    IntRect selectionRectInRootViewCoordinates = frame.view()->contentsToRootView(selectionRect);
 
     Vector<FloatRect> textRects;
     frame.selection().getClippedVisibleTextRectangles(textRects);
@@ -154,23 +154,23 @@ PassRefPtr<TextIndicator> TextIndicator::createWithSelectionInFrame(Frame& frame
     // The bounding rect of all the text rects can be different than the selection
     // rect when the selection spans multiple lines; the indicator doesn't actually
     // care where the selection highlight goes, just where the text actually is.
-    FloatRect textBoundingRectInWindowCoordinates;
-    Vector<FloatRect> textRectsInWindowCoordinates;
+    FloatRect textBoundingRectInRootViewCoordinates;
+    Vector<FloatRect> textRectsInRootViewCoordinates;
     for (const FloatRect& textRect : textRects) {
-        FloatRect textRectInWindowCoordinates = frame.view()->contentsToWindow(enclosingIntRect(textRect));
-        textRectsInWindowCoordinates.append(textRectInWindowCoordinates);
-        textBoundingRectInWindowCoordinates.unite(textRectInWindowCoordinates);
+        FloatRect textRectInRootViewCoordinates = frame.view()->contentsToRootView(enclosingIntRect(textRect));
+        textRectsInRootViewCoordinates.append(textRectInRootViewCoordinates);
+        textBoundingRectInRootViewCoordinates.unite(textRectInRootViewCoordinates);
     }
 
     Vector<FloatRect> textRectsInBoundingRectCoordinates;
-    for (auto rect : textRectsInWindowCoordinates) {
-        rect.moveBy(-textBoundingRectInWindowCoordinates.location());
+    for (auto rect : textRectsInRootViewCoordinates) {
+        rect.moveBy(-textBoundingRectInRootViewCoordinates.location());
         textRectsInBoundingRectCoordinates.append(rect);
     }
 
     TextIndicatorData data;
-    data.selectionRectInWindowCoordinates = selectionRectInWindowCoordinates;
-    data.textBoundingRectInWindowCoordinates = textBoundingRectInWindowCoordinates;
+    data.selectionRectInRootViewCoordinates = selectionRectInRootViewCoordinates;
+    data.textBoundingRectInRootViewCoordinates = textBoundingRectInRootViewCoordinates;
     data.textRectsInBoundingRectCoordinates = textRectsInBoundingRectCoordinates;
     data.contentImageScaleFactor = frame.page()->deviceScaleFactor();
     data.contentImage = indicatorBitmap;
@@ -183,7 +183,7 @@ PassRefPtr<TextIndicator> TextIndicator::createWithSelectionInFrame(Frame& frame
 TextIndicator::TextIndicator(const TextIndicatorData& data)
     : m_data(data)
 {
-    ASSERT(m_data.contentImageScaleFactor != 1 || m_data.contentImage->size() == enclosingIntRect(m_data.selectionRectInWindowCoordinates).size());
+    ASSERT(m_data.contentImageScaleFactor != 1 || m_data.contentImage->size() == enclosingIntRect(m_data.selectionRectInRootViewCoordinates).size());
 
     if (textIndicatorsForTextRectsOverlap(m_data.textRectsInBoundingRectCoordinates)) {
         m_data.textRectsInBoundingRectCoordinates[0] = unionRect(m_data.textRectsInBoundingRectCoordinates);
@@ -193,6 +193,77 @@ TextIndicator::TextIndicator(const TextIndicatorData& data)
 
 TextIndicator::~TextIndicator()
 {
+}
+    
+bool TextIndicator::wantsBounce() const
+{
+    switch (m_data.presentationTransition) {
+    case TextIndicatorPresentationTransition::BounceAndCrossfade:
+    case TextIndicatorPresentationTransition::Bounce:
+        return true;
+        
+    case TextIndicatorPresentationTransition::FadeIn:
+    case TextIndicatorPresentationTransition::Crossfade:
+    case TextIndicatorPresentationTransition::None:
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool TextIndicator::wantsContentCrossfade() const
+{
+    if (!m_data.contentImageWithHighlight)
+        return false;
+    
+    switch (m_data.presentationTransition) {
+    case TextIndicatorPresentationTransition::BounceAndCrossfade:
+    case TextIndicatorPresentationTransition::Crossfade:
+        return true;
+        
+    case TextIndicatorPresentationTransition::Bounce:
+    case TextIndicatorPresentationTransition::FadeIn:
+    case TextIndicatorPresentationTransition::None:
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool TextIndicator::wantsFadeIn() const
+{
+    switch (m_data.presentationTransition) {
+    case TextIndicatorPresentationTransition::FadeIn:
+        return true;
+        
+    case TextIndicatorPresentationTransition::Bounce:
+    case TextIndicatorPresentationTransition::BounceAndCrossfade:
+    case TextIndicatorPresentationTransition::Crossfade:
+    case TextIndicatorPresentationTransition::None:
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool TextIndicator::wantsManualAnimation() const
+{
+    switch (m_data.presentationTransition) {
+    case TextIndicatorPresentationTransition::FadeIn:
+    case TextIndicatorPresentationTransition::Crossfade:
+        return true;
+
+    case TextIndicatorPresentationTransition::Bounce:
+    case TextIndicatorPresentationTransition::BounceAndCrossfade:
+    case TextIndicatorPresentationTransition::None:
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 } // namespace WebCore

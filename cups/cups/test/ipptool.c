@@ -1,5 +1,5 @@
 /*
- * "$Id: ipptool.c 12142 2014-08-30 02:35:43Z msweet $"
+ * "$Id: ipptool.c 12183 2014-10-01 13:02:28Z msweet $"
  *
  * ipptool command for CUPS.
  *
@@ -3221,7 +3221,7 @@ do_tests(FILE         *outfile,		/* I - Output file */
 	}
       }
     }
-    else if (!prev_pass)
+    else if (!prev_pass && Output != _CUPS_OUTPUT_QUIET)
       fprintf(stderr, "%s\n", cupsLastErrorString());
 
     if (prev_pass && Output >= _CUPS_OUTPUT_LIST && !Verbosity &&
@@ -5866,5 +5866,5 @@ with_value(FILE            *outfile,	/* I - Output file */
 
 
 /*
- * End of "$Id: ipptool.c 12142 2014-08-30 02:35:43Z msweet $".
+ * End of "$Id: ipptool.c 12183 2014-10-01 13:02:28Z msweet $".
  */

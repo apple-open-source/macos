@@ -94,7 +94,7 @@ void MediaSourcePrivateAVFObjC::removeSourceBuffer(SourceBufferPrivate* buffer)
 
 MediaTime MediaSourcePrivateAVFObjC::duration()
 {
-    return MediaTime::createWithDouble(m_client->duration());
+    return m_client->duration();
 }
 
 std::unique_ptr<PlatformTimeRanges> MediaSourcePrivateAVFObjC::buffered()
@@ -153,18 +153,6 @@ void MediaSourcePrivateAVFObjC::sourceBufferPrivateDidChangeActiveState(SourceBu
 }
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
-std::unique_ptr<CDMSession> MediaSourcePrivateAVFObjC::createSession(const String&)
-{
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
-    if (m_sourceBuffersNeedingSessions.isEmpty())
-        return nullptr;
-    return std::make_unique<CDMSessionMediaSourceAVFObjC>(m_sourceBuffersNeedingSessions.takeFirst());
-#endif
-    return nullptr;
-}
-#endif
-
-#if ENABLE(ENCRYPTED_MEDIA_V2)
 void MediaSourcePrivateAVFObjC::sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC* buffer, Uint8Array* initData)
 {
     m_sourceBuffersNeedingSessions.append(buffer);
@@ -210,9 +198,9 @@ MediaTime MediaSourcePrivateAVFObjC::fastSeekTimeForMediaTime(const MediaTime& t
     return seekTime;
 }
 
-IntSize MediaSourcePrivateAVFObjC::naturalSize() const
+FloatSize MediaSourcePrivateAVFObjC::naturalSize() const
 {
-    IntSize result;
+    FloatSize result;
 
     for (auto* sourceBuffer : m_activeSourceBuffers)
         result = result.expandedTo(sourceBuffer->naturalSize());

@@ -73,6 +73,7 @@ public:
     static void resetToConsistentState(Page*);
 
     String elementRenderTreeAsText(Element*, ExceptionCode&);
+    bool hasPausedImageAnimations(Element*, ExceptionCode&);
 
     String address(Node*);
 
@@ -133,6 +134,8 @@ public:
     void addTextMatchMarker(const Range*, bool isActive);
     void setMarkedTextMatchesAreHighlighted(bool, ExceptionCode&);
 
+    void invalidateFontCache();
+
     void setScrollViewPosition(long x, long y, ExceptionCode&);
     void setPagination(const String& mode, int gap, ExceptionCode& ec) { setPagination(mode, gap, 0, ec); }
     void setPagination(const String& mode, int gap, int pageLength, ExceptionCode&);
@@ -152,6 +155,7 @@ public:
     unsigned locationFromRange(Element* scope, const Range*, ExceptionCode&);
     unsigned lengthFromRange(Element* scope, const Range*, ExceptionCode&);
     String rangeAsText(const Range*, ExceptionCode&);
+    PassRefPtr<Range> subrange(Range* range, int rangeLocation, int rangeLength, ExceptionCode&);
 
     void setDelegatesScrolling(bool enabled, ExceptionCode&);
 

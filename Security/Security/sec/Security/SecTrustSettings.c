@@ -131,7 +131,7 @@ struct __SecTrustSettings {
 	bool							_dirty;		/* we've changed _trustDict since creation */
 };
 
-static CFStringRef SecTrustSettingsCopyDescription(CFTypeRef cf) {
+static CFStringRef SecTrustSettingsCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SecTrustSettingsRef ts = (SecTrustSettingsRef)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
                                     CFSTR("<SecTrustSettings: %p>"), ts);

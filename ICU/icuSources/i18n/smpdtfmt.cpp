@@ -2260,6 +2260,8 @@ int32_t SimpleDateFormat::matchQuarterString(const UnicodeString& text,
 }
 
 //----------------------------------------------------------------------
+#define IS_BIDI_MARK(c) (c==0x200E || c==0x200F || c==0x061C) 
+
 UBool SimpleDateFormat::matchLiterals(const UnicodeString &pattern,
                                       int32_t &patternOffset,
                                       const UnicodeString &text,
@@ -2289,21 +2291,26 @@ UBool SimpleDateFormat::matchLiterals(const UnicodeString &pattern,
             }
         }
         
-        literal += ch;
+        if (!IS_BIDI_MARK(ch)) {
+            literal += ch;
+        }
     }
     
-    // at this point, literal contains the literal text
+    // at this point, literal contains the pattern literal text (without bidi marks)
     // and i is the index of the next non-literal pattern character.
     int32_t p;
     int32_t t = textOffset;
     
     if (whitespaceLenient) {
-        // trim leading, trailing whitespace from
-        // the literal text
+        // trim leading, trailing whitespace from the pattern literal
         literal.trim();
         
-        // ignore any leading whitespace in the text
-        while (t < text.length() && u_isWhitespace(text.charAt(t))) {
+        // ignore any leading whitespace (or bidi marks) in the text
+        while (t < text.length()) {
+            UChar ch = text.charAt(t);
+            if (!u_isWhitespace(ch) && !IS_BIDI_MARK(ch)) {
+                break;
+            }
             t += 1;
         }
     }
@@ -2311,18 +2318,26 @@ UBool SimpleDateFormat::matchLiterals(const UnicodeString &pattern,
     for (p = 0; p < literal.length() && t < text.length();) {
         UBool needWhitespace = FALSE;
         
+        // Skip any whitespace at current position in pattern,
+        // but remember whether we found whitespace in the pattern
+        // (we already deleted any bidi marks in the pattern).
         while (p < literal.length() && PatternProps::isWhiteSpace(literal.charAt(p))) {
             needWhitespace = TRUE;
             p += 1;
         }
         
+        // If the pattern has whitespace at this point, skip it in text as well
+        // (if the text does not have any, that may be an error for strict parsing)
         if (needWhitespace) {
-            int32_t tStart = t;
+            UBool whitespaceInText = FALSE;
             
+            // Skip any whitespace (or bidi marks) at current position in text,
+            // but remember whether we found whitespace in the text at this point.
             while (t < text.length()) {
                 UChar tch = text.charAt(t);
-                
-                if (!u_isUWhiteSpace(tch) && !PatternProps::isWhiteSpace(tch)) {
+                if (u_isUWhiteSpace(tch) || PatternProps::isWhiteSpace(tch)) {
+                    whitespaceInText = TRUE;
+                } else if (!IS_BIDI_MARK(tch)) {
                     break;
                 }
                 
@@ -2332,7 +2347,7 @@ UBool SimpleDateFormat::matchLiterals(const UnicodeString &pattern,
             // TODO: should we require internal spaces
             // in lenient mode? (There won't be any
             // leading or trailing spaces)
-            if (!whitespaceLenient && t == tStart) {
+            if (!whitespaceLenient && !whitespaceInText) {
                 // didn't find matching whitespace:
                 // an error in strict mode
                 return FALSE;
@@ -2342,6 +2357,11 @@ UBool SimpleDateFormat::matchLiterals(const UnicodeString &pattern,
             // may have been at the end.
             if (p >= literal.length()) {
                 break;
+            }
+        } else {
+            // Still need to skip any bidi marks in the text
+            while (t < text.length() && IS_BIDI_MARK(text.charAt(t))) {
+                ++t;
             }
         }
         
@@ -2387,7 +2407,7 @@ UBool SimpleDateFormat::matchLiterals(const UnicodeString &pattern,
         for (t = textOffset; t < text.length(); t += 1) {
             UChar ch = text.charAt(t);
             
-            if (ignorables == NULL || !ignorables->contains(ch)) {
+            if (!IS_BIDI_MARK(ch) && (ignorables == NULL || !ignorables->contains(ch))) {
                 break;
             }
         }

@@ -490,13 +490,14 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
 	IOReturn	rtn;
 	UInt16		devDriverCount = 0;
 
-    XTRACE(this, 0, 0, "start");
+    XTRACEP(this, provider, 0, "start");
 
     fCurrStat = 0;
 	fCDCDriver = NULL;
     fStatInProgress = false;
     fMax_Block_Size = MAX_BLOCK_SIZE;
     fCommDead = false;
+    fReleased = false;
     fPacketFilter = kPACKET_TYPE_DIRECTED | kPACKET_TYPE_BROADCAST | kPACKET_TYPE_MULTICAST;
     fpNetStats = NULL;
     fpEtherStats = NULL;
@@ -548,18 +549,21 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
 	if (!fCDCDriver)
 	{
 		ALERT(0, fControlInterface->GetInterfaceNumber(), "start - Failed to find the CDC driver");
+        fControlInterface = NULL;
         return false;
 	}
     
     if (!configureECM())
     {
         ALERT(0, 0, "start - configureECM failed");
+        fControlInterface = NULL;
         return false;
     }
     
     if (!allocateResources()) 
     {
         ALERT(0, 0, "start - allocateResources failed");
+        fControlInterface = NULL;
         return false;
     }
 	
@@ -580,6 +584,34 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
     return true;
         	
 }/* end start */
+
+
+
+void AppleUSBCDCECMControl::free()
+{
+    
+    XTRACE(this, 0, 0, "free >>>");
+    if (fControlInterface)
+    {
+        fControlInterface->release();
+    }
+
+    if (fDataDriver)
+    {
+        fDataDriver = NULL;
+    }
+   
+    
+    if (fCommPipeMDP)
+    {
+        fCommPipeMDP->release();
+    }
+    
+   
+    super::free();
+    
+    XTRACE(this, 0, 0, "free <<<");
+}/* end free */
 
 /****************************************************************************************************/
 //
@@ -959,13 +991,17 @@ bool AppleUSBCDCECMControl::allocateResources()
 
 void AppleUSBCDCECMControl::releaseResources()
 {
-    XTRACE(this, 0, 0, "releaseResources");
-	
+    XTRACE(this, 0, 0, "releaseResources >>>");
+
+    if (fReleased)
+        return;
+    
     if (fControlInterface)	
     {
+        XTRACE(this, 0, 0, "releaseResources release fControlInterface");
         fControlInterface->close(this);
         fControlInterface->release();
-        fControlInterface = NULL;		
+        fControlInterface = NULL;
     }
     
     if (fCommPipeMDP)	
@@ -973,7 +1009,10 @@ void AppleUSBCDCECMControl::releaseResources()
         fCommPipeMDP->release();	
         fCommPipeMDP = 0; 
     }
+    
+    fReleased = true;
     	
+    XTRACE(this, 0, 0, "releaseResources <<<");
 }/* end releaseResources */
 
 /****************************************************************************************************/
@@ -1172,6 +1211,7 @@ bool AppleUSBCDCECMControl::checkInterfaceNumber(AppleUSBCDCECMData *dataDriver)
         if (dataDriver->fDataInterfaceNumber == fDataInterfaceNumber)
         {
             fDataDriver = dataDriver;
+            fDataDriver->retain();
             return true;
         } else {
             XTRACE(this, dataDriver->fDataInterfaceNumber, fDataInterfaceNumber, "checkInterfaceNumber - Not correct interface number");
@@ -1429,6 +1469,9 @@ IOReturn AppleUSBCDCECMControl::message(UInt32 type, IOService *provider, void *
 				fDataDriver->message(kIOMessageServiceIsTerminated, fControlInterface, NULL);
 			}
             fTerminate = true;		// we're being terminated (unplugged)
+            if (fDataDriver)
+                fDataDriver->release();
+            
             releaseResources();
             return kIOReturnSuccess;			
         case kIOMessageServiceIsSuspended: 	
@@ -1441,13 +1484,13 @@ IOReturn AppleUSBCDCECMControl::message(UInt32 type, IOService *provider, void *
             XTRACE(this, 0, type, "message - kIOMessageServiceIsRequestingClose"); 
             break;
         case kIOMessageServiceWasClosed: 	
-            XTRACE(this, 0, type, "message - kIOMessageServiceWasClosed"); 
+            XTRACEP(this, provider, type, "message - kIOMessageServiceWasClosed");
             break;
         case kIOMessageServiceBusyStateChange: 	
             XTRACE(this, 0, type, "message - kIOMessageServiceBusyStateChange"); 
             break;
         case kIOUSBMessagePortHasBeenResumed: 	
-            XTRACE(this, 0, type, "message - kIOUSBMessagePortHasBeenResumed");
+            XTRACE(this, fCommDead, type, "message - kIOUSBMessagePortHasBeenResumed");
             if (fCommDead)					// If it's dead try and resurrect it
             {
                 ior = fCommPipe->Read(fCommPipeMDP, &fCommCompletionInfo, NULL);

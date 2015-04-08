@@ -25,16 +25,37 @@
 #include <utilities/SecCFWrappers.h>
 
 //
-// Global sigleton Zulu time.
+// Global sigleton Zulu time. Must be serialized since it is really a CFMutableCalendarRef
+//  <rdar://problem/16372688> CFCalendarDecomposeAbsoluteTime is not thread safe
 //
-CFGiblisGetSingleton(CFCalendarRef, SecCFCalendarGetZulu, zuluCalendar, ^{
-    *zuluCalendar = CFCalendarCreateWithIdentifier(kCFAllocatorDefault, kCFGregorianCalendar);
-    CFTimeZoneRef tz = CFTimeZoneCreateWithTimeIntervalFromGMT(kCFAllocatorDefault, 0.0);
-    CFCalendarSetTimeZone(*zuluCalendar, tz);
-    CFReleaseSafe(tz);
-})
+static dispatch_queue_t fqueue_cf;
+static CFCalendarRef sZuluCalendar = NULL;
 
+static dispatch_queue_t SecCFCalendarGetZuluQueue() {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        fqueue_cf = dispatch_queue_create("ZuluCalendar", DISPATCH_QUEUE_SERIAL);
+    });
+    return fqueue_cf;
+}
 
+static CFCalendarRef SecCFCalendarGetZulu() {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sZuluCalendar = CFCalendarCreateWithIdentifier(kCFAllocatorDefault, kCFGregorianCalendar);
+        CFTimeZoneRef tz = CFTimeZoneCreateWithTimeIntervalFromGMT(kCFAllocatorDefault, 0.0);
+        CFCalendarSetTimeZone(sZuluCalendar, tz);
+        if (tz)
+            CFRelease(tz);
+    });
+    return sZuluCalendar;
+}
+
+void SecCFCalendarDoWithZuluCalendar(void(^action)(CFCalendarRef zuluCalendar)) {
+    dispatch_sync(SecCFCalendarGetZuluQueue(), ^{
+        action(SecCFCalendarGetZulu());
+    });
+}
 
 void CFStringPerformWithCStringAndLength(CFStringRef inStr, void(^operation)(const char *utf8String, size_t utf8Length)) {
     const char *cstr = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8);

@@ -44,7 +44,9 @@
 #include <AssertMacros.h>
 #include <stdint.h>
 
-static int kTestTestCount = 1286;
+
+
+static int kTestTestCount = 1866;
 
 __unused static bool SOSCircleHandleCircleWithLock(SOSEngineRef engine, CFStringRef myID, CFDataRef message, CFErrorRef *error) {
 
@@ -127,6 +129,27 @@ static void testsync2(const char *name,  const char *test_directive, const char 
         }
         return false;
     }, CFSTR("alice"), CFSTR("bob"), CFSTR("claire"), CFSTR("dave"),CFSTR("edward"), CFSTR("frank"), CFSTR("gary"), NULL);
+}
+
+// Smash together identical items, but mute the devices every once in a while.
+// (Simulating packet loss.)
+static void testsmash(const char *name,  const char *test_directive, const char *test_reason) {
+    __block int iteration=0;
+    SOSTestDeviceListTestSync(name, test_directive, test_reason, 0, true, ^bool(SOSTestDeviceRef source, SOSTestDeviceRef dest) {
+        if (iteration < 100 && iteration % 10 == 0) {
+            SOSTestDeviceSetMute(source, !SOSTestDeviceIsMute(source));
+        }
+        return false;
+    }, ^bool(SOSTestDeviceRef source, SOSTestDeviceRef dest, SOSMessageRef message) {
+        if (iteration++ < 200) {
+            CFStringRef name = CFStringCreateWithFormat(NULL, NULL, CFSTR("smash-post-%d"), iteration);
+            SOSTestDeviceAddGenericItem(source, name, name);
+            SOSTestDeviceAddGenericItem(dest, name, name);
+            CFReleaseNull(name);
+            return true;
+        }
+        return false;
+    }, CFSTR("alice"), CFSTR("bob"), NULL);
 }
 
 static void testsync(const char *name,  const char *test_directive, const char *test_reason, void (^aliceInit)(SOSDataSourceRef ds), void (^bobInit)(SOSDataSourceRef ds), ...) {
@@ -293,6 +316,7 @@ SKIP:
 #else
         skip("Keychain not reset", kTestTestCount, false);
 #endif
+        testsmash("secd_70_engine-smash", test_directive, test_reason);
 
         testsync3("secd_70_engine3", test_directive, test_reason);
 

@@ -992,6 +992,7 @@ static const dt_option_t _dtrace_rtoptions[] = {
 	{ "stackframes", dt_opt_runtime, DTRACEOPT_STACKFRAMES },
 	{ "statusrate", dt_opt_rate, DTRACEOPT_STATUSRATE },
 	{ "strsize", dt_opt_strsize, DTRACEOPT_STRSIZE },
+	{ "temporal", dt_opt_runtime, DTRACEOPT_TEMPORAL },
 	{ "ustackframes", dt_opt_runtime, DTRACEOPT_USTACKFRAMES },
 	{ NULL }
 };

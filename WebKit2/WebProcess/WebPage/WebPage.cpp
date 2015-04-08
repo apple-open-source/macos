@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012, 2013-2015 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Intel Corporation. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
@@ -80,6 +80,7 @@
 #include "WebInspector.h"
 #include "WebInspectorClient.h"
 #include "WebInspectorMessages.h"
+#include "WebMediaKeyStorageManager.h"
 #include "WebNotificationClient.h"
 #include "WebOpenPanelResultListener.h"
 #include "WebPageCreationParameters.h"
@@ -147,6 +148,7 @@
 #include <WebCore/Settings.h>
 #include <WebCore/ShadowRoot.h>
 #include <WebCore/SharedBuffer.h>
+#include <WebCore/StyleProperties.h>
 #include <WebCore/SubframeLoader.h>
 #include <WebCore/SubstituteData.h>
 #include <WebCore/TextIterator.h>
@@ -475,6 +477,13 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
 
     for (auto& mimeType : parameters.mimeTypesWithCustomContentProviders)
         m_mimeTypesWithCustomContentProviders.add(mimeType);
+
+
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+    if (WebMediaKeyStorageManager* manager = WebProcess::shared().supplement<WebMediaKeyStorageManager>())
+        m_page->settings().setMediaKeysStorageDirectory(manager->mediaKeyStorageDirectory());
+#endif
+    m_page->settings().setAppleMailPaginationQuirkEnabled(parameters.appleMailPaginationQuirkEnabled);
 }
 
 void WebPage::reinitializeWebPage(const WebPageCreationParameters& parameters)
@@ -759,10 +768,17 @@ EditorState WebPage::editorState() const
                 result.typingAttributes |= AttributeBold;
             if (traits & kCTFontTraitItalic)
                 result.typingAttributes |= AttributeItalics;
-            
-            if (style->textDecorationsInEffect() & TextDecorationUnderline)
-                result.typingAttributes |= AttributeUnderline;
-            
+
+            RefPtr<EditingStyle> typingStyle = frame.selection().typingStyle();
+            if (typingStyle && typingStyle->style()) {
+                String value = typingStyle->style()->getPropertyValue(CSSPropertyWebkitTextDecorationsInEffect);
+                if (value.contains("underline"))
+                    result.typingAttributes |= AttributeUnderline;
+            } else {
+                if (style->textDecorationsInEffect() & TextDecorationUnderline)
+                    result.typingAttributes |= AttributeUnderline;
+            }
+
             if (nodeToRemove)
                 nodeToRemove->remove(ASSERT_NO_EXCEPTION);
         }
@@ -1689,6 +1705,8 @@ PassRefPtr<WebImage> WebPage::snapshotNode(WebCore::Node& node, SnapshotOptions 
 
     LayoutRect topLevelRect;
     IntRect snapshotRect = pixelSnappedIntRect(node.renderer()->paintingRootRect(topLevelRect));
+    if (snapshotRect.isEmpty())
+        return nullptr;
 
     double scaleFactor = 1;
     IntSize snapshotSize = snapshotRect.size();
@@ -4306,6 +4324,7 @@ void WebPage::didChangeSelection()
 #if PLATFORM(MAC) && USE(ASYNC_NSTEXTINPUTCLIENT)
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     // Abandon the current inline input session if selection changed for any other reason but an input method direct action.
+    // FIXME: This logic should be in WebCore.
     // FIXME: Many changes that affect composition node do not go through didChangeSelection(). We need to do something when DOM manipulation affects the composition, because otherwise input method's idea about it will be different from Editor's.
     // FIXME: We can't cancel composition when selection changes to NoSelection, but we probably should.
     if (frame.editor().hasComposition() && !frame.editor().ignoreCompositionSelectionChange() && !frame.selection().isNone()) {
@@ -4320,6 +4339,11 @@ void WebPage::didChangeSelection()
 #if PLATFORM(IOS)
     m_drawingArea->scheduleCompositingLayerFlush();
 #endif
+}
+
+void WebPage::discardedComposition()
+{
+    send(Messages::WebPageProxy::CompositionWasCanceled(editorState()));
 }
 
 void WebPage::setMinimumLayoutSize(const IntSize& minimumLayoutSize)
@@ -4551,7 +4575,7 @@ void WebPage::determinePrimarySnapshottedPlugIn()
     HTMLPlugInImageElement* candidatePlugIn = nullptr;
     unsigned candidatePlugInArea = 0;
 
-    for (Frame* frame = &mainFrame; frame; frame = frame->tree().traverseNext()) {
+    for (Frame* frame = &mainFrame; frame; frame = frame->tree().traverseNextRendered()) {
         if (!frame->loader().subframeLoader().containsPlugins())
             continue;
         if (!frame->document() || !frame->view())

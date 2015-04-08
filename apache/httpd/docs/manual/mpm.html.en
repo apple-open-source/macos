@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Multi-Processing Modules (MPMs) - Apache HTTP Server</title>
+<title>Multi-Processing Modules (MPMs) - Apache HTTP Server Version 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -148,6 +148,16 @@ two features.</p>
     modules.  Building MPMs as DSO modules allows the MPM to be changed by
     updating the <code class="directive"><a href="./mod/mod_so.html#loadmodule">LoadModule</a></code> directive
     for the MPM instead of by rebuilding the server.</p>
+
+    <pre class="prettyprint lang-config">LoadModule mpm_prefork_module modules/mod_mpm_prefork.so</pre>
+
+
+    <p>Attempting to <code class="directive"><a href="./mod/mod_so.html#loadmodule">LoadModule</a></code>
+    more than one MPM will result in a startup failure with the
+    following error.</p>
+
+    <div class="example"><p><code>AH00534: httpd: Configuration error: More than one MPM
+    loaded.</code></p></div>
 
     <p>This feature is enabled using the
     <code>--enable-mpms-shared</code> option of the <code class="program"><a href="./programs/configure.html">configure</a></code>

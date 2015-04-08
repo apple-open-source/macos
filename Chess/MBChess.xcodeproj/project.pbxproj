@@ -197,6 +197,9 @@
 		95D8521B13E710B80045366C /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 95D8521613E710B80045366C /* MainMenu.xib */; };
 		95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */ = {isa = PBXBuildFile; fileRef = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */; };
 		95ECDE271491C5B100DFD47B /* container-migration.plist in Resources */ = {isa = PBXBuildFile; fileRef = 95ECDE261491C5B100DFD47B /* container-migration.plist */; };
+		D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29B97324FDCFA39411CA2CEA /* AppKit.framework */; };
+		D7AA0A7619E7691400A65121 /* GameCenterFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */; };
+		D7AA0A7819E7692300A65121 /* GameCenterUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7AA0A7719E7692300A65121 /* GameCenterUI.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -351,6 +354,8 @@
 		CA51FF1E1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/Board.xib; sourceTree = "<group>"; };
 		CA51FF1F1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/About.xib; sourceTree = "<group>"; };
 		CA51FF201768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameCenterFoundation.framework; path = ../../../System/Library/PrivateFrameworks/GameCenterFoundation.framework; sourceTree = "<group>"; };
+		D7AA0A7719E7692300A65121 /* GameCenterUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameCenterUI.framework; path = ../../../System/Library/PrivateFrameworks/GameCenterUI.framework; sourceTree = "<group>"; };
 		F505DC4103032B9F01F7F1A0 /* MBCEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngine.h; path = Sources/MBCEngine.h; sourceTree = "<group>"; };
 		F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCEngine.mm; path = Sources/MBCEngine.mm; sourceTree = "<group>"; };
 		F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewDraw.h; path = Sources/MBCBoardViewDraw.h; sourceTree = "<group>"; };
@@ -393,6 +398,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D7AA0A7819E7692300A65121 /* GameCenterUI.framework in Frameworks */,
+				D7AA0A7619E7691400A65121 /* GameCenterFoundation.framework in Frameworks */,
+				D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */,
 				9595F35C1467285D00FC37E4 /* GameKit.framework in Frameworks */,
 				950BD1640A1E582B00395116 /* Cocoa.framework in Frameworks */,
 				950BD1650A1E582B00395116 /* OpenGL.framework in Frameworks */,
@@ -528,6 +536,8 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D7AA0A7719E7692300A65121 /* GameCenterUI.framework */,
+				D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */,
 				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
 				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
 			);
@@ -1181,6 +1191,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1217,6 +1228,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_MODEL_TUNING = G5;
@@ -1249,6 +1261,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_MODEL_TUNING = G5;

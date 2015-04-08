@@ -258,6 +258,16 @@ ap_set_module_config(c->conn_config, &ssl_module, val)
 #define DEFAULT_OCSP_TIMEOUT 10
 #endif
 
+/*
+ * For better backwards compatibility with the SSLCertificate[Key]File
+ * and SSLPassPhraseDialog ("exec" type) directives in 2.4.7 and earlier
+ */
+#ifdef HAVE_ECC
+#define CERTKEYS_IDX_MAX 2
+#else
+#define CERTKEYS_IDX_MAX 1
+#endif
+
 /**
  * Define the SSL options
  */
@@ -420,7 +430,7 @@ typedef struct {
         RENEG_INIT = 0, /* Before initial handshake */
         RENEG_REJECT, /* After initial handshake; any client-initiated
                        * renegotiation should be rejected */
-        RENEG_ALLOW, /* A server-initated renegotiation is taking
+        RENEG_ALLOW, /* A server-initiated renegotiation is taking
                       * place (as dictated by configuration) */
         RENEG_ABORT /* Renegotiation initiated by client, abort the
                      * connection */
@@ -599,6 +609,8 @@ typedef struct {
     long ocsp_resptime_skew;
     long ocsp_resp_maxage;
     apr_interval_time_t ocsp_responder_timeout;
+    BOOL ocsp_use_request_nonce;
+
 #ifdef HAVE_SSL_CONF_CMD
     SSL_CONF_CTX *ssl_ctx_config; /* Configuration context */
     apr_array_header_t *ssl_ctx_param; /* parameters to pass to SSL_CTX */
@@ -721,6 +733,7 @@ const char *ssl_cmd_SSLOCSPDefaultResponder(cmd_parms *cmd, void *dcfg, const ch
 const char *ssl_cmd_SSLOCSPResponseTimeSkew(cmd_parms *cmd, void *dcfg, const char *arg);
 const char *ssl_cmd_SSLOCSPResponseMaxAge(cmd_parms *cmd, void *dcfg, const char *arg);
 const char *ssl_cmd_SSLOCSPResponderTimeout(cmd_parms *cmd, void *dcfg, const char *arg);
+const char *ssl_cmd_SSLOCSPUseRequestNonce(cmd_parms *cmd, void *dcfg, int flag);
 const char *ssl_cmd_SSLOCSPEnable(cmd_parms *cmd, void *dcfg, int flag);
 
 #ifdef HAVE_SSL_CONF_CMD
@@ -921,6 +934,11 @@ OCSP_RESPONSE *modssl_dispatch_ocsp_request(const apr_uri_t *uri,
                                             OCSP_REQUEST *request,
                                             conn_rec *c, apr_pool_t *p);
 #endif
+
+/* Retrieve DH parameters for given key length.  Return value should
+ * be treated as unmutable, since it is stored in process-global
+ * memory. */
+DH *modssl_get_dh_params(unsigned keylen);
 
 #endif /* SSL_PRIVATE_H */
 /** @} */

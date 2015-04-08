@@ -119,6 +119,8 @@
 		4CA684FB0525011E00233BF2 /* url.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CA684BB0525011E00233BF2 /* url.cpp */; };
 		4CA684FD0525011E00233BF2 /* utilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CA684BD0525011E00233BF2 /* utilities.cpp */; };
 		4E4813D707739B0C0090D7C2 /* ccaudit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4E4813D507739B0C0090D7C2 /* ccaudit.cpp */; };
+		7A93A12419BE6FA600F07E9A /* dispatch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7A93A12219BE6FA600F07E9A /* dispatch.cpp */; };
+		7A93A12519BE6FA600F07E9A /* dispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A93A12319BE6FA600F07E9A /* dispatch.h */; };
 		AAA4B91E16653547005DEFDC /* debugging_internal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAA4B91D16653547005DEFDC /* debugging_internal.cpp */; };
 		AAA4B920166535B4005DEFDC /* debugging_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = AAA4B91F16653597005DEFDC /* debugging_internal.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		AAAA499A0CC587B50099E9D4 /* crc.c in Sources */ = {isa = PBXBuildFile; fileRef = AAAA49980CC587B50099E9D4 /* crc.c */; };
@@ -235,6 +237,8 @@
 		4CA684BF0525011E00233BF2 /* utility_config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = utility_config.h; sourceTree = "<group>"; };
 		4E4813D507739B0C0090D7C2 /* ccaudit.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ccaudit.cpp; sourceTree = "<group>"; };
 		4E4813D607739B0C0090D7C2 /* ccaudit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ccaudit.h; sourceTree = "<group>"; };
+		7A93A12219BE6FA600F07E9A /* dispatch.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dispatch.cpp; sourceTree = "<group>"; usesTabs = 1; };
+		7A93A12319BE6FA600F07E9A /* dispatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dispatch.h; sourceTree = "<group>"; usesTabs = 1; };
 		AA3BC08D166549EA00EF1D2E /* exports */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = exports; sourceTree = "<group>"; };
 		AA5B97E70E140C3E0032C12F /* dtrace.mk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = dtrace.mk; path = lib/dtrace.mk; sourceTree = "<group>"; usesTabs = 1; };
 		AAA4B91D16653547005DEFDC /* debugging_internal.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = debugging_internal.cpp; sourceTree = "<group>"; };
@@ -364,6 +368,8 @@
 				AAA4B91F16653597005DEFDC /* debugging_internal.h */,
 				4CA6848C0525011D00233BF2 /* devrandom.h */,
 				4CA6848B0525011D00233BF2 /* devrandom.cpp */,
+				7A93A12219BE6FA600F07E9A /* dispatch.cpp */,
+				7A93A12319BE6FA600F07E9A /* dispatch.h */,
 				4CA6848E0525011D00233BF2 /* endian.h */,
 				4CA6848D0525011D00233BF2 /* endian.cpp */,
 				C22EC38F052B7F5D00D55C69 /* errors.h */,
@@ -593,6 +599,7 @@
 				181EA3BB146D1D7F00A6D320 /* dyldcache.h in Headers */,
 				181EA3BC146D1D7F00A6D320 /* dyld_cache_format.h in Headers */,
 				181EA3BD146D1D7F00A6D320 /* machserver.h in Headers */,
+				7A93A12519BE6FA600F07E9A /* dispatch.h in Headers */,
 				181EA3BE146D1D7F00A6D320 /* machrunloopserver.h in Headers */,
 				181EA3BF146D1D8600A6D320 /* coderepository.h in Headers */,
 				181EA3C0146D1D8600A6D320 /* cfclass.h in Headers */,
@@ -703,6 +710,7 @@
 				4CA684C20525011E00233BF2 /* buffers.cpp in Sources */,
 				C2B9F3630D5A28CA00CAB713 /* cfmunge.cpp in Sources */,
 				4CA684C40525011E00233BF2 /* cfutilities.cpp in Sources */,
+				7A93A12419BE6FA600F07E9A /* dispatch.cpp in Sources */,
 				4CA684C60525011E00233BF2 /* daemon.cpp in Sources */,
 				4CA684C80525011E00233BF2 /* debugging.cpp in Sources */,
 				4CA684CB0525011E00233BF2 /* devrandom.cpp in Sources */,

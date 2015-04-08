@@ -164,7 +164,7 @@ void ResourceBuilder::scan(Scanner next)
 
 			if (Rule *rule = findRule(relpath))
 				if (!(rule->flags & (omitted | exclusion)))
-					next(ent, rule->flags, relpath, rule);
+					next(ent, rule->flags, string(relpath), rule);
 			break;
 		case FTS_SL:
 			// symlinks cannot ever be nested code, so quietly convert to resource file
@@ -176,7 +176,7 @@ void ResourceBuilder::scan(Scanner next)
                 
 			if (Rule *rule = findRule(relpath))
 				if (!(rule->flags & (omitted | exclusion)))
-					next(ent, rule->flags & ~nested, relpath, rule);
+					next(ent, rule->flags & ~nested, string(relpath), rule);
 			break;
 		case FTS_D:
 			secdebug("rdirenum", "entering %s", ent->fts_path);
@@ -186,7 +186,7 @@ void ResourceBuilder::scan(Scanner next)
 				if (Rule *rule = findRule(relpath)) {
 					if (rule->flags & nested) {
 						if (strchr(ent->fts_name, '.')) {	// nested, has extension -> treat as nested bundle
-							next(ent, rule->flags, relpath, rule);
+							next(ent, rule->flags, string(relpath), rule);
 							fts_set(mFTS, ent, FTS_SKIP);
 						}
 					} else if (rule->flags & exclusion) {	// exclude the whole directory

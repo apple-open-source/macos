@@ -67,10 +67,16 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     for (opponent in [match participants])
         if (opponent != [match currentParticipant])
             break;
-    
-    [match endTurnWithNextParticipant:opponent matchData:matchData 
-                    completionHandler:^(NSError *error) {
-                    }];
+
+    [match endTurnWithNextParticipants:[[NSArray alloc] initWithObjects:opponent, nil]
+                           turnTimeout:86400
+                             matchData:matchData
+                     completionHandler:^(NSError *error) {
+                         if(error) {
+                            
+                         }
+                     }];
+
 }
 
 @implementation MBCDocument
@@ -182,20 +188,36 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
             //
             // We picked black, it's our opponent's turn
             //
-            MBCEndTurn(match, [NSPropertyListSerialization 
-                               dataFromPropertyList:gameData
-                                            format:NSPropertyListXMLFormat_v1_0
-                                    errorDescription:nil]);
+            MBCEndTurn(match, [NSPropertyListSerialization dataWithPropertyList:gameData
+                                                                         format:NSPropertyListXMLFormat_v1_0
+                                                                        options:0
+                                                                          error:nil]);
         } else {
             //
             // Push our choices to the server
             //
-            [match endTurnWithNextParticipant:match.currentParticipant
-                                    matchData:[NSPropertyListSerialization 
-                                               dataFromPropertyList:gameData
-                                               format:NSPropertyListXMLFormat_v1_0
-                                               errorDescription:nil]
-                            completionHandler:^(NSError *error) {}];
+            
+            // we need to get the next participant and pass the turn off, we should start with getting all participants
+            // and then pulling out the current player.
+            
+            NSArray *matchParticipants = [[[NSArray alloc] initWithArray:match.participants] autorelease];
+            NSMutableArray *nextParticipants = [[[NSMutableArray alloc] init] autorelease];
+            
+            for (GKTurnBasedParticipant *participant in matchParticipants) {
+                if (![participant.player.playerID isEqualToString:[GKLocalPlayer localPlayer].playerID]) {
+                    [nextParticipants addObject:participant];
+                }
+            }
+            
+            [match endTurnWithNextParticipants:nextParticipants
+                                   turnTimeout:86400
+                                     matchData:[NSPropertyListSerialization
+                                                dataWithPropertyList:gameData
+                                                format:NSPropertyListXMLFormat_v1_0
+                                                options:0
+                                                error:nil]
+                             completionHandler:^(NSError *error) {}];
+            
         }
     } else if (![localPlayerID isEqual:[gameData objectForKey:@"WhitePlayerID"]]
            &&  ![localPlayerID isEqual:[gameData objectForKey:@"BlackPlayerID"]]
@@ -358,7 +380,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     MBCMoveCode cmd;
     NSString *  localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
     for (GKTurnBasedParticipant * p in match.participants)
-        if ([p.playerID isEqual:localPlayerID]) {
+        if ([p.player.playerID isEqual:localPlayerID]) {
             if (p.matchOutcome == GKTurnBasedMatchOutcomeTied)
                 cmd = kCmdDraw;
             else if (p.matchOutcome == GKTurnBasedMatchOutcomeWon)
@@ -388,7 +410,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         [[match.participants objectAtIndex:firstIsDone] setMatchOutcome:outcome];
     }
     if ((firstIsDone || secondIsDone) && match.status != GKTurnBasedMatchStatusEnded
-        && [match.currentParticipant.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]
+        && [match.currentParticipant.player.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]
     )
         [match endMatchInTurnWithMatchData:[self matchData] completionHandler:^(NSError *error) {}];
     
@@ -397,7 +419,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (void) updateMatchForEndOfGame:(MBCMoveCode)cmd
 {
-    if ([match.currentParticipant.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]) {
+    if ([match.currentParticipant.player.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]) {
         //
         // Participant whose turn it is updates the match
         //
@@ -415,7 +437,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
             blackOutcome    = GKTurnBasedMatchOutcomeWon;
         }
         for (GKTurnBasedParticipant * participant in match.participants)
-            if ([participant.playerID isEqual:[properties objectForKey:@"WhitePlayerID"]])
+            if ([participant.player.playerID isEqual:[properties objectForKey:@"WhitePlayerID"]])
                 [participant setMatchOutcome:whiteOutcome];
             else 
                 [participant setMatchOutcome:blackOutcome];
@@ -515,8 +537,8 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         return nil;
     NSString * localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
     for (GKTurnBasedParticipant * p in match.participants)
-        if (![localPlayerID isEqual:p.playerID])
-            return p.playerID;
+        if (![localPlayerID isEqual:p.player.playerID])
+            return p.player.playerID;
     return nil;
 }
 
@@ -573,7 +595,9 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 	NSDictionary *			gameData = 
 		[NSPropertyListSerialization propertyListWithData:docData options:0 format:&format error:outError];
     if (NSString * matchID = [gameData objectForKey:@"MatchID"]) {
-        [[NSApp delegate] loadMatch:matchID];
+        
+        MBCController *appDelegate = (MBCController *)[[NSApplication sharedApplication] delegate];
+        [appDelegate loadMatch:matchID];
         if (outError)
             *outError = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadUnknownError userInfo:nil];
         
@@ -837,10 +861,10 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         }
     [game setObject:local forKey:(localWhite ? @"WhiteProperties" : @"BlackProperties")];
     
-    return [NSPropertyListSerialization 
-            dataFromPropertyList:game
-            format: NSPropertyListXMLFormat_v1_0
-            errorDescription:nil];
+    return [NSPropertyListSerialization dataWithPropertyList:game
+                                               format:NSPropertyListXMLFormat_v1_0
+                                              options:0
+                                                error:nil];
 }
 
 + (NSURL *)casualGameSaveLocation
@@ -862,7 +886,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 - (BOOL) canTakeback
 {
     return [board canUndo] && players != kComputerVsComputer
-        && (!match || [match.currentParticipant.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]);
+        && (!match || [match.currentParticipant.player.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]);
 }
 
 - (void) setBoard:(MBCBoard *)b
@@ -934,7 +958,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     NSString *  localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
     BOOL        wasOurTurn;
     for (GKTurnBasedParticipant * p in match.participants) 
-        if ([p.playerID isEqual:localPlayerID]) {
+        if ([p.player.playerID isEqual:localPlayerID]) {
             [p setMatchOutcome:GKTurnBasedMatchOutcomeLost];
             wasOurTurn = match.currentParticipant == p;
             break;

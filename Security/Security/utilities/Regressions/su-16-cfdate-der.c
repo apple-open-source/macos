@@ -28,9 +28,11 @@
 
 #include "utilities/SecCFRelease.h"
 #include "utilities/array_size.h"
+#include <utilities/SecCFWrappers.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <corecrypto/ccder.h>
+#include <dispatch/dispatch.h>
 
 #include "utilities_regressions.h"
 
@@ -112,6 +114,110 @@ static bool ok_date_equals(int testnumber, CFDateRef decoded, CFDateRef expected
     }
 }
 
+static CFCalendarRef sZuluCalendar = NULL;
+
+static CFCalendarRef SecCFCalendarGetZulu() {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sZuluCalendar = CFCalendarCreateWithIdentifier(kCFAllocatorDefault, kCFGregorianCalendar);
+        CFTimeZoneRef tz = CFTimeZoneCreateWithTimeIntervalFromGMT(kCFAllocatorDefault, 0.0);
+        CFCalendarSetTimeZone(sZuluCalendar, tz);
+        CFReleaseSafe(tz);
+    });
+    return sZuluCalendar;
+}
+
+static bool SecAbsoluteTimeGetGregorianDate(CFTimeInterval at, int *year, int *month, int *day, int *hour, int *minute, int *second, CFErrorRef *error) {
+    // TODO: Remove CFCalendarDecomposeAbsoluteTime dependancy because CFTimeZoneCreateWithTimeIntervalFromGMT is expensive and requires filesystem access to timezone files when we are only doing zulu time anyway
+    if (!CFCalendarDecomposeAbsoluteTime(SecCFCalendarGetZulu(), at, "yMdHms", year, month, day, hour, minute, second)) {
+        SecCFDERCreateError(-1000, CFSTR("Failed to encode date."), 0, error);
+        return false;
+    }
+    return true;
+}
+
+//                                                          &year, &month, &day, &hour, &minute, &second
+CFTimeInterval referenceTimeDate = 416957062.807688;   //  2014    3       19      21      24      22
+#define expectedYear 2014
+#define expectedMonth 3
+#define expectedDay 19
+#define expectedHour 21
+#define expectedMinute 24
+#define expectedSecond 22
+
+static bool parallelizeZulu(bool useSharedZuluCalendar, void(^action)(CFCalendarRef zuluCalendar, bool *STOP)) {
+    // If useSharedZuluCalendar is false, NULL will be passed to zuluCalendar parameter of action
+    int ix;
+    static int kThreadLimit = 75000;                                        // on a J86, this took 49963 threads to fail
+    static const int64_t kFailureTimeLimit = (NSEC_PER_SEC * 10);           // Assume failure after 10s
+    dispatch_time_t failTime = dispatch_time(DISPATCH_TIME_NOW, kFailureTimeLimit);
+
+    // This is a __block variable since it can get modified (due the the <rdar://problem/16372688>)
+    __block CFCalendarRef zuluCalendar = useSharedZuluCalendar ? SecCFCalendarGetZulu() : NULL;
+    __block bool stop = false;
+
+    dispatch_group_t dgroup = dispatch_group_create();
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+    for (ix=0;ix<kThreadLimit && !stop;ix++) {
+        dispatch_group_enter(dgroup);
+        dispatch_async(queue, ^{
+            action(zuluCalendar, &stop);
+            dispatch_group_leave(dgroup);
+        });
+    }
+    dispatch_group_wait(dgroup, failTime);
+    dispatch_release(dgroup);
+    return !stop;
+}
+
+// We expect this to fail until this is fixed:
+//  <rdar://problem/16372688> CFCalendarDecomposeAbsoluteTime is not thread safe
+//
+static void testWithUnguardedZuluCalendar() {
+    const bool useSharedZuluCalendar = true;
+    __block bool success = true;
+    __block int successCount = 0;
+
+    success &= parallelizeZulu(useSharedZuluCalendar, ^(CFCalendarRef zuluCalendar, bool *STOP) {
+        int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+        bool matches = false;
+        if (!SecAbsoluteTimeGetGregorianDate(referenceTimeDate, &year, &month, &day, &hour, &minute, &second, NULL))
+            success = false;
+        matches = year==expectedYear && month==expectedMonth && day==expectedDay &&
+        hour==expectedHour && minute==expectedMinute && second==expectedSecond;
+//      assert(matches);    // enable to catch crash
+        if (matches)
+            successCount++;
+        else
+            *STOP = true;
+    });
+
+    todo("<rdar://problem/16372688> CFCalendarDecomposeAbsoluteTime is not thread safe, not yet fixed");
+
+    TODO: {
+        ok(success,"unexpected result from SecAbsoluteTimeGetGregorianDate, failed, successes: %d", successCount);
+    }
+}
+
+static void testDoWithZulu() {
+    const bool useSharedZuluCalendar = false;
+    int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    __block bool success = true;
+
+    success &= parallelizeZulu(useSharedZuluCalendar, ^(CFCalendarRef zuluCalendar, bool *STOP) {
+        SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+            bool matches = false;
+            success &= CFCalendarDecomposeAbsoluteTime(zuluCalendar, referenceTimeDate, "yMdHms", &year, &month, &day, &hour, &minute, &second);
+            matches = year==expectedYear && month==expectedMonth && day==expectedDay &&
+                hour==expectedHour && minute==expectedMinute && second==expectedSecond;
+            *STOP = !matches;
+        });
+    });
+
+    ok(success,"unexpected result from CFCalendarDecomposeAbsoluteTime");
+}
+
 #define kTestsPerTestCase 12
 static void one_test(const struct test_case * thisCase, int testnumber)
 {
@@ -171,11 +277,14 @@ static void tests(void)
 {
     for (int testnumber = 0; testnumber < array_size(test_cases); ++testnumber)
         one_test(test_cases + testnumber, testnumber);
+
+    testWithUnguardedZuluCalendar();
+    testDoWithZulu();
 }
 
 int su_16_cfdate_der(int argc, char *const *argv)
 {
-    plan_tests(kTestCount);
+    plan_tests(kTestCount+2);
     tests();
 
     return 0;

@@ -614,7 +614,9 @@ static bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerI
     confirmed = CFRetainSafe(SOSEngineGetManifestForDigest(engine, SOSMessageGetSenderDigest(message)));
     if (!confirmed) {
         if (SOSManifestGetCount(SOSMessageGetRemovals(message)) || SOSManifestGetCount(allAdditions)) {
-            confirmed = SOSManifestCreateWithPatch(base, SOSMessageGetRemovals(message), allAdditions, error);
+            if (base || !baseDigest) {
+                confirmed = SOSManifestCreateWithPatch(base, SOSMessageGetRemovals(message), allAdditions, error);
+            }
             if (!confirmed) {
                 confirmedRemovals = CFRetainSafe(SOSMessageGetRemovals(message));
                 confirmedAdditions = CFRetainSafe(allAdditions);

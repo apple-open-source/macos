@@ -35,7 +35,7 @@
  */
 
 #pragma D option quiet
-#pragma D option specsize=40
+#pragma D option specsize=80
 
 BEGIN
 {
@@ -53,8 +53,8 @@ BEGIN
 	printf("Until it overflows\n");
 	printf("And causes flops\n");
 	self->speculateFlag++;
-
 }
+
 
 BEGIN
 /1 <= self->speculateFlag/

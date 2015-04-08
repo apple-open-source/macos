@@ -821,6 +821,7 @@ MOD_AUTH_DIGEST_LDADD
 MOD_AUTH_FORM_LDADD
 MOD_AUTH_BASIC_LDADD
 MOD_ACCESS_COMPAT_LDADD
+MOD_AUTHNZ_FCGI_LDADD
 MOD_AUTHNZ_LDAP_LDADD
 MOD_AUTHZ_CORE_LDADD
 MOD_AUTHZ_DBD_LDADD
@@ -987,6 +988,7 @@ enable_authz_owner
 enable_authz_dbd
 enable_authz_core
 enable_authnz_ldap
+enable_authnz_fcgi
 enable_access_compat
 enable_auth_basic
 enable_auth_form
@@ -1786,6 +1788,8 @@ Optional Features:
   --enable-authz-dbd      SQL based authorization and Login/Session support
   --disable-authz-core    core authorization provider vector module
   --enable-authnz-ldap    LDAP based authentication
+  --enable-authnz-fcgi    FastCGI authorizer-based authentication and
+                          authorization
   --disable-access-compat mod_access compatibility
   --disable-auth-basic    basic authentication
   --enable-auth-form      form authentication
@@ -1977,7 +1981,7 @@ Optional Packages:
   --with-distcache=PATH   Distcache installation directory
   --with-z=PATH           use a specific zlib library
   --with-libxml2=PATH     location for libxml2
-  --with-lua=PATH         Path to the Lua 5.1 prefix
+  --with-lua=PATH         Path to the Lua 5.1/5.2 prefix
   --with-ssl=PATH         OpenSSL installation directory
   --with-mpm=MPM          Choose the process model for Apache to use by
                           default. MPM={event|worker|prefork|winnt} This will
@@ -10712,6 +10716,141 @@ EOF
 
 
 
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_authnz_fcgi" >&5
+$as_echo_n "checking whether to enable mod_authnz_fcgi... " >&6; }
+    # Check whether --enable-authnz-fcgi was given.
+if test "${enable_authnz_fcgi+set}" = set; then :
+  enableval=$enable_authnz_fcgi; force_authnz_fcgi=$enableval
+else
+  enable_authnz_fcgi=no
+fi
+
+    _apmod_extra_msg=""
+        case "$enable_authnz_fcgi" in
+    yes|static|shared)
+      _apmod_required="yes"
+      ;;
+    *)
+      case "$module_selection" in
+      reallyall|all|most)
+        _apmod_required="no"
+        ;;
+      *)
+        _apmod_required="yes"
+        ;;
+      esac
+  esac
+  if test "$enable_authnz_fcgi" = "static"; then
+    enable_authnz_fcgi=static
+  elif test "$enable_authnz_fcgi" = "yes"; then
+    enable_authnz_fcgi=$module_default
+  elif test "$enable_authnz_fcgi" = "most"; then
+    if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
+            "$module_selection" = "reallyall"
+    then
+      enable_authnz_fcgi=$module_default
+    elif test "$module_selection" = "few" -o "$module_selection" = "none"; then
+      enable_authnz_fcgi=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_authnz_fcgi" = "maybe-all"; then
+    if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_authnz_fcgi=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_authnz_fcgi=no
+    fi
+  elif test "$enable_authnz_fcgi" = "no" -a "$module_selection" = "reallyall" -a \
+            "$force_authnz_fcgi" != "no" ; then
+      enable_authnz_fcgi=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+  fi
+  if test "$enable_authnz_fcgi" != "no"; then
+            :
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_authnz_fcgi$_apmod_extra_msg" >&5
+$as_echo "$enable_authnz_fcgi$_apmod_extra_msg" >&6; }
+  if test "$enable_authnz_fcgi" != "no"; then
+    case "$enable_authnz_fcgi" in
+    static*)
+      MODLIST="$MODLIST authnz_fcgi"
+      if test "authnz_fcgi" = "so"; then
+          sharedobjs=yes
+      fi
+      shared="";;
+    *)
+      enable_authnz_fcgi=`echo $enable_authnz_fcgi|sed 's/shared,*//'`
+      sharedobjs=yes
+      shared=yes
+      DSO_MODULES="$DSO_MODULES authnz_fcgi"
+      if test "no" = "yes" ; then
+        ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},authnz_fcgi"
+      fi
+      ;;
+    esac
+
+
+  if test -z ""; then
+    objects="mod_authnz_fcgi.lo"
+  else
+    objects=""
+  fi
+
+  if test -z "$module_standalone"; then
+    if test -z "$shared"; then
+      # The filename of a convenience library must have a "lib" prefix:
+      libname="libmod_authnz_fcgi.la"
+      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
+      modpath_static="$modpath_static $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $objects
+	\$(MOD_LINK) $objects \$(MOD_AUTHNZ_FCGI_LDADD)
+EOF
+      if test ! -z "\$(MOD_AUTHNZ_FCGI_LDADD)"; then
+
+  if test "x$AP_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting AP_LIBS to \"\$(MOD_AUTHNZ_FCGI_LDADD)\""
+    AP_LIBS="\$(MOD_AUTHNZ_FCGI_LDADD)"
+  else
+    apr_addto_bugger="\$(MOD_AUTHNZ_FCGI_LDADD)"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $AP_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to AP_LIBS"
+        AP_LIBS="$AP_LIBS $i"
+      fi
+    done
+  fi
+
+      fi
+    else
+      apache_need_shared=yes
+      libname="mod_authnz_fcgi.la"
+      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
+      modpath_shared="$modpath_shared $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $shobjects
+	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_AUTHNZ_FCGI_LDADD)
+EOF
+    fi
+  fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_AUTHNZ_FCGI_LDADD"
+
+
+
+  fi
+
+
+
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_access_compat" >&5
 $as_echo_n "checking whether to enable mod_access_compat... " >&6; }
     # Check whether --enable-access-compat was given.
@@ -19354,6 +19493,170 @@ if test "x$ac_cv_lib_lua_luaL_newstate" = xyes; then :
 
             fi
             LUA_CFLAGS="-I$x/include/lua51"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+        break
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua5.2" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua5.2... " >&6; }
+    if test -f ${x}/include/lua5.2/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L$x/lib $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.2" >&5
+$as_echo_n "checking for luaL_newstate in -llua5.2... " >&6; }
+if ${ac_cv_lib_lua5_2_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua5.2  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua5_2_luaL_newstate=yes
+else
+  ac_cv_lib_lua5_2_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_2_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua5_2_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua5_2_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L$x/lib -llua5.2 $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib\""
+    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
+  fi
+
+            fi
+            LUA_CFLAGS="-I$x/include/lua5.2"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+        break
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua52" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua52... " >&6; }
+    if test -f ${x}/include/lua52/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L$x/lib/lua52 $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua" >&5
+$as_echo_n "checking for luaL_newstate in -llua... " >&6; }
+if ${ac_cv_lib_lua_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua_luaL_newstate=yes
+else
+  ac_cv_lib_lua_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L$x/lib/lua52 -llua $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib/lua52\""
+    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib/lua52"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib/lua52"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
+  fi
+
+            fi
+            LUA_CFLAGS="-I$x/include/lua52"
 
 fi
 

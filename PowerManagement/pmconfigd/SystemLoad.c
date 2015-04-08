@@ -209,7 +209,7 @@ void updateUserActivityLevels(void)
     if (userActive.presentActive) {
         levels |= kIOPMUserPresentActive;
     }
-    if (checkForActivesByType(kPreventDisplaySleepType)) {
+    if (checkForActivesByType(kPreventDisplaySleepType) && !isA_NotificationDisplayWake()) {
         levels |= kIOPMUserPresentPassive;
     }
     if (checkForActivesByType(kNetworkAccessType)) {
@@ -243,6 +243,10 @@ void updateUserActivityLevels(void)
                 usleep(1000); // 10ms delay
             }
 
+        }
+        if ((levels & kIOPMUserNotificationActive) || (userActive.postedLevels & kIOPMUserNotificationActive)) {
+            asl_log(0,0,ASL_LEVEL_ERR, "Activity changes from 0x%llx to 0x%llx. Assertions:%d HidState:%d\n",
+                userActive.postedLevels, levels, userActive.assertionsActive, userActive.hidActive);
         }
         userActive.postedLevels = levels;
     }

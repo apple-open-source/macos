@@ -1434,7 +1434,7 @@ void check_now(CFRunLoopTimerRef timer, void *info)
 static Boolean check_rebuild(struct watchedVol *watched)
 {
     Boolean launched = false;
-    Boolean rebuild = false;
+    Boolean wantRebuild         = false;
 #if DEV_KERNEL_SUPPORT
     char *  suffixPtr           = NULL; // must free
     char *  tmpKernelPath       = NULL; // must free
@@ -1456,10 +1456,10 @@ static Boolean check_rebuild(struct watchedVol *watched)
 
     // stat stuff to see if a rebuild is needed
     // (it was 'goto' or ever-deeper nesting)
-    if ((rebuild = check_kext_boot_cache_file(watched->caches,
-        watched->caches->kext_boot_cache_file->rpath,
-        watched->caches->kernelpath))) {
-
+    if (check_kext_boot_cache_file(watched->caches,
+                                   watched->caches->kext_boot_cache_file->rpath,
+                                   watched->caches->kernelpath)) {
+        wantRebuild = true;
         goto dorebuild;
     }
 
@@ -1484,10 +1484,12 @@ static Boolean check_rebuild(struct watchedVol *watched)
                 continue;
             if (strlcat(tmpKernelPath, suffixPtr, PATH_MAX) >= PATH_MAX)
                 continue;
-            rebuild = check_kext_boot_cache_file(watched->caches,
-                                                 cp->rpath,
-                                                 tmpKernelPath);
-            if (rebuild)  goto dorebuild;
+            if (check_kext_boot_cache_file(watched->caches,
+                                           cp->rpath,
+                                           tmpKernelPath)) {
+                wantRebuild = true;
+                goto dorebuild;
+            }
         }
     }
 #endif
@@ -1497,20 +1499,19 @@ static Boolean check_rebuild(struct watchedVol *watched)
     check_boots_set_nvram(watched);
 
     // Boot!=Root-specific caches
-    // 16513211 tracks making this more lenient at shutdown
+    // 16513211 - we no longer call check_loccache here since those resources
+    // are not critical, they will get updated on explicit kextcache calls when
+    // they are out of date.
     if (watched->isBootRoot) {
-        rebuild = check_csfde(watched->caches) ||
-                  check_loccache(watched->caches) ||
-                  needUpdates(watched->caches, kBRUCachesAnyRoot,
-                        NULL, NULL, NULL,   // use return aggregate
-                        kOSKextLogProgressLevel | kOSKextLogFileAccessFlag);
-
-        if (rebuild)
-            goto dorebuild;
+        wantRebuild =
+        check_csfde(watched->caches) ||
+        needUpdates(watched->caches, kBRUCachesAnyRoot,
+                    NULL, NULL, NULL,   // use return aggregate
+                    kOSKextLogProgressLevel | kOSKextLogFileAccessFlag);
     }
 
 dorebuild:
-    if (rebuild) {
+    if (wantRebuild) {
         if (launch_rebuild_all(watched->caches->root, false, false) > 0) {
             launched = true;
             watched->updtattempts++;

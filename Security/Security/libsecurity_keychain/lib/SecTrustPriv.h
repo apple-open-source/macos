@@ -147,7 +147,7 @@ extern CFTypeRef kSecTrustResultDetails
 /* OCSP and CRL style keys, followed by values used for both of them */
 #define kSecRevocationOcspStyle				CFSTR("OCSPStyle")
 #define kSecRevocationCrlStyle				CFSTR("CRLStyle")
-  #define kSecRevocationOff					CFSTR("None")	/* default for each one */
+  #define kSecRevocationOff					CFSTR("None")
   #define kSecRevocationBestAttempt			CFSTR("BestAttempt")
   #define kSecRevocationRequireIfPresent	CFSTR("RequireIfPresent")
   #define kSecRevocationRequireForAll		CFSTR("RequireForAll")

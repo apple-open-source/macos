@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2001-2014 International Business Machines
+﻿# Copyright (c) 2001-2015 International Business Machines
 # Corporation and others. All Rights Reserved.
 #
 # RBBI Test Data
@@ -886,3 +886,110 @@ Bangkok)•</data>
 <data>•abc/\u05D9 •def•</data>
 <data>•\u05E7\u05D7/\u05D9 •\u05DE\u05E2\u05D9\u05DC•</data>
 <data>•\u05D3\u05E8\u05D5\u05E9\u05D9\u05DD •\u05E9\u05D7\u05E7\u05E0\u05D9\u05DD/\u05D9\u05D5\u05EA•</data>
+
+####################################################################################
+#
+#  Test CSS line break variants: strict, normal, loose
+#
+####################################################################################
+
+<locale ja@lb=strict>
+<line>
+#     •no brk before 3063              •no brk before 301C•no brk btw 2026   •no brk before FF01•
+<data>•\u3084\u3063•\u3071•\u308A\u0020•\u0031\u301C\u0020•\u2026\u2026\u0020•\u30A2\uFF01\u0020•</data>
+
+<locale ja@lb=normal>
+<line>
+#     •brk OK before 3063               •brk OK before 301C •no brk btw 2026   •no brk before FF01•
+<data>•\u3084•\u3063•\u3071•\u308A\u0020•\u0031•\u301C\u0020•\u2026\u2026\u0020•\u30A2\uFF01\u0020•</data>
+
+<locale ja@lb=loose>
+<line>
+#     •brk OK before 3063               •brk OK before 301C •brk OK btw 2026    •brk OK before FF01•
+<data>•\u3084•\u3063•\u3071•\u308A\u0020•\u0031•\u301C\u0020•\u2026•\u2026\u0020•u30A2•\uFF01\u0020•</data>
+
+<locale en@lb=strict>
+<line>
+#     •no brk before 3063              •no brk before 301C•no brk btw 2026   •no brk before FF01•
+<data>•\u3084\u3063•\u3071•\u308A\u0020•\u0031\u301C\u0020•\u2026\u2026\u0020•\u30A2\uFF01\u0020•</data>
+
+<locale en@lb=normal>
+<line>
+#     •brk OK before 3063               •no brk before 301C •no brk btw 2026  •no brk before FF01•
+<data>•\u3084•\u3063•\u3071•\u308A\u0020•\u0031\u301C\u0020•\u2026\u2026\u0020•\u30A2\uFF01\u0020•</data>
+
+<locale en@lb=loose>
+<line>
+#     •brk OK before 3063               •no brk before 301C •brk OK btw 2026   •no brk before FF01•
+<data>•\u3084•\u3063•\u3071•\u308A\u0020•\u0031\u301C\u0020•\u2026•\u2026\u0020•u30A2\uFF01\u0020•</data>
+
+####################################################################################
+#
+#  Test Apple breaks for emoji clusters (same for all locales and break types)
+#
+####################################################################################
+
+<locale root>
+
+<char>
+# woman zwj woman zwj girl zwj girl, woman/fitz-1-2 zwj woman/fitz-4 zwj boy/fitz-6
+<data>•\U0001F469\u200D\U0001F469\u200D\U0001F467\u200D\U0001F467•\U0001F469\U0001F3FB\u200D\U0001F469\U0001F3FD\u200D\U0001F466\U0001F3FF•</data>
+# woman zwj, baby/fitz-3, older_woman/fitz-5, runner/fitz-4, raised_fist/fitz-3, fuel_pump, fitz-3
+<data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
+# man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
+<data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
+# woman zwj hvy_blk_heart/esel zwj kiss_mark zwj woman, man
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5, space, 
+<data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE•\u0020•</data>
+# flags1    AE                   AU                   AT                   BE                   BR                   CA                   CL
+<data>•\U0001F1E6\U0001F1EA•\U0001F1E6\U0001F1FA•\U0001F1E6\U0001F1F9•\U0001F1E7\U0001F1EA•\U0001F1E7\U0001F1F7•\U0001F1E8\U0001F1E6•\U0001F1E8\U0001F1F1•</data>
+# flags2    CN                   CO                   DK                   FI                   FR                   DE                   HK
+<data>•\U0001F1E8\U0001F1F3•\U0001F1E8\U0001F1F4•\U0001F1E9\U0001F1F0•\U0001F1EB\U0001F1EE•\U0001F1EB\U0001F1F7•\U0001F1E9\U0001F1EA•\U0001F1ED\U0001F1F0•</data>
+# flags3    IN                   ID                   IE                   IL                   IT                   JP                   KR
+<data>•\U0001F1EE\U0001F1F3•\U0001F1EE\U0001F1E9•\U0001F1EE\U0001F1EA•\U0001F1EE\U0001F1F1•\U0001F1EE\U0001F1F9•\U0001F1EF\U0001F1F5•\U0001F1F0\U0001F1F7•</data>
+
+<word>
+# woman zwj woman zwj girl zwj girl, woman/fitz-1-2 zwj woman/fitz-4 zwj boy/fitz-6
+<data>•\U0001F469\u200D\U0001F469\u200D\U0001F467\u200D\U0001F467•\U0001F469\U0001F3FB\u200D\U0001F469\U0001F3FD\u200D\U0001F466\U0001F3FF•</data>
+# woman zwj, baby/fitz-3, older_woman/fitz-5, runner/fitz-4, raised_fist/fitz-3, fuel_pump, fitz-3
+<data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
+# man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
+<data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
+# woman zwj hvy_blk_heart esel zwj kiss mark zwj woman, man
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5, space, 
+<data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE•\u0020•</data>
+# flags1    AE                   AU                   AT                   BE                   BR                   CA                   CL
+<data>•\U0001F1E6\U0001F1EA•\U0001F1E6\U0001F1FA•\U0001F1E6\U0001F1F9•\U0001F1E7\U0001F1EA•\U0001F1E7\U0001F1F7•\U0001F1E8\U0001F1E6•\U0001F1E8\U0001F1F1•</data>
+# flags2    CN                   CO                   DK                   FI                   FR                   DE                   HK
+<data>•\U0001F1E8\U0001F1F3•\U0001F1E8\U0001F1F4•\U0001F1E9\U0001F1F0•\U0001F1EB\U0001F1EE•\U0001F1EB\U0001F1F7•\U0001F1E9\U0001F1EA•\U0001F1ED\U0001F1F0•</data>
+# flags3    IN                   ID                   IE                   IL                   IT                   JP                   KR
+<data>•\U0001F1EE\U0001F1F3•\U0001F1EE\U0001F1E9•\U0001F1EE\U0001F1EA•\U0001F1EE\U0001F1F1•\U0001F1EE\U0001F1F9•\U0001F1EF\U0001F1F5•\U0001F1F0\U0001F1F7•</data>
+
+<line>
+# woman zwj woman zwj girl zwj girl # (line, skip this for now, need safe rules and we don't generate it:) woman/fitz-1-2 zwj woman/fitz-4 zwj boy/fitz-6
+<data>•\U0001F469\u200D\U0001F469\u200D\U0001F467\u200D\U0001F467•</data>
+# woman zwj, baby/fitz-3, older_woman/fitz-5, runner/fitz-4, raised_fist/fitz-3, fuel_pump, fitz-3
+<data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
+# man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
+<data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
+# woman zwj hvy_blk_heart esel zwj kiss mark zwj woman, man
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5 space, 
+<data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE\u0020•</data>
+# no special flags handling for line
+
+<locale ja@lb=loose>
+<line>
+# woman zwj woman zwj girl zwj girl # (line, skip this for now, need safe rules and we don't generate it:) woman/fitz-1-2 zwj woman/fitz-4 zwj boy/fitz-6
+<data>•\U0001F469\u200D\U0001F469\u200D\U0001F467\u200D\U0001F467•</data>
+# woman zwj, baby/fitz-3, older_woman/fitz-5, runner/fitz-4, raised_fist/fitz-3, fuel_pump, fitz-3
+<data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
+# man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
+<data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
+# woman zwj hvy_blk_heart esel zwj kiss mark zwj woman, man
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5 space, 
+<data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE\u0020•</data>
+# no special flags handling for line

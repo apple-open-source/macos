@@ -43,8 +43,10 @@ enum SecOTRSMessageKind {
 // MARK: OTR Session
 
 enum SecOTRCreateFlags {
-    kSecOTRSendTextMessages = 1, // OTR messages will be encoded as Base-64 with header/footer per the standard, not just given back in binary
-    kSecOTRUseAppleCustomMessageFormat = 2, // OTR Messages will be encoded without revealing MAC keys and as compact as we can (P-256)
+    kSecOTRSendTextMessages = 1 << 0, // OTR messages will be encoded as Base-64 with header/footer per the standard, not just given back in binary
+    kSecOTRUseAppleCustomMessageFormat = 1 << 1, // OTR Messages will be encoded without revealing MAC keys and as compact as we can (P-256)
+    kSecOTRIncludeHashesInMessages = 1 << 2,
+    kSecOTRSlowRoll = 1 << 3,
 };
 
 /*!

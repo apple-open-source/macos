@@ -195,6 +195,8 @@ static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxTo
 
 //    fprintf(stderr, "%s", buffer);
     dtprintf("%s", buffer);
+
+    free(buffer);
 #endif
 }
 
@@ -336,6 +338,7 @@ static void debugShowSignerInfo(SecCmsSignedDataRef signedData)
                 dtprintf("%s%s\n", signerhdr, cn);
                 if (cn)
                     free(cn);
+                CFReleaseNull(commonName);
             }
             else
                 dtprintf("%s<NULL>\n", signerhdr);
@@ -889,6 +892,8 @@ static OSStatus SecTSAValidateTimestamp(const SecAsn1TSATSTInfo *tstInfo, CSSM_D
     if (timestampTime)
         *timestampTime = genTime;
 xit:
+    if (signingCertificate)
+        CFReleaseNull(signingCertificate);
     return result;
 }
 
@@ -1014,6 +1019,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
     // See <rdar://problem/11077588> Bubble up SecTrustEvaluate of timestamp response to high level callers
     // Also <rdar://problem/11077708> Properly handle revocation information of timestamping certificate
 
+    SecTrustRef trustRef = NULL;
     CFTypeRef policy = CFRetainSafe(timeStampPolicy);
     int result=errSecInternalError;
     int rx;
@@ -1026,7 +1032,6 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
     for (jx = 0; jx < numberOfSigners; ++jx)
     {
         SecTrustResultType trustResultType;
-        SecTrustRef trustRef = NULL;
         CFDictionaryRef extendedResult = NULL;
         CFArrayRef certChain = NULL;
         uint16_t certCount = 0;
@@ -1082,6 +1087,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
         dtprintf("[%s] SecTrustGetResult: result: %d, type: %d\n", __FUNCTION__,rx, trustResultType);
         certCount = certChain?CFArrayGetCount(certChain):0;
         debugShowCertEvidenceInfo(certCount, statusChain);
+        CFReleaseNull(certChain);
 
         rx = SecTrustCopyExtendedResult(trustRef, &extendedResult);
         dtprintf("[%s] SecTrustCopyExtendedResult: result: %d\n", __FUNCTION__, rx);
@@ -1092,12 +1098,14 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
         }
 
         if (trustRef)
-            CFRelease (trustRef);
+            CFReleaseNull(trustRef);
      }
 
 xit:
+    if (trustRef)
+        CFReleaseNull(trustRef);
     if (policy)
-        CFRelease (policy);
+        CFRelease(policy);
     return result;
 }
 

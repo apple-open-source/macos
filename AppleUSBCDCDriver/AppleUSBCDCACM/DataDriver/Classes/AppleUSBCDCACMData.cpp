@@ -1721,9 +1721,9 @@ bool AppleUSBCDCACMData::createSerialStream()
             }
         }
                
-        if (!(fControlDriver->fCMCapabilities & CM_ManagementOnData))
+        if (!(fControlDriver->fCMCapabilities & CM_ManagementData))
         {
-            XTRACE(this, 0, 0, "createSerialStream - Interface doesn't support Call Management on Data Interface Hiding port");
+            XTRACE(this, 0, fControlDriver->fCMCapabilities, "createSerialStream - Interface doesn't support Call Management");
             pNub->setProperty((const char *)hiddenTag, true);
         }
 		

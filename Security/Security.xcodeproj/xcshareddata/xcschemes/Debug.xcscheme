@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "0600"
-   version = "1.3">
+   version = "1.8">
    <BuildAction
       parallelizeBuildables = "NO"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      enableAddressSanitizer = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -71,6 +72,7 @@
       buildConfiguration = "Debug"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
+      debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
       <PreActions>
          <ExecutionAction
@@ -90,7 +92,8 @@
             </ActionContent>
          </ExecutionAction>
       </PostActions>
-      <BuildableProductRunnable>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4C711D5813AFCD0900FE865D"
@@ -509,6 +512,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "ssl_44_crashes"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "ssl_45_tls12"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -569,6 +576,22 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "otr_40_edgecases"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "otr_40_edgecases"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "otr_50_roll"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "otr_60_slowroll"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "otr_otrdh"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -602,7 +625,8 @@
       useCustomWorkingDirectory = "NO"
       buildConfiguration = "Debug"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4C711D5813AFCD0900FE865D"

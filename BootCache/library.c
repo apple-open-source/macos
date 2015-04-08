@@ -1029,7 +1029,7 @@ int
 BC_print_statistics(char *fname, struct BC_statistics *ss)
 {
 	FILE *fp;
-	uint disk_msecs, disk_bytes, d, b, m, bytes_remaining, other;
+	uint disk_msecs, disk_bytes, disk_num_reads, d, b, m, bytes_remaining, other;
 
 	if (ss == NULL)
 		return(0);
@@ -1067,6 +1067,9 @@ fprintf(fp, " bytes discarded by noncac %-10u  %3.0f%%\n", ss->ss_bypass_nocache
 fprintf(fp, " bytes discarded by write  %-10u  %3.0f%%\n", ss->ss_write_discards, ((float)ss->ss_write_discards / ss->ss_read_bytes) * 100);
 fprintf(fp, " bytes discarded by read   %-10u  %3.0f%%\n", ss->ss_read_discards, ((float)ss->ss_read_discards / ss->ss_read_bytes) * 100);
 fprintf(fp, " bytes discarded by error  %-10u  %3.0f%%\n", ss->ss_error_discards, ((float)ss->ss_error_discards / ss->ss_read_bytes) * 100);
+		if (ss->ss_unable_to_discard_bytes > 0) {
+fprintf(fp, " bytes unable to discard   %-10u  %3.0f%%\n", ss->ss_unable_to_discard_bytes, ((float)ss->ss_unable_to_discard_bytes / ss->ss_read_bytes) * 100);
+		}
 fprintf(fp, " bytes stolen from cache   %-10u  %3.0f%%\n", ss->ss_stolen_bytes, ((float)ss->ss_stolen_bytes / ss->ss_read_bytes) * 100);
 fprintf(fp, " bytes used after boot     %-10u  %3.0f%%\n", ss->ss_hit_bytes_afterhistory, ((float)ss->ss_hit_bytes_afterhistory / ss->ss_read_bytes) * 100);
 fprintf(fp, " bytes lost after boot     %-10u  %3.0f%%\n", ss->ss_lost_bytes_afterhistory, ((float)ss->ss_lost_bytes_afterhistory / ss->ss_read_bytes) * 100);
@@ -1134,6 +1137,9 @@ fprintf(fp, "  bypassed during readahea %-10u  %3.0f%%\n", ss->ss_strategy_bypas
 				other = ss->ss_strategy_bypass_duringio - ss->ss_strategy_bypass_duringio_rootdisk_nonread - ss->ss_strategy_bypass_duringio_rootdisk_read - ss->ss_strategy_bypass_duringio_rootdisk_failure - ss->ss_strategy_bypass_duringio_unfilled - ss->ss_strategy_bypass_duringio_nocache;
 				if (ss->ss_strategy_bypass_duringio_unfilled > 0) {
 fprintf(fp, "   unfilled extent         %-10u  %3.0f%%\n", ss->ss_strategy_bypass_duringio_unfilled, ((float)ss->ss_strategy_bypass_duringio_unfilled / ss->ss_strategy_bypass_duringio) * 100);
+					if (ss->ss_unable_to_discard_count > 0) {
+fprintf(fp, "     unable to discard     %-10u  %3.0f%%\n", ss->ss_unable_to_discard_count, ((float)ss->ss_unable_to_discard_count / ss->ss_strategy_bypass_duringio_unfilled) * 100);
+					}
 				}
 				if (ss->ss_strategy_bypass_duringio_nocache > 0) {
 fprintf(fp, "   noncached IO            %-10u  %3.0f%%\n", ss->ss_strategy_bypass_duringio_nocache, ((float)ss->ss_strategy_bypass_duringio_nocache / ss->ss_strategy_bypass_duringio) * 100);
@@ -1143,6 +1149,7 @@ fprintf(fp, "   root disk cache miss    %-10u  %3.0f%%\n", ss->ss_strategy_bypas
 fprintf(fp, "   root disk hit failure   %-10u  %3.0f%%\n", ss->ss_strategy_bypass_duringio_rootdisk_failure, ((float)ss->ss_strategy_bypass_duringio_rootdisk_failure / ss->ss_strategy_bypass_duringio) * 100);
 fprintf(fp, "   non-root                %-10u  %3.0f%%\n", other, ((float)other / ss->ss_strategy_bypass_duringio) * 100);
 fprintf(fp, "   forced throttled        %-10u  %3.0f%%\n", ss->ss_strategy_forced_throttled, ((float)ss->ss_strategy_forced_throttled / ss->ss_strategy_bypass_duringio) * 100);
+fprintf(fp, "   bypassed nonthrottled   %-10u  %3.0f%%\n", ss->ss_strategy_nonthrottled, ((float)ss->ss_strategy_nonthrottled / ss->ss_strategy_bypass_duringio) * 100);
 			}
 fprintf(fp, "  extent hits during reada %-10u  %3.0f%%\n", ss->ss_hit_duringio, ((float)ss->ss_hit_duringio / ss->ss_strategy_duringio) * 100);
 			if (ss->ss_hit_duringio > 0) {
@@ -1164,10 +1171,12 @@ fprintf(fp, "total readahead threads    %u\n", ss->ss_readahead_threads);
 		for (d = 0; d < STAT_DISKMAX; d++) {
 			disk_bytes = 0;
 			disk_msecs = 0;
+			disk_num_reads = 0;
 			
 			for(b = 0; b < STAT_BATCHMAX; b++) {
 				disk_bytes += ss->ss_batch_bytes[d][b];
 				disk_msecs += ss->ss_batch_time[d][b];
+				disk_num_reads += ss->ss_batch_initiated_reads[d][b];
 			}
 			if (0 == disk_bytes) continue; /* no reads for this disk */
 			
@@ -1175,7 +1184,7 @@ fprintf(fp, "total readahead threads    %u\n", ss->ss_readahead_threads);
 fprintf(fp, "Disk %d reader rate:        %ukB/s, %utps\n",
 						d,
 						(u_int)(((unsigned long long)disk_bytes * 1000) / (disk_msecs * 1024)),
-						(ss->ss_disk_initiated_reads[d] * 1000) / disk_msecs);
+						(disk_num_reads * 1000) / disk_msecs);
 			}
 			
 fprintf(fp, "Disk %d time                %d.%03ds\n",
@@ -1202,6 +1211,17 @@ fprintf(fp, " (%u late)", ss->ss_batch_late_bytes[d][b]);
 fprintf(fp, "\n");
 				}
 			}
+			
+			for(b = 0; b < STAT_BATCHMAX; b++) {
+				if (ss->ss_batch_time[d][b] > 0) {
+					fprintf(fp, "  batch %d reader rate      %ukB/s, %utps\n",
+							b,
+							(u_int)(((unsigned long long)ss->ss_batch_bytes[d][b] * 1000) / (ss->ss_batch_time[d][b] * 1024)),
+							(ss->ss_batch_initiated_reads[d][b] * 1000) / ss->ss_batch_time[d][b]);
+
+				}
+			}
+
 		}
 	}
 
@@ -1213,7 +1233,7 @@ fprintf(fp, "\n");
 fprintf(fp, "Disk %d lowpri reader rate: %ukB/s, %u.%utps\n",
 						d,
 						(u_int)(((unsigned long long)ss->ss_batch_bytes_lowpri[d] * 1000) / (ss->ss_batch_time_lowpri[d] * 1024)),
-						(ss->ss_disk_initiated_reads_lowpri[d] * 1000) / ss->ss_batch_time_lowpri[d], (10 * (ss->ss_disk_initiated_reads_lowpri[d] * 1000) / ss->ss_batch_time_lowpri[d]) % 10);
+						(ss->ss_batch_initiated_reads_lowpri[d] * 1000) / ss->ss_batch_time_lowpri[d], (10 * (ss->ss_batch_initiated_reads_lowpri[d] * 1000) / ss->ss_batch_time_lowpri[d]) % 10);
 			}
 			
 fprintf(fp, "Disk %d lowpri bytes read:  %u\n", d, ss->ss_batch_bytes_lowpri[d]);

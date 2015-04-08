@@ -1356,7 +1356,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_format_destroy(dtp);
 	dt_buffered_destroy(dtp);
 	dt_aggregate_destroy(dtp);
-	free(dtp->dt_buf.dtbd_data);
 	dt_pfdict_destroy(dtp);
 	dt_provmod_destroy(&dtp->dt_provmod);
 	dt_dof_fini(dtp);

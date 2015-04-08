@@ -304,7 +304,7 @@ static void SOSMessageDestroy(CFTypeRef cf) {
 
 static uint64_t SOSMessageInferType(SOSMessageRef message, CFErrorRef *error);
 
-static CFStringRef SOSMessageCopyDescription(CFTypeRef cf) {
+static CFStringRef SOSMessageCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SOSMessageRef message = (SOSMessageRef)cf;
     static const uint8_t zero[4] = {};
     const uint8_t *S = message->senderDigest ? CFDataGetBytePtr(message->senderDigest) : zero;

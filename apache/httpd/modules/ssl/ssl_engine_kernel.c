@@ -163,7 +163,13 @@ int ssl_hook_ReadReq(request_rec *r)
         return DECLINED;
     }
 #ifdef HAVE_TLSEXT
-    if (r->proxyreq != PROXYREQ_PROXY) {
+    /*
+     * Perform SNI checks only on the initial request.  In particular,
+     * if these checks detect a problem, the checks shouldn't return an
+     * error again when processing an ErrorDocument redirect for the
+     * original problem.
+     */
+    if (r->proxyreq != PROXYREQ_PROXY && ap_is_initial_req(r)) {
         if ((servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name))) {
             char *host, *scope_id;
             apr_port_t port;
@@ -175,8 +181,8 @@ int ssl_hook_ReadReq(request_rec *r)
              * cause us to end up in a different virtual host as the one that
              * was used for the handshake causing different SSL parameters to
              * be applied as SSLProtocol, SSLCACertificateFile/Path and
-             * SSLCADNRequestFile/Path cannot be renegotioated (SSLCA* due
-             * to current limitiations in Openssl, see
+             * SSLCADNRequestFile/Path cannot be renegotiated (SSLCA* due
+             * to current limitations in OpenSSL, see
              * http://mail-archives.apache.org/mod_mbox/httpd-dev/200806.mbox/%3C48592955.2090303@velox.ch%3E
              * and
              * http://mail-archives.apache.org/mod_mbox/httpd-dev/201312.mbox/%3CCAKQ1sVNpOrdiBm-UPw1hEdSN7YQXRRjeaT-MCWbW_7mN%3DuFiOw%40mail.gmail.com%3E
@@ -206,13 +212,17 @@ int ssl_hook_ReadReq(request_rec *r)
             /*
              * We are using a name based configuration here, but no hostname was
              * provided via SNI. Don't allow that if are requested to do strict
-             * checking. Check wether this strict checking was setup either in the
+             * checking. Check whether this strict checking was set up either in the
              * server config we used for handshaking or in our current server.
              * This should avoid insecure configuration by accident.
              */
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, APLOGNO(02033)
                          "No hostname was provided via SNI for a name based"
                          " virtual host");
+            apr_table_setn(r->notes, "error-notes",
+                           "Reason: The client software did not provide a "
+                           "hostname using Server Name Indication (SNI), "
+                           "which is required to access this server.<br />\n");
             return HTTP_FORBIDDEN;
         }
     }
@@ -1298,41 +1308,24 @@ const authz_provider ssl_authz_provider_verify_client =
 */
 
 /*
- * Grab well-defined DH parameters from OpenSSL, see <openssl/bn.h>
- * (get_rfc*) for all available primes.
- */
-#define make_get_dh(rfc,size,gen) \
-static DH *get_dh##size(void) \
-{ \
-    DH *dh; \
-    if (!(dh = DH_new())) { \
-        return NULL; \
-    } \
-    dh->p = get_##rfc##_prime_##size(NULL); \
-    BN_dec2bn(&dh->g, #gen); \
-    if (!dh->p || !dh->g) { \
-        DH_free(dh); \
-        return NULL; \
-    } \
-    return dh; \
-}
-
-/*
- * Prepare DH parameters from 1024 to 4096 bits, in 1024-bit increments
- */
-make_get_dh(rfc2409, 1024, 2)
-make_get_dh(rfc3526, 2048, 2)
-make_get_dh(rfc3526, 3072, 2)
-make_get_dh(rfc3526, 4096, 2)
-
-/*
  * Hand out standard DH parameters, based on the authentication strength
  */
 DH *ssl_callback_TmpDH(SSL *ssl, int export, int keylen)
 {
     conn_rec *c = (conn_rec *)SSL_get_app_data(ssl);
-    EVP_PKEY *pkey = SSL_get_privatekey(ssl);
-    int type = pkey ? EVP_PKEY_type(pkey->type) : EVP_PKEY_NONE;
+    EVP_PKEY *pkey;
+    int type;
+
+#ifdef SSL_CERT_SET_SERVER
+    /*
+     * When multiple certs/keys are configured for the SSL_CTX: make sure
+     * that we get the private key which is indeed used for the current
+     * SSL connection (available in OpenSSL 1.0.2 or later only)
+     */
+    SSL_set_current_cert(ssl, SSL_CERT_SET_SERVER);
+#endif
+    pkey = SSL_get_privatekey(ssl);
+    type = pkey ? EVP_PKEY_type(pkey->type) : EVP_PKEY_NONE;
 
     /*
      * OpenSSL will call us with either keylen == 512 or keylen == 1024
@@ -1353,14 +1346,7 @@ DH *ssl_callback_TmpDH(SSL *ssl, int export, int keylen)
     ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, c,
                   "handing out built-in DH parameters for %d-bit authenticated connection", keylen);
 
-    if (keylen >= 4096)
-        return get_dh4096();
-    else if (keylen >= 3072)
-        return get_dh3072();
-    else if (keylen >= 2048)
-        return get_dh2048();
-    else
-        return get_dh1024();
+    return modssl_get_dh_params(keylen);
 }
 
 /*
@@ -1891,7 +1877,7 @@ void ssl_callback_Info(const SSL *ssl, int where, int rc)
         }
     }
     /* If the first handshake is complete, change state to reject any
-     * subsequent client-initated renegotiation. */
+     * subsequent client-initiated renegotiation. */
     else if ((where & SSL_CB_HANDSHAKE_DONE) && scr->reneg_state == RENEG_INIT) {
         scr->reneg_state = RENEG_REJECT;
     }
@@ -1905,16 +1891,16 @@ void ssl_callback_Info(const SSL *ssl, int where, int rc)
 #ifdef HAVE_TLSEXT
 /*
  * This callback function is executed when OpenSSL encounters an extended
- * client hello with a server name indication extension ("SNI", cf. RFC 4366).
+ * client hello with a server name indication extension ("SNI", cf. RFC 6066).
  */
 int ssl_callback_ServerNameIndication(SSL *ssl, int *al, modssl_ctx_t *mctx)
 {
     const char *servername =
                 SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    conn_rec *c = (conn_rec *)SSL_get_app_data(ssl);
 
-    if (servername) {
-        conn_rec *c = (conn_rec *)SSL_get_app_data(ssl);
-        if (c) {
+    if (c) {
+        if (servername) {
             if (ap_vhost_iterate_given_conn(c, ssl_find_vhost,
                                             (void *)servername)) {
                 ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02043)
@@ -1927,8 +1913,27 @@ int ssl_callback_ServerNameIndication(SSL *ssl, int *al, modssl_ctx_t *mctx)
                               "No matching SSL virtual host for servername "
                               "%s found (using default/first virtual host)",
                               servername);
-                return SSL_TLSEXT_ERR_ALERT_WARNING;
+                /*
+                 * RFC 6066 section 3 says "It is NOT RECOMMENDED to send
+                 * a warning-level unrecognized_name(112) alert, because
+                 * the client's behavior in response to warning-level alerts
+                 * is unpredictable."
+                 *
+                 * To maintain backwards compatibility in mod_ssl, we
+                 * no longer send any alert (neither warning- nor fatal-level),
+                 * i.e. we take the second action suggested in RFC 6066:
+                 * "If the server understood the ClientHello extension but
+                 * does not recognize the server name, the server SHOULD take
+                 * one of two actions: either abort the handshake by sending
+                 * a fatal-level unrecognized_name(112) alert or continue
+                 * the handshake."
+                 */
             }
+        }
+        else {
+            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02645)
+                          "Server name not provided via TLS extension "
+                          "(using default/first virtual host)");
         }
     }
 
@@ -2020,7 +2025,7 @@ static int ssl_find_vhost(void *servername, conn_rec *c, server_rec *s)
          * vhost we have just switched to. Again, we have to make sure
          * that we're not overwriting a session id context which was
          * possibly set in ssl_hook_Access(), before triggering
-         * a renegotation.
+         * a renegotiation.
          */
         if (SSL_num_renegotiations(ssl) == 0) {
             unsigned char *sid_ctx =

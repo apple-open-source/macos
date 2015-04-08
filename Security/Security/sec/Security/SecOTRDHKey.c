@@ -36,6 +36,18 @@
 
 #define kECKeySize 256
 
+static void GenerateHashForKey(ccec_pub_ctx_t public_key, void *output)
+{
+    size_t size = ccec_export_pub_size(public_key);
+
+    uint8_t pub_key_bytes_buffer[size];
+
+    ccec_export_pub(public_key, pub_key_bytes_buffer);
+
+    ccdigest(ccsha1_di(), size, pub_key_bytes_buffer, output);
+}
+
+
 struct _SecOTRFullDHKey {
     CFRuntimeBase _base;
 
@@ -65,11 +77,40 @@ static size_t AppendECCompactPublicKey(CFMutableDataRef data, ccec_pub_ctx_t pub
     return size;
 }
 
+static CFStringRef CCNCopyAsHex(size_t n, cc_unit *value){
+    size_t bytes = ccn_write_uint_size(n, value);
+    uint8_t byte_array [bytes];
+    ccn_write_uint(n, value, bytes, byte_array);
 
-static CFStringRef SecOTRFullDHKeyCopyDescription(CFTypeRef cf)
+    __block CFStringRef description = NULL;
+
+    BufferPerformWithHexString(byte_array, sizeof(byte_array), ^(CFStringRef dataString) {
+        description = CFRetainSafe(dataString);
+    });
+    return description;
+}
+static void withXandY(ccec_pub_ctx_t pubKey, void (^action)(CFStringRef x, CFStringRef y)){
+    CFStringRef xString = NULL;
+    CFStringRef yString = NULL;
+    xString = CCNCopyAsHex(ccec_ctx_n(pubKey), ccec_ctx_x(pubKey));
+    yString = CCNCopyAsHex(ccec_ctx_n(pubKey), ccec_ctx_y(pubKey));
+
+    action(xString, yString);
+    CFReleaseNull(xString);
+    CFReleaseNull(yString);
+}
+static CFStringRef SecOTRFullDHKeyCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 {
-    SecOTRFullDHKeyRef session = (SecOTRFullDHKeyRef)cf;
-    return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTRFullDHKeyRef: %p>"), session);
+    SecOTRFullDHKeyRef fullDHKey = (SecOTRFullDHKeyRef)cf;
+    __block CFStringRef description = NULL;
+
+    withXandY(fullDHKey->_key, ^(CFStringRef x, CFStringRef y) {
+        BufferPerformWithHexString(fullDHKey->keyHash, sizeof(fullDHKey->keyHash), ^(CFStringRef dataString) {
+            description = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTRFullDHKeyRef@%p: x: %@ y: %@ [%@]>"), fullDHKey, x, y, dataString);
+        });
+    });
+
+    return description;
 }
 
 static Boolean SecOTRFullDHKeyCompare(CFTypeRef leftCF, CFTypeRef rightCF)
@@ -85,6 +126,11 @@ static void SecOTRFullDHKeyDestroy(CFTypeRef cf)
     SecOTRFullDHKeyRef fullKey = (SecOTRFullDHKeyRef)cf;
     
     bzero(fullKey->_key, sizeof(fullKey->_key));
+}
+
+static inline void SecOTRFDHKUpdateHash(SecOTRFullDHKeyRef fullKey)
+{
+    GenerateHashForKey(fullKey->_key, fullKey->keyHash);
 }
 
 SecOTRFullDHKeyRef SecOTRFullDHKCreate(CFAllocatorRef allocator)
@@ -107,12 +153,13 @@ SecOTRFullDHKeyRef SecOTRFullDHKCreateFromBytes(CFAllocatorRef allocator, const 
 
     require(publicKeySize <= *size, fail);
     require_noerr(ccec_import_pub(ccec_cp_256(), publicKeySize, *bytes, newFDHK->_key), fail);
-    ccdigest(ccsha1_di(), publicKeySize, *bytes, newFDHK->keyHash);
     
     *size -= publicKeySize;
     *bytes += publicKeySize;
 
     require_noerr(ReadMPI(bytes, size, ccec_ctx_n(newFDHK->_key), ccec_ctx_k(newFDHK->_key)), fail);
+
+    SecOTRFDHKUpdateHash(newFDHK);
 
     return newFDHK;
 
@@ -131,11 +178,8 @@ void SecFDHKNewKey(SecOTRFullDHKeyRef fullKey)
 
     ccec_compact_generate_key(ccec_cp_256(), rng, fullKey->_key);
 
-    size_t size = ccec_export_pub_size(fullKey->_key);
-    uint8_t publicKey[size];
+    SecOTRFDHKUpdateHash(fullKey);
 
-    ccec_export_pub(fullKey->_key, publicKey);
-    ccdigest(ccsha1_di(), size, publicKey, fullKey->keyHash);
 }
 
 void SecFDHKAppendSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo)
@@ -173,14 +217,21 @@ struct _SecOTRPublicDHKey {
 
     ccec_pub_ctx_decl(ccn_sizeof(kECKeySize), _key);
     uint8_t keyHash[CCSHA1_OUTPUT_SIZE];
-
 };
 
 CFGiblisWithCompareFor(SecOTRPublicDHKey);
 
-static CFStringRef SecOTRPublicDHKeyCopyDescription(CFTypeRef cf) {
-    SecOTRPublicDHKeyRef session = (SecOTRPublicDHKeyRef)cf;
-    return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTRPublicDHKeyRef: %p>"), session);
+static CFStringRef SecOTRPublicDHKeyCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
+    SecOTRPublicDHKeyRef publicDHKey = (SecOTRPublicDHKeyRef)cf;
+
+    __block CFStringRef description = NULL;
+    withXandY(publicDHKey->_key, ^(CFStringRef x, CFStringRef y) {
+        BufferPerformWithHexString(publicDHKey->keyHash, sizeof(publicDHKey->keyHash), ^(CFStringRef dataString) {
+            description = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTRPublicDHKeyRef@%p: x: %@ y: %@ [%@]>"), publicDHKey, x, y, dataString);
+        });
+
+    });
+        return description;
 }
 
 static Boolean SecOTRPublicDHKeyCompare(CFTypeRef leftCF, CFTypeRef rightCF)
@@ -194,6 +245,11 @@ static Boolean SecOTRPublicDHKeyCompare(CFTypeRef leftCF, CFTypeRef rightCF)
 static void SecOTRPublicDHKeyDestroy(CFTypeRef cf) {
     SecOTRPublicDHKeyRef pubKey = (SecOTRPublicDHKeyRef)cf;
     (void) pubKey;
+}
+
+static inline void SecOTRPDHKUpdateHash(SecOTRPublicDHKeyRef pubKey)
+{
+    GenerateHashForKey(pubKey->_key, pubKey->keyHash);
 }
 
 static void ccec_copy_public(ccec_pub_ctx_t source, ccec_pub_ctx_t dest)
@@ -244,7 +300,7 @@ SecOTRPublicDHKeyRef SecOTRPublicDHKCreateFromCompactSerialization(CFAllocatorRe
     *size -= publicKeySize;
     *bytes += publicKeySize;
 
-    ccdigest(ccsha1_di(), *size, *bytes, newPDHK->keyHash);
+    SecOTRPDHKUpdateHash(newPDHK);
 
     return newPDHK;
 fail:
@@ -258,10 +314,11 @@ SecOTRPublicDHKeyRef SecOTRPublicDHKCreateFromBytes(CFAllocatorRef allocator, co
     SecOTRPublicDHKeyRef newPDHK = CFTypeAllocate(SecOTRPublicDHKey, struct _SecOTRPublicDHKey, allocator);
 
     require_noerr(ccec_import_pub(ccec_cp_256(), *size, *bytes, newPDHK->_key), fail);
-    ccdigest(ccsha1_di(), *size, *bytes, newPDHK->keyHash);
 
     *bytes += *size;
     *size = 0;
+
+    SecOTRPDHKUpdateHash(newPDHK);
 
     return newPDHK;
 fail:

@@ -27092,7 +27092,13 @@ cp;1F3ED;na=FACTORY
 cp;1F3EE;na=IZAKAYA LANTERN
 cp;1F3EF;na=JAPANESE CASTLE
 cp;1F3F0;na=EUROPEAN CASTLE
-cp;1F3F1..1F3FF;age=NA;bc=L;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+cp;1F3F1..1F3FA;age=NA;bc=L;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+# Early add of emoji modifiers for Fizpatrick types, slated for Unicode 8.0
+cp;1F3FB;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-1-2
+cp;1F3FC;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-3
+cp;1F3FD;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-4
+cp;1F3FE;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-5
+cp;1F3FF;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-6
 # Animal symbols
 cp;1F400;na=RAT
 cp;1F401;na=MOUSE

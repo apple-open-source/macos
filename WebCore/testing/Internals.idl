@@ -34,6 +34,9 @@ enum PageOverlayType {
 ] interface Internals {
     DOMString address(Node node);
 
+    // Animated image pausing testing.
+    [RaisesException] boolean hasPausedImageAnimations(Element element);
+
     [RaisesException] DOMString elementRenderTreeAsText(Element element);
     boolean isPreloaded(DOMString url);
     boolean isLoadingFromMemoryCache(DOMString url);
@@ -88,6 +91,8 @@ enum PageOverlayType {
     void addTextMatchMarker(Range range, boolean isActive);
     [RaisesException] void setMarkedTextMatchesAreHighlighted(boolean flag);
 
+    void invalidateFontCache();
+
     [RaisesException] void setScrollViewPosition(long x, long y);
 
     [RaisesException] void setPagination(DOMString mode, long gap, optional long pageLength);
@@ -114,6 +119,7 @@ enum PageOverlayType {
     [RaisesException] unsigned long locationFromRange(Element scope, Range range);
     [RaisesException] unsigned long lengthFromRange(Element scope, Range range);
     [RaisesException] DOMString rangeAsText(Range range);
+    [RaisesException] Range subrange(Range range, long rangeLocation, long rangeLength);
 
     [RaisesException] void setDelegatesScrolling(boolean enabled);
 

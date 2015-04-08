@@ -219,5 +219,50 @@ void MessageTrace::send(const char *format, ...)
 }
 
 
+
+// Resource limited async workers for doing work on nested bundles
+LimitedAsync::LimitedAsync(bool async)
+{
+	// validate multiple resources concurrently if bundle resides on solid-state media
+
+	// How many async workers to spin off. If zero, validating only happens synchronously.
+	long async_workers = 0;
+
+	long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+
+	if (async && ncpu > 0)
+		async_workers = ncpu - 1; // one less because this thread also validates
+
+	mResourceSemaphore = new Dispatch::Semaphore(async_workers);
+}
+
+LimitedAsync::LimitedAsync(LimitedAsync &limitedAsync)
+{
+	mResourceSemaphore = new Dispatch::Semaphore(*limitedAsync.mResourceSemaphore);
+}
+
+LimitedAsync::~LimitedAsync()
+{
+	delete mResourceSemaphore;
+}
+
+bool LimitedAsync::perform(Dispatch::Group &groupRef, void (^block)()) {
+	__block Dispatch::SemaphoreWait wait(*mResourceSemaphore, DISPATCH_TIME_NOW);
+
+	if (wait.acquired()) {
+		dispatch_queue_t defaultQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+		groupRef.enqueue(defaultQueue, ^{
+			// Hold the semaphore count until the worker is done validating.
+			Dispatch::SemaphoreWait innerWait(wait);
+			block();
+		});
+		return true;
+	} else {
+		block();
+		return false;
+	}
+}
+
 } // end namespace CodeSigning
 } // end namespace Security

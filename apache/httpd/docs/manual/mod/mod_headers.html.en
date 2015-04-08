@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_headers - Apache HTTP Server</title>
+<title>mod_headers - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -89,7 +89,8 @@ RequestHeader unset MirrorID</pre>
     configuration is traversed, early headers can only be set in a
     main server or virtual host context.  Early directives cannot depend
     on a request path, so they will fail in contexts such as
-    <code>&lt;Directory&gt;</code> or <code>&lt;Location&gt;</code>.</p>
+    <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> or
+    <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>.</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="examples" id="examples">Examples</a></h2>
@@ -164,7 +165,7 @@ Header set MyHeader "%D %t mytext" env=HAVE_MyRequestHeader</pre>
       </li>
 
       <li>
-        Set the same header value under multiple non-exclusive conditions,
+        Set the same header value under multiple nonexclusive conditions,
         but do not duplicate the value in the final header.
         If all of the following conditions applied to a request (i.e.,
         if the <code>CGI</code>, <code>NO_CACHE</code> and
@@ -194,6 +195,12 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
         <pre class="prettyprint lang-config">Header set Set-Cookie testcookie "expr=-z %{req:Cookie}"</pre>
 
       </li>
+      <li>
+        Append a Caching header for responses with a HTTP status code of 200
+        <pre class="prettyprint lang-config">Header append Cache-Control s-maxage=600 "expr=%{REQUEST_STATUS} == 200"</pre>
+
+      </li>
+
     </ol>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -201,14 +208,15 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Configure HTTP response headers</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>Header [<var>condition</var>] add|append|echo|edit|edit*|merge|set|setifempty|unset|note
-<var>header</var> [<var>value</var>] [<var>replacement</var>]
-[early|env=[!]<var>variable</var>]|expr=<var>expression</var>]
+<var>header</var> [[expr=]<var>value</var> [<var>replacement</var>]
+[early|env=[!]<var>varname</var>|expr=<var>expression</var>]]
 </code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_headers</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Default condition was temporarily changed to "always" in 2.3.9 and 2.3.10.  SetIfEmpty available since 2.4.7.</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>SetIfEmpty available in 2.4.7 and later, expr=value 
+available in 2.4.10 and later</td></tr>
 </table>
     <p>This directive can replace, merge or remove HTTP response
     headers. The header is modified just after the content handler
@@ -216,22 +224,22 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
     modified.</p>
 
     <p> The optional <var>condition</var> argument determines which internal
-    table of responses headers this directive will operate against.  Other
-    components of the server may have stored their response headers in either
-    the table that corresponds to <code>onsuccess</code> or the table that
-    corresponds to <code>always</code>.  "Always" in this context refers to
-    whether headers you add will be sent during both a successful and unsucessful
-    response, but if your action is a function of an existing header, you
-    will have to read on for further complications.</p>
+    table of responses headers this directive will operate against. Despite the
+    name, the default value of <code>onsuccess</code> does <em>not</em> limit 
+    an <var>action</var> to responses with a 2xx status code.  Headers set under
+    this condition are still used when, for example, a request is <em>successfully</em>
+    proxied or generated by CGI, even when they have generated a failing status code.</p>
 
-    <p> The default value of <code>onsuccess</code> may need to be changed to
-    <code>always</code> under the circumstances similar to those listed below.
+    <p>When your action is a function of an existing header, you may need to specify
+    a condition of <code>always</code>, depending on which internal table the
+    original header was set in.  The table that corresponds to <code>always</code> is
+    used for locally generated error responses as well as successful responses.  
     Note also that repeating this directive with both conditions makes sense in
     some scenarios because <code>always</code> is not a superset of
     <code>onsuccess</code> with respect to existing headers:</p>
 
     <ul>
-       <li> You're adding a header to a non-success (non-2xx) response, such
+       <li> You're adding a header to a locally generated non-success (non-2xx) response, such
             as a redirect, in which case only the table corresponding to
             <code>always</code> is used in the ultimate response.</li>
        <li> You're modifying or removing a header generated by a CGI script,
@@ -241,6 +249,10 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
             the server but that header is not being found by the default
             <code>onsuccess</code> condition.</li>
     </ul>
+
+    <p>Separately from the <var>condition</var> parameter described above, you 
+    can limit an action based on HTTP status codes for e.g. proxied or CGI 
+    requests. See the example that uses %{REQUEST_STATUS} in the section above.</p>
 
     <p>The action it performs is determined by the first
     argument (second argument if a <var>condition</var> is specified).
@@ -293,7 +305,8 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
 
     <dt><code>setifempty</code></dt>
     <dd>The request header is set, but only if there is no previous header
-    with this name. Available in 2.4.7 and later.</dd>
+    with this name.<br />
+    Available in 2.4.7 and later.</dd>
 
     <dt><code>unset</code></dt>
     <dd>The response header of this name is removed, if it exists.
@@ -304,7 +317,8 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
     <dd>The value of the named response <var>header</var> is copied into an
     internal note whose name is given by <var>value</var>.  This is useful
     if a header sent by a CGI or proxied resource is configured to be unset
-    but should also be logged.</dd>
+    but should also be logged.<br />
+    Available in 2.4.7 and later.</dd>
 
     </dl>
 
@@ -320,9 +334,12 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
     <code>add</code> a <var>value</var> is specified as the next argument.
     If <var>value</var>
     contains spaces, it should be surrounded by double quotes.
-    <var>value</var> may be a character string, a string containing format
-    specifiers or a combination of both. The following format specifiers
-    are supported in <var>value</var>:</p>
+    <var>value</var> may be a character string, a string containing 
+    <code class="module"><a href="../mod/mod_headers.html">mod_headers</a></code> specific format specifiers (and character 
+    literals), or an <a href="../expr.html">ap_expr</a> expression prefixed
+    with <em>expr=</em></p>
+    
+    <p> The following format specifiers are supported in <var>value</var>:</p>
 
     <table class="bordered"><tr class="header"><th>Format</th><th>Description</th></tr>
 <tr><td><code>%%</code></td>
@@ -341,15 +358,18 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
         designed to expose the values obtained by <code>getloadavg()</code>
         and this represents the current load average, the 5 minute average, and
         the 15 minute average. The value is preceded by <code>l=</code> with each
-        average separated by <code>/</code>.
+        average separated by <code>/</code>.<br />
+        Available in 2.4.4 and later.
         </td></tr>
 <tr><td><code>%i</code></td>
         <td>The current idle percentage of httpd (0 to 100) based on available
-        processes and threads. The value is preceded by <code>i=</code>.
+        processes and threads. The value is preceded by <code>i=</code>.<br />
+        Available in 2.4.4 and later.
         </td></tr>
 <tr class="odd"><td><code>%b</code></td>
         <td>The current busy percentage of httpd (0 to 100) based on available
-        processes and threads. The value is preceded by <code>b=</code>.
+        processes and threads. The value is preceded by <code>b=</code>.<br />
+        Available in 2.4.4 and later.
         </td></tr>
 <tr><td><code>%{VARNAME}e</code></td>
         <td>The contents of the <a href="../env.html">environment
@@ -390,9 +410,11 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
 
     <p>Except in <a href="#early">early</a> mode, the
     <code class="directive">Header</code> directives are processed just
-    before the response is sent to the network. These means that it is
-    possible to set and/or override most headers, except for those headers
-    added by the HTTP header filter, such as Content-Type.</p>
+    before the response is sent to the network. This means that it is
+    possible to set and/or override most headers, except for some headers
+    added by the HTTP header filter.  Prior to 2.2.12, it was not possible 
+    to change the Content-Type header with this directive.</p>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -400,14 +422,15 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Configure HTTP request headers</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>RequestHeader add|append|edit|edit*|merge|set|setifempty|unset
-<var>header</var> [<var>value</var>] [<var>replacement</var>]
-[early|env=[!]<var>variable</var>]|expr=<var>expression</var>]
+<var>header</var> [[expr=]<var>value</var> [<var>replacement</var>]
+[early|env=[!]<var>varname</var>|expr=<var>expression</var>]]
 </code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_headers</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>SetIfEmpty available in 2.4.7 and later</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>SetIfEmpty available in 2.4.7 and later, expr=value 
+available in 2.4.10 and later</td></tr>
 </table>
     <p>This directive can replace, merge, change or remove HTTP request
     headers. The header is modified just before the content handler
@@ -458,7 +481,8 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
 
     <dt><code>setifempty</code></dt>
     <dd>The request header is set, but only if there is no previous header
-    with this name. Available in 2.4.7 and later.</dd>
+    with this name.<br />
+    Available in 2.4.7 and later.</dd>
 
     <dt><code>unset</code></dt>
     <dd>The request header of this name is removed, if it exists. If

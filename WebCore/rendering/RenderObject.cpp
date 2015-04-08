@@ -474,7 +474,7 @@ void RenderObject::resetTextAutosizing()
 RenderLayer* RenderObject::enclosingLayer() const
 {
     for (auto& renderer : lineageOfType<RenderLayerModelObject>(*this)) {
-        if (renderer.layer())
+        if (renderer.hasLayer())
             return renderer.layer();
     }
     return nullptr;
@@ -750,10 +750,6 @@ void RenderObject::drawLineForBoxSide(GraphicsContext* graphicsContext, float x1
         thickness = x2 - x1;
         length = y2 - y1;
     }
-    // FIXME: flooring is a temporary solution until the device pixel snapping is added here for all border types (including recursive calls such as groove->(inset/outset)).
-    thickness = floorToDevicePixel(thickness, deviceScaleFactor);
-    length = floorToDevicePixel(length, deviceScaleFactor);
-
     if (borderStyle == DOUBLE && (thickness * deviceScaleFactor) < 3)
         borderStyle = SOLID;
 
@@ -954,13 +950,13 @@ void RenderObject::drawLineForBoxSide(GraphicsContext* graphicsContext, float x1
             FALLTHROUGH;
         case SOLID: {
             StrokeStyle oldStrokeStyle = graphicsContext->strokeStyle();
-            graphicsContext->setStrokeStyle(NoStroke);
-            graphicsContext->setFillColor(color, style.colorSpace());
             ASSERT(x2 >= x1);
             ASSERT(y2 >= y1);
             if (!adjacentWidth1 && !adjacentWidth2) {
                 // Turn off antialiasing to match the behavior of drawConvexPolygon();
                 // this matters for rects in transformed contexts.
+                graphicsContext->setStrokeStyle(NoStroke);
+                graphicsContext->setFillColor(color, style.colorSpace());
                 bool wasAntialiased = graphicsContext->shouldAntialias();
                 graphicsContext->setShouldAntialias(antialias);
                 graphicsContext->drawRect(pixelSnappedForPainting(x1, y1, x2 - x1, y2 - y1, deviceScaleFactor));
@@ -974,6 +970,7 @@ void RenderObject::drawLineForBoxSide(GraphicsContext* graphicsContext, float x1
             y1 = roundToDevicePixel(y1, deviceScaleFactor);
             x2 = roundToDevicePixel(x2, deviceScaleFactor);
             y2 = roundToDevicePixel(y2, deviceScaleFactor);
+
             FloatPoint quad[4];
             switch (side) {
                 case BSTop:
@@ -1002,6 +999,8 @@ void RenderObject::drawLineForBoxSide(GraphicsContext* graphicsContext, float x1
                     break;
             }
 
+            graphicsContext->setStrokeStyle(NoStroke);
+            graphicsContext->setFillColor(color, style.colorSpace());
             graphicsContext->drawConvexPolygon(4, quad, antialias);
             graphicsContext->setStrokeStyle(oldStrokeStyle);
             break;
@@ -2170,8 +2169,7 @@ static Color decorationColor(RenderStyle* style)
     return result;
 }
 
-void RenderObject::getTextDecorationColors(int decorations, Color& underline, Color& overline,
-                                           Color& linethrough, bool quirksMode, bool firstlineStyle)
+void RenderObject::getTextDecorationColors(int decorations, Color& underline, Color& overline, Color& linethrough, bool firstlineStyle)
 {
     RenderObject* curr = this;
     RenderStyle* styleToUse = 0;
@@ -2201,7 +2199,7 @@ void RenderObject::getTextDecorationColors(int decorations, Color& underline, Co
         curr = curr->parent();
         if (curr && curr->isAnonymousBlock() && toRenderBlock(curr)->continuation())
             curr = toRenderBlock(curr)->continuation();
-    } while (curr && decorations && (!quirksMode || !curr->node() || (!isHTMLAnchorElement(curr->node()) && !curr->node()->hasTagName(fontTag))));
+    } while (curr && decorations && (!curr->node() || (!isHTMLAnchorElement(curr->node()) && !curr->node()->hasTagName(fontTag))));
 
     // If we bailed out, use the element we bailed out at (typically a <font> or <a> element).
     if (decorations && curr) {

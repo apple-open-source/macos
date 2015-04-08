@@ -116,6 +116,7 @@ enum
     errSecMPSignatureInvalid     = -25327,  /* Signature invalid on MP message */
     errSecOTRTooOld              = -25328,  /* Message is too old to use */
     errSecOTRIDTooNew            = -25329,  /* Key ID is too new to use! Message from the future? */
+    errSecOTRNotReady            = -25331,  /* Can't process packets because the session hasn't finished negotiating */
 
 };
 

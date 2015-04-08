@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Démarrage d'Apache - Serveur Apache HTTP</title>
+<title>Démarrage d'Apache - Serveur Apache HTTP Version 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -30,8 +30,8 @@
 <a href="./tr/invoking.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 
-    <p>Apache est habituellement lancé en tant que service
-    sous Windows NT, 2000, XP, Vista et Seven. Pour plus de détails, voir <a href="platform/windows.html#winsvc">Démarrer Apache en tant
+    <p>Sous Windows, Apache est habituellement lancé en tant que
+    service. Pour plus de détails, voir <a href="platform/windows.html#winsvc">Démarrer Apache en tant
     que service</a>.</p>
 
     <p>Sous Unix, le programme <code class="program"><a href="./programs/httpd.html">httpd</a></code>

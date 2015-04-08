@@ -47,6 +47,7 @@
 #include "Element.h"
 #include "EventHandler.h"
 #include "ExceptionCode.h"
+#include "FontCache.h"
 #include "FormController.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
@@ -524,6 +525,15 @@ String Internals::elementRenderTreeAsText(Element* element, ExceptionCode& ec)
     return representation;
 }
 
+bool Internals::hasPausedImageAnimations(Element* element, ExceptionCode& ec)
+{
+    if (!element) {
+        ec = INVALID_ACCESS_ERR;
+        return false;
+    }
+    return element->renderer() && element->renderer()->hasPausedImageAnimations();
+}
+
 PassRefPtr<CSSComputedStyleDeclaration> Internals::computedStyleIncludingVisitedInfo(Node* node, ExceptionCode& ec) const
 {
     if (!node) {
@@ -813,6 +823,11 @@ void Internals::setMarkedTextMatchesAreHighlighted(bool flag, ExceptionCode& ec)
     document->frame()->editor().setMarkedTextMatchesAreHighlighted(flag);
 }
 
+void Internals::invalidateFontCache()
+{
+    fontCache().invalidate();
+}
+
 void Internals::setScrollViewPosition(long x, long y, ExceptionCode& ec)
 {
     Document* document = contextDocument();
@@ -1037,6 +1052,16 @@ String Internals::rangeAsText(const Range* range, ExceptionCode& ec)
     }
 
     return range->text();
+}
+
+PassRefPtr<Range> Internals::subrange(Range* range, int rangeLocation, int rangeLength, ExceptionCode& ec)
+{
+    if (!range) {
+        ec = INVALID_ACCESS_ERR;
+        return 0;
+    }
+
+    return TextIterator::subrange(range, rangeLocation, rangeLength);
 }
 
 void Internals::setDelegatesScrolling(bool enabled, ExceptionCode& ec)

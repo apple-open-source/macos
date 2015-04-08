@@ -200,6 +200,17 @@ int DSA_verify(int type, const unsigned char *dgst, int dgst_len,
 	     const unsigned char *sigbuf, int siglen, DSA *dsa)
 	{
 	DSA_SIG *s;
+	/*
+	  rdar://problem/20168109 and others
+	  a binary compat issue with OpenSSL zd from zc
+	  this change seems to be the problem, and is not critical
+	  (for now).
+	*/
+#if 0
+	const unsigned char *p = sigbuf;
+	unsigned char *der = NULL;
+	int derlen = -1;
+#endif
 	int ret=-1;
 #ifdef OPENSSL_FIPS
 	if(FIPS_mode() && !(dsa->flags & DSA_FLAG_NON_FIPS_ALLOW))
@@ -211,10 +222,33 @@ int DSA_verify(int type, const unsigned char *dgst, int dgst_len,
 
 	s = DSA_SIG_new();
 	if (s == NULL) return(ret);
+	/*
+	  rdar://problem/20168109 and others
+	  a binary compat issue with OpenSSL zd from zc
+	  this change seems to be the problem, and is not critical
+	  (for now).
+	*/
+#if 0
+	if (d2i_DSA_SIG(&s,&p,siglen) == NULL) goto err;
+	/* Ensure signature uses DER and doesn't have trailing garbage */
+	derlen = i2d_DSA_SIG(s, &der);
+	if (derlen != siglen || memcmp(sigbuf, der, derlen))
+		goto err;
+#else
 	if (d2i_DSA_SIG(&s,&sigbuf,siglen) == NULL) goto err;
+#endif
 	ret=DSA_do_verify(dgst,dgst_len,s,dsa);
 err:
+	/*
+	  more from rdar://problem/20168109 and others
+	*/
+#if 0
+	if (derlen > 0)
+		{
+		OPENSSL_cleanse(der, derlen);
+		OPENSSL_free(der);
+		}
+#endif
 	DSA_SIG_free(s);
 	return(ret);
 	}
-

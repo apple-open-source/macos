@@ -211,10 +211,8 @@ static OSStatus SecOTRSetupTheirKeyFrom(SecOTRSessionRef session, const uint8_t*
 {
     SecOTRPublicDHKeyRef tempKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, data, size);
     require(tempKey != NULL, fail);
-    session->_theirKey = tempKey;
-    session->_theirKeyID = 1;
     
-    return errSecSuccess;
+    return SecOTRSetupInitialRemoteKey(session, tempKey);
 
 fail:
     return errSecDecode;

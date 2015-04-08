@@ -115,7 +115,9 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
         | kSecCSEnforceRevocationChecks
 		| kSecCSNoNetworkAccess
 		| kSecCSCheckNestedCode
-		| kSecCSStrictValidate);
+		| kSecCSStrictValidate
+		| kSecCSCheckGatekeeperArchitectures
+	);
 	
 	if (errors)
 		flags |= kSecCSFullReport;	// internal-use flag

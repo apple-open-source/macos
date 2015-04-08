@@ -68,6 +68,7 @@ private:
     UInt8			fCommInterfaceNumber;			// My interface number
     
     bool			fReady;
+    bool			fReleased;
     UInt8			fLinkStatus;
     UInt32			fUpSpeed;
     UInt32			fDownSpeed;
@@ -106,6 +107,7 @@ public:
 		
 	virtual IOService   *probe(IOService *provider, SInt32 *score);
     virtual bool		start(IOService *provider);
+    virtual void		free(void);
     virtual void		stop(IOService *provider);
     virtual IOReturn 	message(UInt32 type, IOService *provider, void *argument = 0);
     

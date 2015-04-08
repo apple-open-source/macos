@@ -67,6 +67,7 @@ _sasl_checkapop
 _sasl_checkpass
 _sasl_churn
 _sasl_client_add_plugin
+_sasl_client_done
 _sasl_client_init
 _sasl_client_new
 _sasl_client_plugin_info
@@ -95,6 +96,7 @@ _sasl_randcreate
 _sasl_randfree
 _sasl_randseed
 _sasl_server_add_plugin
+_sasl_server_done
 _sasl_server_init
 _sasl_server_init_alt
 _sasl_server_new

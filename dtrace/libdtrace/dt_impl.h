@@ -20,6 +20,10 @@
  */
 
 /*
+ * Portions copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
+/*
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -92,6 +96,7 @@ extern "C" {
 #include <dt_proc.h>
 #include <dt_dof.h>
 #include <dt_pcb.h>
+#include <dt_pq.h>
 
 struct dt_module;		/* see below */
 struct dt_pfdict;		/* see <dt_printf.h> */
@@ -282,7 +287,7 @@ struct dtrace_hdl {
 	int dt_maxformat;	/* max format ID */
 	void **dt_formats;	/* pointer to format array */
 	dt_aggregate_t dt_aggregate; /* aggregate */
-	dtrace_bufdesc_t dt_buf; /* staging buffer */
+	dt_pq_t *dt_bufq;	/* CPU-specific data queue */
 	struct dt_pfdict *dt_pfdict; /* dictionary of printf conversions */
 	dt_version_t dt_vmax;	/* optional ceiling on program API binding */
 	dtrace_attribute_t dt_amin; /* optional floor on program attributes */
@@ -345,7 +350,8 @@ struct dtrace_hdl {
 	dt_list_t dt_lib_dep;	/* scratch linked-list of lib dependencies */
 	dt_list_t dt_lib_dep_sorted;	/* dependency sorted library list */
 	cpu_type_t dt_arch;	/* CPU architecture to generate objects for */
-    dt_strtab_t *dt_apple_ids; /* IDs generated during apple_define actions */
+	dt_strtab_t *dt_apple_ids; /* IDs generated during apple_define actions */
+	uint64_t dt_last_timestamp;	/* most recently consumed timestamp */
 };
 
 /*

@@ -2542,7 +2542,8 @@ rebuild_loccache(struct bootCaches *caches)
     if (errnum) {
         (void)sdeepunlink(caches->cachefd, locCacheDir);
         result = errnum;
-        LOGERRxlate("_writeEFILoginResources", NULL, result);
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "Warning: _writeEFILoginResources failed");
         goto finish;
     }
 

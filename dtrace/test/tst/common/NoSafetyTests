@@ -608,6 +608,9 @@ pragma/err.D_PRAGERR.d
 pragma/err.D_PRAGMA_INVAL.d
 pragma/err.D_PRAGMA_MALFORM.d
 pragma/err.D_PRAGMA_UNUSED.UnusedPragma.d
+pragma/tst.temporal1.ksh
+pragma/tst.temporal2.ksh
+pragma/tst.temporal3.d
 predicates/err.D_PRED_SCALAR.NonScalarPred.d
 predicates/err.D_SYNTAX.invalid.d
 predicates/err.D_SYNTAX.operr.d

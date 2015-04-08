@@ -1133,8 +1133,8 @@ da{
                 other{"{0} unser"}
             }
             pound{
-                one{"{0} skålpund"}
-                other{"{0} skålpund"}
+                one{"{0} pund"}
+                other{"{0} pund"}
             }
             stone{
                 one{"{0} stone"}
@@ -1348,8 +1348,8 @@ da{
                 other{"{0} unser"}
             }
             pound{
-                one{"{0} pund"}
-                other{"{0} pund"}
+                one{"{0} lb"}
+                other{"{0} lb"}
             }
         }
         power{
@@ -1581,8 +1581,8 @@ da{
                 other{"{0} unser"}
             }
             pound{
-                one{"{0} skålpund"}
-                other{"{0} skålpund"}
+                one{"{0} pund"}
+                other{"{0} pund"}
             }
             stone{
                 one{"{0} st"}

@@ -3535,6 +3535,7 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
     else if (ret == kIOReturnNotFound) {
         supportsACID = false;
 
+        bool readFromSMC = false;
         int32_t current, nominalV, minV, maxV, watts;
         char  str[33];
 
@@ -3546,23 +3547,58 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
             asl_log(0,0,ASL_LEVEL_ERR, "Failed to read current rating(0x%x)\n", ret);
             return NULL;
         }
+        _smcReadKey('D0VR', (void *)&nominalV, &readKeyLen, true);
+        if ((ret != kIOReturnSuccess) || (nominalV == 0)) {
 
-        if (isA_CFDictionary(oldACDict)) {
-            int32_t prevCurrent;
+            asl_log(0,0,ASL_LEVEL_ERR, "Failed to read nominal Voltage rating(0x%x)\n", ret);
+            return NULL;
+        }
+
+        do {
+            int32_t prevCurrent, prevNominalV;
             CFNumberRef prevCurrentRef = NULL;
+            CFNumberRef prevNominalVRef = NULL;
+
+            if (!isA_CFDictionary(oldACDict)) {
+                readFromSMC = true;
+                break;
+            }
+
 
             prevCurrentRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSPowerAdapterCurrentKey));
-            if (isA_CFNumber(prevCurrentRef) && 
-                CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevCurrent) &&
-                (current == prevCurrent)
-                ) {
-                /* 
-                 * There is no change in prev values and current values.
-                 * No need to read remaining keys
-                 */
-                return NULL;
+            if ((!isA_CFNumber(prevCurrentRef)) ||
+                (!CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevCurrent)) ||
+                 (current != prevCurrent)
+               ) {
+                readFromSMC = true;
+                break;
             }
-        }
+
+            prevNominalVRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSVoltageKey));
+            if ((!isA_CFNumber(prevCurrentRef)) ||
+                (!CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevNominalV)) ||
+                 (nominalV != prevNominalV)
+               ) {
+                readFromSMC = true;
+                break;
+            }
+
+            if (
+                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterSerialStringKey))) ||
+                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterIDKey))) ||
+                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey))) ||
+                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey))) ||
+                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey))) ||
+                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterNameKey)))
+               ) {
+                readFromSMC = true;
+                break;
+            }
+
+        } while (0);
+
+        if (!readFromSMC) 
+            return NULL;
 
         acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -3571,7 +3607,6 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
         }
         stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), current);
 
-        _smcReadKey('D0VR', (void *)&nominalV, &readKeyLen, true);
         _smcReadKey('D0VM', (void *)&minV, &readKeyLen, true);
         _smcReadKey('D0VX', (void *)&maxV, &readKeyLen, true);
         if ((nominalV == minV) && (maxV != 0)) {
@@ -3591,28 +3626,28 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
         readKeyLen = sizeof(str);
         bzero(str, sizeof(str));
         ret = _smcReadKey('D0is', (void *)&str, &readKeyLen, false);
-        if (ret == kIOReturnSuccess) {
+        if ((ret == kIOReturnSuccess) && (str[0] != 0))  {
             stuffString(acDict, CFSTR(kIOPSPowerAdapterSerialStringKey), str);
         }
 
         readKeyLen = sizeof(str);
         bzero(str, sizeof(str));
         ret = _smcReadKey('D0if', (void *)&str, &readKeyLen, false);
-        if (ret == kIOReturnSuccess) {
+        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
             stuffString(acDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey), str);
         }
 
         readKeyLen = sizeof(str);
         bzero(str, sizeof(str));
         ret = _smcReadKey('D0ih', (void *)&str, &readKeyLen, false);
-        if (ret == kIOReturnSuccess) {
+        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
             stuffString(acDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey), str);
         }
 
         readKeyLen = sizeof(str);
         bzero(str, sizeof(str));
         ret = _smcReadKey('D0ii', (void *)&str, &readKeyLen, false);
-        if (ret == kIOReturnSuccess) {
+        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
             uint32_t id = 0;
             id = strtol(str, 0, 0);
             if (id != 0) {
@@ -3624,18 +3659,14 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
         readKeyLen = sizeof(str);
         bzero(str, sizeof(str));
         ret = _smcReadKey('D0im', (void *)&str, &readKeyLen, false);
-        if (ret == kIOReturnSuccess) {
-            uint32_t id = 0;
-            id = strtol(str, 0, 0);
-            if (id != 0) {
-                stuffInt32(acDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey), id);
-            }
+        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
+            stuffString(acDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey), str);
         }
 
         readKeyLen = sizeof(str);
         bzero(str, sizeof(str));
         ret = _smcReadKey('D0in', (void *)&str, &readKeyLen, false);
-        if (ret == kIOReturnSuccess) {
+        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
             stuffString(acDict, CFSTR(kIOPSPowerAdapterNameKey), str);
         }
 

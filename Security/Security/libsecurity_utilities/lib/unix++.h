@@ -234,6 +234,9 @@ public:
 	// Is this a regular file? (not a symlink, fifo, etc.)
 	bool isPlainFile(const std::string &path);
 
+	// device characteristics
+	std::string mediumType();
+
 private:
     int mFd;				// UNIX file descriptor
 

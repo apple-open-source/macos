@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.MobileAsset.PKITrustServices.PKITrustData</string>
+	<key>CFBundleName</key>
+	<string>PKI Trust Data</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>MobileAssetProperties</key>
+	<dict>
+		<key>FormatVersion</key>
+		<integer>1</integer>
+		<key>ContentVersion</key>
+		<integer>2015032000</integer>
+		<key>__AssetDefaultGarbageCollectionBehavior</key>
+		<string>NeverCollected</string>
+	</dict>
+</dict>
+</plist>

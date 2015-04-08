@@ -352,6 +352,7 @@ void AppleUSBCDCEEM::dataReadComplete(void *obj, void *param, IOReturn rc, UInt3
 		
 			if (EEMHeader & bmTypeCommand)
 			{
+		
 					// Look at the command
 				
 				me->processEEMCommand(EEMHeader, pipeBuf->indx, i+2, &actualLen);

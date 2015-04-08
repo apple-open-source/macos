@@ -76,7 +76,7 @@ protected:
 
 protected:
 	void buildResources(std::string root, std::string relBase, CFDictionaryRef rules);
-	CFMutableDictionaryRef signNested(FTSENT *ent, const char *relpath);
+	CFMutableDictionaryRef signNested(const std::string &path, const std::string &relpath);
 	CFDataRef hashFile(const char *path);
 
 private:
@@ -91,6 +91,7 @@ private:
 	size_t pagesize;				// size of main executable pages
 	CFAbsoluteTime signingTime;		// signing time for CMS signature (0 => none)
 	bool strict;					// strict validation
+	Mutex resourceLock;
 };
 
 

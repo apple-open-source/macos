@@ -33,7 +33,8 @@
 #include <CoreFoundation/CFCalendar.h>
 #include <math.h>
 
-#define NULL_TIME NAN
+#define NULL_TIME       NAN
+#define IS_NULL_TIME(x) isnan(x)
 
 /* Cumulative number of days in the year for months up to month i.  */
 static int mdays[13] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 };
@@ -64,12 +65,16 @@ static CFAbsoluteTime SecGregorianDateGetAbsoluteTime(int year, int month, int d
 }
 
 static bool SecAbsoluteTimeGetGregorianDate(CFTimeInterval at, int *year, int *month, int *day, int *hour, int *minute, int *second, CFErrorRef *error) {
-    // TODO: Remove CFCalendarDecomposeAbsoluteTime dependancy because CFTimeZoneCreateWithTimeIntervalFromGMT is expensive and requires filesystem access to timezone files when we are only doing zulu time anyway
-    if (!CFCalendarDecomposeAbsoluteTime(SecCFCalendarGetZulu(), at, "yMdHms", year, month, day, hour, minute, second)) {
+    // TODO: Remove CFCalendarDecomposeAbsoluteTime dependancy because
+    // CFTimeZoneCreateWithTimeIntervalFromGMT is expensive and requires
+    // filesystem access to timezone files when we are only doing zulu time anyway
+    __block bool result;
+    SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+        result = CFCalendarDecomposeAbsoluteTime(zuluCalendar, at, "yMdHms", year, month, day, hour, minute, second);
+    });
+    if (!result)
         SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Failed to encode date."), 0, error);
-        return false;
-    }
-    return true;
+    return result;
 }
 
 static int der_get_char(const uint8_t **der_p, const uint8_t *der_end,
@@ -215,9 +220,11 @@ static const uint8_t* der_decode_commontime_body(CFAbsoluteTime *at, CFErrorRef 
             return NULL;
         }
 
-        *at = SecGregorianDateGetAbsoluteTime(year, month, day, hour, minute, second, timeZoneOffset, error) + fraction;
-        if (*at == NULL_TIME)
+        *at = SecGregorianDateGetAbsoluteTime(year, month, day, hour, minute, second, timeZoneOffset, error);
+        if (IS_NULL_TIME(*at))
             return NULL;
+
+        *at += fraction;
     }
 
     return der;
@@ -374,7 +381,7 @@ uint8_t* der_encode_generalizedtime_body(CFAbsoluteTime at, CFErrorRef *error,
     if (!SecAbsoluteTimeGetGregorianDate(at, &year, &month, &day, &hour, &minute, &second, error))
         return NULL;
 
-    return ccder_encode_decimal_quad(year, der,
+    uint8_t * result = ccder_encode_decimal_quad(year, der,
            ccder_encode_decimal_pair(month, der,
            ccder_encode_decimal_pair(day, der,
            ccder_encode_decimal_pair(hour, der,
@@ -382,6 +389,8 @@ uint8_t* der_encode_generalizedtime_body(CFAbsoluteTime at, CFErrorRef *error,
            ccder_encode_decimal_pair(second, der,
            ccder_encode_nanoseconds(at, der,
            ccder_encode_byte('Z', der, der_end))))))));
+
+    return result;
 }
 
 uint8_t* der_encode_generalizedtime(CFAbsoluteTime at, CFErrorRef *error,

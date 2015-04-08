@@ -141,17 +141,14 @@ DER_CFDateToUTCTime(CFAbsoluteTime date, SecAsn1Item * utcTime)
     utcTime->Data = d = PORT_Alloc(13);
     if (!utcTime->Data)
 	return SECFailure;
-
-    int year;
-    int month;
-    int day;
-    int hour;
-    int minute;
-    int second;
     
-    if (!CFCalendarDecomposeAbsoluteTime(SecCFCalendarGetZulu(), date, "yMdHms", &year, &month, &day, &hour, &minute, &second))
+    __block int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    __block bool result;
+    SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+        result = CFCalendarDecomposeAbsoluteTime(zuluCalendar, date, "yMdHms", &year, &month, &day, &hour, &minute, &second);
+    });
+    if (!result)
         return SECFailure;
-
 
     /* UTC time does not handle the years before 1950 */
     if (year < 1950)

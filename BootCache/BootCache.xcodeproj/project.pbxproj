@@ -326,7 +326,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0600;
+				LastUpgradeCheck = 0700;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -483,6 +483,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -499,6 +500,7 @@
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

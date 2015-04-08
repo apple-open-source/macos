@@ -133,6 +133,7 @@ static void modssl_ctx_init(modssl_ctx_t *mctx, apr_pool_t *p)
     mctx->ocsp_resptime_skew  = UNSET;
     mctx->ocsp_resp_maxage    = UNSET;
     mctx->ocsp_responder_timeout = UNSET;
+    mctx->ocsp_use_request_nonce = UNSET;
 
 #ifdef HAVE_OCSP_STAPLING
     mctx->stapling_enabled           = UNSET;
@@ -202,7 +203,7 @@ static SSLSrvConfigRec *ssl_config_server_new(apr_pool_t *p)
     SSLSrvConfigRec *sc = apr_palloc(p, sizeof(*sc));
 
     sc->mc                     = NULL;
-    sc->enabled                = SSL_ENABLED_FALSE;
+    sc->enabled                = SSL_ENABLED_UNSET;
     sc->proxy_enabled          = UNSET;
     sc->vhost_id               = NULL;  /* set during module init */
     sc->vhost_id_len           = 0;     /* set during module init */
@@ -243,7 +244,7 @@ void *ssl_config_server_create(apr_pool_t *p, server_rec *s)
 }
 
 #define cfgMerge(el,unset)  mrg->el = (add->el == (unset)) ? base->el : add->el
-#define cfgMergeArray(el)   mrg->el = apr_array_append(p, add->el, base->el)
+#define cfgMergeArray(el)   mrg->el = apr_array_append(p, base->el, add->el)
 #define cfgMergeString(el)  cfgMerge(el, NULL)
 #define cfgMergeBool(el)    cfgMerge(el, UNSET)
 #define cfgMergeInt(el)     cfgMerge(el, UNSET)
@@ -276,6 +277,7 @@ static void modssl_ctx_cfg_merge(apr_pool_t *p,
     cfgMergeInt(ocsp_resptime_skew);
     cfgMergeInt(ocsp_resp_maxage);
     cfgMergeInt(ocsp_responder_timeout);
+    cfgMergeBool(ocsp_use_request_nonce);
 #ifdef HAVE_OCSP_STAPLING
     cfgMergeBool(stapling_enabled);
     cfgMergeInt(stapling_resptime_skew);
@@ -310,6 +312,34 @@ static void modssl_ctx_cfg_merge_proxy(apr_pool_t *p,
     cfgMergeString(pkp->ca_cert_file);
 }
 
+static void modssl_ctx_cfg_merge_certkeys_array(apr_pool_t *p,
+                                                apr_array_header_t *base,
+                                                apr_array_header_t *add,
+                                                apr_array_header_t *mrg)
+{
+    int i;
+
+    /*
+     * pick up to CERTKEYS_IDX_MAX+1 entries from "add" (in which case they
+     * they "knock out" their corresponding entries in "base", emulating
+     * the behavior with cfgMergeString in releases up to 2.4.7)
+     */
+    for (i = 0; i < add->nelts && i <= CERTKEYS_IDX_MAX; i++) {
+        APR_ARRAY_PUSH(mrg, const char *) = APR_ARRAY_IDX(add, i, const char *);
+    }
+
+    /* add remaining ones from "base" */
+    while (i < base->nelts) {
+        APR_ARRAY_PUSH(mrg, const char *) = APR_ARRAY_IDX(base, i, const char *);
+        i++;
+    }
+
+    /* and finally, append the rest of "add" (if there are any) */
+    for (i = CERTKEYS_IDX_MAX+1; i < add->nelts; i++) {
+        APR_ARRAY_PUSH(mrg, const char *) = APR_ARRAY_IDX(add, i, const char *);
+    }
+}
+
 static void modssl_ctx_cfg_merge_server(apr_pool_t *p,
                                         modssl_ctx_t *base,
                                         modssl_ctx_t *add,
@@ -317,8 +347,18 @@ static void modssl_ctx_cfg_merge_server(apr_pool_t *p,
 {
     modssl_ctx_cfg_merge(p, base, add, mrg);
 
-    cfgMergeArray(pks->cert_files);
-    cfgMergeArray(pks->key_files);
+    /*
+     * For better backwards compatibility with releases up to 2.4.7,
+     * merging global and vhost-level SSLCertificateFile and
+     * SSLCertificateKeyFile directives needs special treatment.
+     * See also PR 56306 and 56353.
+     */
+    modssl_ctx_cfg_merge_certkeys_array(p, base->pks->cert_files,
+                                        add->pks->cert_files,
+                                        mrg->pks->cert_files);
+    modssl_ctx_cfg_merge_certkeys_array(p, base->pks->key_files,
+                                        add->pks->key_files,
+                                        mrg->pks->key_files);
 
     cfgMergeString(pks->ca_name_path);
     cfgMergeString(pks->ca_name_file);
@@ -1603,6 +1643,15 @@ const char *ssl_cmd_SSLOCSPResponderTimeout(cmd_parms *cmd, void *dcfg, const ch
     if (sc->server->ocsp_responder_timeout < 0) {
         return "SSLOCSPResponderTimeout: invalid argument";
     }
+    return NULL;
+}
+
+const char *ssl_cmd_SSLOCSPUseRequestNonce(cmd_parms *cmd, void *dcfg, int flag)
+{
+    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
+
+    sc->server->ocsp_use_request_nonce = flag ? TRUE : FALSE;
+
     return NULL;
 }
 

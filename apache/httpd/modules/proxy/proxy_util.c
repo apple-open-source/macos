@@ -22,6 +22,7 @@
 #include "apr_hash.h"
 #include "proxy_util.h"
 #include "ajp.h"
+#include "scgi.h"
 
 #if APR_HAVE_UNISTD_H
 #include <unistd.h>         /* for getpid() */
@@ -1123,6 +1124,9 @@ PROXY_DECLARE(char *) ap_proxy_update_balancer(apr_pool_t *p,
                                                 const char *url)
 {
     apr_uri_t puri;
+    if (!url) {
+        return NULL;
+    }
     if (apr_uri_parse(p, url, &puri) != APR_SUCCESS) {
         return apr_psprintf(p, "unable to parse: %s", url);
     }
@@ -1402,6 +1406,7 @@ static void socket_cleanup(proxy_conn_rec *conn)
 {
     conn->sock = NULL;
     conn->connection = NULL;
+    conn->ssl_hostname = NULL;
     apr_pool_clear(conn->scpool);
 }
 
@@ -1927,6 +1932,8 @@ PROXY_DECLARE(int) ap_proxy_pre_request(proxy_worker **worker,
         }
         else if (r->proxyreq == PROXYREQ_REVERSE) {
             if (conf->reverse) {
+                char *ptr;
+                char *ptr2;
                 ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
                               "*: found reverse proxy worker for %s", *url);
                 *balancer = NULL;
@@ -1938,6 +1945,36 @@ PROXY_DECLARE(int) ap_proxy_pre_request(proxy_worker **worker,
                  * regarding the Connection header in the request.
                  */
                 apr_table_setn(r->subprocess_env, "proxy-nokeepalive", "1");
+                /*
+                 * In the case of the generic reverse proxy, we need to see if we
+                 * were passed a UDS url (eg: from mod_proxy) and adjust uds_path
+                 * as required.
+                 *
+                 * NOTE: Here we use a quick note lookup, but we could also
+                 * check to see if r->filename starts with 'proxy:'
+                 */
+                if (apr_table_get(r->notes, "rewrite-proxy") &&
+                    (ptr2 = ap_strcasestr(r->filename, "unix:")) &&
+                    (ptr = ap_strchr(ptr2, '|'))) {
+                    apr_uri_t urisock;
+                    apr_status_t rv;
+                    *ptr = '\0';
+                    rv = apr_uri_parse(r->pool, ptr2, &urisock);
+                    if (rv == APR_SUCCESS) {
+                        char *rurl = ptr+1;
+                        char *sockpath = ap_runtime_dir_relative(r->pool, urisock.path);
+                        apr_table_setn(r->notes, "uds_path", sockpath);
+                        *url = apr_pstrdup(r->pool, rurl); /* so we get the scheme for the uds */
+                        /* r->filename starts w/ "proxy:", so add after that */
+                        memmove(r->filename+6, rurl, strlen(rurl)+1);
+                        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
+                                      "*: rewrite of url due to UDS(%s): %s (%s)",
+                                      sockpath, *url, r->filename);
+                    }
+                    else {
+                        *ptr = '|';
+                    }
+                }
             }
         }
     }
@@ -2097,29 +2134,6 @@ PROXY_DECLARE(int) ap_proxy_acquire_connection(const char *proxy_function,
     (*conn)->close  = 0;
     (*conn)->inreslist = 0;
 
-    if (*worker->s->uds_path) {
-        if ((*conn)->uds_path == NULL) {
-            /* use (*conn)->pool instead of worker->cp->pool to match lifetime */
-            (*conn)->uds_path = apr_pstrdup((*conn)->pool, worker->s->uds_path);
-        }
-        if ((*conn)->uds_path) {
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(02545)
-                         "%s: has determined UDS as %s",
-                         proxy_function, (*conn)->uds_path);
-        }
-        else {
-            /* should never happen */
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(02546)
-                         "%s: cannot determine UDS (%s)",
-                         proxy_function, worker->s->uds_path);
-
-        }
-    }
-    else {
-        (*conn)->uds_path = NULL;
-    }
-
-
     return OK;
 }
 
@@ -2150,6 +2164,7 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
     int server_port;
     apr_status_t err = APR_SUCCESS;
     apr_status_t uerr = APR_SUCCESS;
+    const char *uds_path;
 
     /*
      * Break up the URL to determine the host to connect to
@@ -2190,85 +2205,117 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
      *      to check host and port on the conn and be careful about
      *      spilling the cached addr from the worker.
      */
-    if (!conn->hostname || !worker->s->is_address_reusable ||
-        worker->s->disablereuse || *worker->s->uds_path) {
-        if (proxyname) {
-            conn->hostname = apr_pstrdup(conn->pool, proxyname);
-            conn->port = proxyport;
-            /*
-             * If we have a forward proxy and the protocol is HTTPS,
-             * then we need to prepend a HTTP CONNECT request before
-             * sending our actual HTTPS requests.
-             * Save our real backend data for using it later during HTTP CONNECT.
-             */
-            if (conn->is_ssl) {
-                const char *proxy_auth;
+    uds_path = (*worker->s->uds_path ? worker->s->uds_path : apr_table_get(r->notes, "uds_path"));
+    if (uds_path) {
+        if (conn->uds_path == NULL) {
+            /* use (*conn)->pool instead of worker->cp->pool to match lifetime */
+            conn->uds_path = apr_pstrdup(conn->pool, uds_path);
+        }
+        if (conn->uds_path) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(02545)
+                         "%s: has determined UDS as %s",
+                         uri->scheme, conn->uds_path);
+        }
+        else {
+            /* should never happen */
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(02546)
+                         "%s: cannot determine UDS (%s)",
+                         uri->scheme, uds_path);
 
-                forward_info *forward = apr_pcalloc(conn->pool, sizeof(forward_info));
-                conn->forward = forward;
-                forward->use_http_connect = 1;
-                forward->target_host = apr_pstrdup(conn->pool, uri->hostname);
-                forward->target_port = uri->port;
-                /* Do we want to pass Proxy-Authorization along?
-                 * If we haven't used it, then YES
-                 * If we have used it then MAYBE: RFC2616 says we MAY propagate it.
-                 * So let's make it configurable by env.
-                 * The logic here is the same used in mod_proxy_http.
+        }
+        /*
+         * In UDS cases, some structs are NULL. Protect from de-refs
+         * and provide info for logging at the same time.
+         */
+        if (!conn->addr) {
+            apr_sockaddr_t *sa;
+            apr_sockaddr_info_get(&sa, NULL, APR_UNSPEC, 0, 0, conn->pool);
+            conn->addr = sa;
+        }
+        conn->hostname = "httpd-UDS";
+        conn->port = 0;
+    }
+    else {
+        int will_reuse = worker->s->is_address_reusable && !worker->s->disablereuse;
+        if (!conn->hostname || !will_reuse) {
+            if (proxyname) {
+                conn->hostname = apr_pstrdup(conn->pool, proxyname);
+                conn->port = proxyport;
+                /*
+                 * If we have a forward proxy and the protocol is HTTPS,
+                 * then we need to prepend a HTTP CONNECT request before
+                 * sending our actual HTTPS requests.
+                 * Save our real backend data for using it later during HTTP CONNECT.
                  */
-                proxy_auth = apr_table_get(r->headers_in, "Proxy-Authorization");
-                if (proxy_auth != NULL &&
-                    proxy_auth[0] != '\0' &&
-                    r->user == NULL && /* we haven't yet authenticated */
-                    apr_table_get(r->subprocess_env, "Proxy-Chain-Auth")) {
-                    forward->proxy_auth = apr_pstrdup(conn->pool, proxy_auth);
+                if (conn->is_ssl) {
+                    const char *proxy_auth;
+
+                    forward_info *forward = apr_pcalloc(conn->pool, sizeof(forward_info));
+                    conn->forward = forward;
+                    forward->use_http_connect = 1;
+                    forward->target_host = apr_pstrdup(conn->pool, uri->hostname);
+                    forward->target_port = uri->port;
+                    /* Do we want to pass Proxy-Authorization along?
+                     * If we haven't used it, then YES
+                     * If we have used it then MAYBE: RFC2616 says we MAY propagate it.
+                     * So let's make it configurable by env.
+                     * The logic here is the same used in mod_proxy_http.
+                     */
+                    proxy_auth = apr_table_get(r->headers_in, "Proxy-Authorization");
+                    if (proxy_auth != NULL &&
+                        proxy_auth[0] != '\0' &&
+                        r->user == NULL && /* we haven't yet authenticated */
+                        apr_table_get(r->subprocess_env, "Proxy-Chain-Auth")) {
+                        forward->proxy_auth = apr_pstrdup(conn->pool, proxy_auth);
+                    }
                 }
             }
-        }
-        else {
-            conn->hostname = apr_pstrdup(conn->pool, uri->hostname);
-            conn->port = uri->port;
-        }
-        socket_cleanup(conn);
-        if (!(*worker->s->uds_path) &&
-            (!worker->s->is_address_reusable || worker->s->disablereuse)) {
-            /*
-             * Only do a lookup if we should not reuse the backend address.
-             * Otherwise we will look it up once for the worker.
-             */
-            err = apr_sockaddr_info_get(&(conn->addr),
-                                        conn->hostname, APR_UNSPEC,
-                                        conn->port, 0,
-                                        conn->pool);
-        }
-    }
-    if (!(*worker->s->uds_path) && worker->s->is_address_reusable && !worker->s->disablereuse) {
-        /*
-         * Looking up the backend address for the worker only makes sense if
-         * we can reuse the address.
-         */
-        if (!worker->cp->addr) {
-            if ((err = PROXY_THREAD_LOCK(worker)) != APR_SUCCESS) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, err, r, APLOGNO(00945) "lock");
-                return HTTP_INTERNAL_SERVER_ERROR;
+            else {
+                conn->hostname = apr_pstrdup(conn->pool, uri->hostname);
+                conn->port = uri->port;
             }
+            if (!will_reuse) {
+                /*
+                 * Only do a lookup if we should not reuse the backend address.
+                 * Otherwise we will look it up once for the worker.
+                 */
+                err = apr_sockaddr_info_get(&(conn->addr),
+                                            conn->hostname, APR_UNSPEC,
+                                            conn->port, 0,
+                                            conn->pool);
+            }
+            socket_cleanup(conn);
+            conn->close = 0;
+        }
+        if (will_reuse) {
+            /*
+             * Looking up the backend address for the worker only makes sense if
+             * we can reuse the address.
+             */
+            if (!worker->cp->addr) {
+                if ((err = PROXY_THREAD_LOCK(worker)) != APR_SUCCESS) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, err, r, APLOGNO(00945) "lock");
+                    return HTTP_INTERNAL_SERVER_ERROR;
+                }
 
-            /*
-             * Worker can have the single constant backend adress.
-             * The single DNS lookup is used once per worker.
-             * If dynamic change is needed then set the addr to NULL
-             * inside dynamic config to force the lookup.
-             */
-            err = apr_sockaddr_info_get(&(worker->cp->addr),
-                                        conn->hostname, APR_UNSPEC,
-                                        conn->port, 0,
-                                        worker->cp->pool);
-            conn->addr = worker->cp->addr;
-            if ((uerr = PROXY_THREAD_UNLOCK(worker)) != APR_SUCCESS) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, uerr, r, APLOGNO(00946) "unlock");
+                /*
+                 * Worker can have the single constant backend adress.
+                 * The single DNS lookup is used once per worker.
+                 * If dynamic change is needed then set the addr to NULL
+                 * inside dynamic config to force the lookup.
+                 */
+                err = apr_sockaddr_info_get(&(worker->cp->addr),
+                                            conn->hostname, APR_UNSPEC,
+                                            conn->port, 0,
+                                            worker->cp->pool);
+                conn->addr = worker->cp->addr;
+                if ((uerr = PROXY_THREAD_UNLOCK(worker)) != APR_SUCCESS) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, uerr, r, APLOGNO(00946) "unlock");
+                }
             }
-        }
-        else {
-            conn->addr = worker->cp->addr;
+            else {
+                conn->addr = worker->cp->addr;
+            }
         }
     }
     /* Close a possible existing socket if we are told to do so */
@@ -2284,21 +2331,55 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
     }
 
     /* Get the server port for the Via headers */
-    {
-        server_port = ap_get_server_port(r);
-        if (ap_is_default_port(server_port, r)) {
-            strcpy(server_portstr,"");
-        }
-        else {
-            apr_snprintf(server_portstr, server_portstr_size, ":%d",
-                         server_port);
-        }
+    server_port = ap_get_server_port(r);
+    AP_DEBUG_ASSERT(server_portstr_size > 0);
+    if (ap_is_default_port(server_port, r)) {
+        server_portstr[0] = '\0';
     }
+    else {
+        apr_snprintf(server_portstr, server_portstr_size, ":%d",
+                     server_port);
+    }
+
     /* check if ProxyBlock directive on this host */
     if (OK != ap_proxy_checkproxyblock2(r, conf, uri->hostname, 
                                        proxyname ? NULL : conn->addr)) {
         return ap_proxyerror(r, HTTP_FORBIDDEN,
                              "Connect to remote machine blocked");
+    }
+    /*
+     * When SSL is configured, determine the hostname (SNI) for the request
+     * and save it in conn->ssl_hostname. Close any reused connection whose
+     * SNI differs.
+     */
+    if (conn->is_ssl) {
+        proxy_dir_conf *dconf;
+        const char *ssl_hostname;
+        /*
+         * In the case of ProxyPreserveHost on use the hostname of
+         * the request if present otherwise use the one from the
+         * backend request URI.
+         */
+        dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
+        if (dconf->preserve_host) {
+            ssl_hostname = r->hostname;
+        }
+        else {
+            ssl_hostname = conn->hostname;
+        }
+        /*
+         * Close if a SNI is in use but this request requires no or
+         * a different one, or no SNI is in use but one is required.
+         */
+        if ((conn->ssl_hostname && (!ssl_hostname ||
+                                    strcasecmp(conn->ssl_hostname,
+                                               ssl_hostname) != 0)) ||
+                (!conn->ssl_hostname && ssl_hostname && conn->sock)) {
+            socket_cleanup(conn);
+        }
+        if (conn->ssl_hostname == NULL) {
+            conn->ssl_hostname = apr_pstrdup(conn->scpool, ssl_hostname);
+        }
     }
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00947)
                  "connected %s to %s:%d", *url, conn->hostname, conn->port);
@@ -3051,7 +3132,7 @@ static int find_conn_headers(void *data, const char *key, const char *val)
     const char *name;
 
     do {
-        while (*val == ',') {
+        while (*val == ',' || *val == ';') {
             val++;
         }
         name = ap_get_token(x->pool, &val, 0);
@@ -3226,8 +3307,22 @@ PROXY_DECLARE(int) ap_proxy_create_hdrbrgd(apr_pool_t *p,
      * to backend
      */
     if (do_100_continue) {
-        apr_table_mergen(r->headers_in, "Expect", "100-Continue");
-        r->expecting_100 = 1;
+        const char *val;
+
+        if (!r->expecting_100) {
+            /* Don't forward any "100 Continue" response if the client is
+             * not expecting it.
+             */
+            apr_table_setn(r->subprocess_env, "proxy-interim-response",
+                                              "Suppress");
+        }
+
+        /* Add the Expect header if not already there. */
+        if (((val = apr_table_get(r->headers_in, "Expect")) == NULL)
+                || (strcasecmp(val, "100-Continue") != 0 /* fast path */
+                    && !ap_find_token(r->pool, val, "100-Continue"))) {
+            apr_table_mergen(r->headers_in, "Expect", "100-Continue");
+        }
     }
 
     /* X-Forwarded-*: handling
@@ -3408,6 +3503,7 @@ static proxy_schemes_t pschemes[] =
 {
     {"fcgi",     8000},
     {"ajp",      AJP13_DEF_PORT},
+    {"scgi",     SCGI_DEF_PORT},
     { NULL, 0xFFFF }     /* unknown port */
 };
 

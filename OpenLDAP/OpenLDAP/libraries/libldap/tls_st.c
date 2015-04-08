@@ -542,6 +542,61 @@ tlsst_identity_validate(SecIdentityRef identity, const char *setting_name)
 	return ok;
 }
 
+static void 
+tlsst_get_cert_chain(CFMutableArrayRef certificateChain,   SecCertificateRef certificateRef )
+{
+	if (!certificateRef) {
+		return;
+	}
+
+	OSStatus status = noErr;
+	SecPolicyRef policyRef = NULL;
+
+	policyRef = SecPolicyCreateBasicX509 ();
+	if (!policyRef) {
+		Debug(LDAP_DEBUG_ANY,"SecPolicyCreateBasicX509 returned NULL\n", 0, 0, 0);
+	} else {
+		SecTrustRef trustRef;
+		CFMutableArrayRef leafCertArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+		CFArrayAppendValue(leafCertArray, certificateRef);	
+		status = SecTrustCreateWithCertificates((CFArrayRef)leafCertArray, policyRef, &trustRef);
+		if(status != noErr) {
+			Debug(LDAP_DEBUG_ANY,"%s: SecTrustCreateWithCertificates() status: %d", __PRETTY_FUNCTION__, status, 0);
+		} else {
+			CSSM_APPLE_TP_ACTION_DATA tpActionData = { CSSM_APPLE_TP_ACTION_VERSION, (0 | CSSM_TP_ACTION_LEAF_IS_CA) };
+			CFDataRef actionData = CFDataCreate(kCFAllocatorDefault, (UInt8*)&tpActionData, sizeof(tpActionData));
+			status = SecTrustSetParameters(trustRef, CSSM_TP_ACTION_DEFAULT, (CFDataRef)actionData);
+			if(status != noErr) {
+				Debug(LDAP_DEBUG_ANY,"%s: SecTrustSetParameters() status: %d", __PRETTY_FUNCTION__, status, 0);
+			}			
+			else {
+				SecTrustResultType result;
+				status = SecTrustEvaluate(trustRef, &result);
+				if(status != noErr) {
+					Debug(LDAP_DEBUG_ANY,"%s: SecTrustEvaluate() status: %d", __PRETTY_FUNCTION__, status, 0);
+				}
+				else {
+					CFIndex count = SecTrustGetCertificateCount(trustRef);
+					CFIndex i;
+					for (i = 0;  i < count;	 i++) {
+						SecCertificateRef certInChainRef = SecTrustGetCertificateAtIndex(trustRef, i);
+						if (certInChainRef &&  !CFEqual(certificateRef, certInChainRef)) { // identityRef in certificateChain[0] includes leaf cert , exclude it when appending to certificateChain
+							CFArrayAppendValue(certificateChain, certInChainRef);
+						}
+					}
+				}
+			}
+			CFRelease_and_null(actionData);
+
+			CFRelease_and_null(trustRef);
+		}
+	
+		CFRelease_and_null(leafCertArray);
+	}
+	CFRelease_and_null(policyRef);
+}
+
 static CFArrayRef
 tlsst_identity_certs_get(const char *identity, const char *setting_name)
 {
@@ -550,7 +605,7 @@ tlsst_identity_certs_get(const char *identity, const char *setting_name)
 	if (identity == NULL || *identity == '\0')
 		return NULL;
 
-	CFArrayRef certs = NULL;
+	CFMutableArrayRef certs = NULL;
 
 	SecIdentityRef identRef = SecIdentityCopyPreferred(CFSTR("OPENDIRECTORY_SSL_IDENTITY"), NULL, NULL);
 	if (identRef != NULL)
@@ -575,12 +630,25 @@ tlsst_identity_certs_get(const char *identity, const char *setting_name)
 	if (identRef != NULL) {
 		/* the private key must be usable */
 		if (tlsst_identity_validate(identRef, setting_name)) {
-			certs = CFArrayCreate(NULL, (const void **) &identRef, 1, &kCFTypeArrayCallBacks);
-			if (certs == NULL)
-				syslog(LOG_ERR, "TLS: CFArrayCreate() failed");
-		} else
+			SecCertificateRef certRef = NULL;
+			certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			if (certs == NULL) {
+				syslog(LOG_ERR, "TLS: CFArrayCreateMutable() failed");
+			} else {
+				OSStatus status;
+				status = SecIdentityCopyCertificate(identRef, &certRef);
+				if (status) {
+					syslog(LOG_ERR, "TLS: SecIdentityCopyCertificate err (%d)", status);			
+				} else {
+					// add identityref as first item certificateChain[0]
+					CFArrayAppendValue(certs, identRef);
+					tlsst_get_cert_chain(certs, certRef);
+				}
+			}
+			CFRelease_and_null(certRef);
+		} else {
 			syslog(LOG_ERR, "TLS: Can't get or use private key for %s \"%s\"; is it application-restricted?", setting_name, identity);
-
+		}
 		CFRelease_and_null(identRef);
 	}
 
@@ -938,7 +1006,6 @@ tlsst_init(void)
 	(void) tlsst_oss2buf(errSSLWouldBlock, buf, sizeof buf);
 
 	SecKeychainSetUserInteractionAllowed(false);
-	SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
 
 	return 0;
 }

@@ -44,12 +44,14 @@
 #import <WebCore/FocusController.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/GeometryUtilities.h>
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/LookupSPI.h>
 #import <WebCore/NSMenuSPI.h>
 #import <WebCore/Page.h>
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderObject.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SoftLinking.h>
 #import <WebCore/TextIndicator.h>
 #import <objc/objc-class.h>
@@ -80,6 +82,13 @@ using namespace WebCore;
 - (void)webViewClosed
 {
     _webView = nil;
+
+    id animationController = [_immediateActionRecognizer animationController];
+    if ([animationController isKindOfClass:NSClassFromString(@"QLPreviewMenuItem")]) {
+        QLPreviewMenuItem *menuItem = (QLPreviewMenuItem *)animationController;
+        menuItem.delegate = nil;
+    }
+
     _immediateActionRecognizer = nil;
     _currentActionContext = nil;
 }
@@ -89,19 +98,41 @@ using namespace WebCore;
     [self _clearImmediateActionState];
 }
 
+- (void)webView:(WebView *)webView didHandleScrollWheel:(NSEvent *)event
+{
+    [_currentQLPreviewMenuItem close];
+    [self _clearImmediateActionState];
+}
+
+- (NSImmediateActionGestureRecognizer *)immediateActionRecognizer
+{
+    return _immediateActionRecognizer.get();
+}
+
 - (void)_cancelImmediateAction
 {
     // Reset the recognizer by turning it off and on again.
-    _immediateActionRecognizer.enabled = NO;
-    _immediateActionRecognizer.enabled = YES;
+    [_immediateActionRecognizer setEnabled:NO];
+    [_immediateActionRecognizer setEnabled:YES];
 
     [self _clearImmediateActionState];
 }
 
 - (void)_clearImmediateActionState
 {
+    [_webView _clearTextIndicator];
+    DDActionsManager *actionsManager = [getDDActionsManagerClass() sharedManager];
+    if ([actionsManager respondsToSelector:@selector(requestBubbleClosureUnanchorOnFailure:)])
+        [actionsManager requestBubbleClosureUnanchorOnFailure:YES];
+
+    if (_currentActionContext && _hasActivatedActionContext) {
+        _hasActivatedActionContext = NO;
+        [getDDActionsManagerClass() didUseActions];
+    }
+
     _type = WebImmediateActionNone;
     _currentActionContext = nil;
+    _currentQLPreviewMenuItem = nil;
 }
 
 - (void)performHitTestAtPoint:(NSPoint)viewPoint
@@ -129,15 +160,11 @@ using namespace WebCore;
     [self performHitTestAtPoint:locationInDocumentView];
     [self _updateImmediateActionItem];
 
-    if (!_immediateActionRecognizer.animationController) {
-        [self _cancelImmediateAction];
-        return;
-    }
-
-    if (_currentActionContext) {
-        _hasActivatedActionContext = YES;
-        if (![getDDActionsManagerClass() shouldUseActionsWithContext:_currentActionContext.get()])
+    if (![_immediateActionRecognizer animationController]) {
+        // FIXME: We should be able to remove the dispatch_async when rdar://problem/19502927 is resolved.
+        dispatch_async(dispatch_get_main_queue(), ^{
             [self _cancelImmediateAction];
+        });
     }
 }
 
@@ -146,7 +173,11 @@ using namespace WebCore;
     if (immediateActionRecognizer != _immediateActionRecognizer)
         return;
 
-    // FIXME: Add support for the types of functionality provided in Action menu's menuNeedsUpdate.
+    if (_currentActionContext) {
+        _hasActivatedActionContext = YES;
+        if (![getDDActionsManagerClass() shouldUseActionsWithContext:_currentActionContext.get()])
+            [self _cancelImmediateAction];
+    }
 }
 
 - (void)immediateActionRecognizerDidUpdateAnimation:(NSImmediateActionGestureRecognizer *)immediateActionRecognizer
@@ -182,12 +213,17 @@ using namespace WebCore;
 {
     NSURL *url = _hitTestResult.absoluteLinkURL();
     NSString *absoluteURLString = [url absoluteString];
-    if (url && WebCore::protocolIsInHTTPFamily(absoluteURLString)) {
+    if (url && WebCore::protocolIsInHTTPFamily(absoluteURLString) && _hitTestResult.innerNode()) {
         _type = WebImmediateActionLinkPreview;
+
+        RefPtr<Range> linkRange = rangeOfContents(*_hitTestResult.innerNode());
+        RefPtr<TextIndicator> linkTextIndicator = TextIndicator::createWithRange(*linkRange, TextIndicatorPresentationTransition::FadeIn);
+        [_webView _setTextIndicator:linkTextIndicator.get() fadeOut:NO];
 
         RetainPtr<QLPreviewMenuItem> qlPreviewLinkItem = [NSMenuItem standardQuickLookMenuItem];
         [qlPreviewLinkItem setPreviewStyle:QLPreviewStylePopover];
         [qlPreviewLinkItem setDelegate:self];
+        _currentQLPreviewMenuItem = qlPreviewLinkItem.get();
         return (id <NSImmediateActionAnimationController>)qlPreviewLinkItem.get();
     }
 
@@ -220,14 +256,15 @@ using namespace WebCore;
         customClientAnimationController = [[_webView UIDelegate] _webView:_webView immediateActionAnimationControllerForHitTestResult:webHitTestResult.get() withType:_type];
     }
 
-    if (customClientAnimationController == [NSNull null]) {
+    // FIXME: We should not permanently disable this for iTunes. rdar://problem/19461358
+    if (customClientAnimationController == [NSNull null] || applicationIsITunes()) {
         [self _cancelImmediateAction];
         return;
     }
     if (customClientAnimationController && [customClientAnimationController conformsToProtocol:@protocol(NSImmediateActionAnimationController)])
-        _immediateActionRecognizer.animationController = (id <NSImmediateActionAnimationController>)customClientAnimationController;
+        [_immediateActionRecognizer setAnimationController:(id <NSImmediateActionAnimationController>)customClientAnimationController];
     else
-        _immediateActionRecognizer.animationController = defaultAnimationController;
+        [_immediateActionRecognizer setAnimationController:defaultAnimationController];
 }
 
 #pragma mark QLPreviewMenuItemDelegate implementation
@@ -248,6 +285,53 @@ using namespace WebCore;
 - (NSRectEdge)menuItem:(NSMenuItem *)menuItem preferredEdgeForPoint:(NSPoint)point
 {
     return NSMaxYEdge;
+}
+
+- (void)menuItemDidClose:(NSMenuItem *)menuItem
+{
+    [self _clearImmediateActionState];
+}
+
+static IntRect elementBoundingBoxInWindowCoordinatesFromNode(Node* node)
+{
+    if (!node)
+        return IntRect();
+
+    Frame* frame = node->document().frame();
+    if (!frame)
+        return IntRect();
+
+    FrameView* view = frame->view();
+    if (!view)
+        return IntRect();
+
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return IntRect();
+
+    return view->contentsToWindow(renderer->absoluteBoundingBoxRect());
+}
+
+- (NSRect)menuItem:(NSMenuItem *)menuItem itemFrameForPoint:(NSPoint)point
+{
+    if (!_webView)
+        return NSZeroRect;
+
+    Node* node = _hitTestResult.innerNode();
+    if (!node)
+        return NSZeroRect;
+
+    return elementBoundingBoxInWindowCoordinatesFromNode(node);
+}
+
+- (NSSize)menuItem:(NSMenuItem *)menuItem maxSizeForPoint:(NSPoint)point
+{
+    if (!_webView)
+        return NSZeroSize;
+
+    NSSize screenSize = _webView.window.screen.frame.size;
+    FloatRect largestRect = largestRectWithAspectRatioInsideRect(screenSize.width / screenSize.height, _webView.bounds);
+    return NSMakeSize(largestRect.width() * 0.75, largestRect.height() * 0.75);
 }
 
 #pragma mark Data Detectors actions
@@ -282,15 +366,14 @@ using namespace WebCore;
             return nil;
     }
 
-    _currentDetectedDataTextIndicator = TextIndicator::createWithRange(*detectedDataRange, TextIndicatorPresentationTransition::FadeIn);
+    RefPtr<TextIndicator> detectedDataTextIndicator = TextIndicator::createWithRange(*detectedDataRange, TextIndicatorPresentationTransition::FadeIn);
 
     _currentActionContext = [actionContext contextForView:_webView altMode:YES interactionStartedHandler:^() {
     } interactionChangedHandler:^() {
-        [self _showTextIndicator];
+        [_webView _setTextIndicator:detectedDataTextIndicator.get() fadeOut:NO];
     } interactionStoppedHandler:^() {
-        [self _hideTextIndicator];
+        [_webView _clearTextIndicator];
     }];
-    _currentDetectedDataRange = detectedDataRange;
 
     [_currentActionContext setHighlightFrame:[_webView.window convertRectToScreen:detectedDataBoundingBox]];
 
@@ -368,28 +451,6 @@ static DictionaryPopupInfo dictionaryPopupInfoForRange(Frame* frame, Range& rang
         return nil;
 
     return [_webView _animationControllerForDictionaryLookupPopupInfo:dictionaryPopupInfo];
-}
-
-#pragma mark Text Indicator
-
-- (void)_showTextIndicator
-{
-    if (_isShowingTextIndicator)
-        return;
-
-    if (_type == WebImmediateActionDataDetectedItem && _currentDetectedDataTextIndicator) {
-        [_webView _setTextIndicator:_currentDetectedDataTextIndicator.get() fadeOut:NO];
-        _isShowingTextIndicator = YES;
-    }
-}
-
-- (void)_hideTextIndicator
-{
-    if (!_isShowingTextIndicator)
-        return;
-
-    [_webView _clearTextIndicator];
-    _isShowingTextIndicator = NO;
 }
 
 @end

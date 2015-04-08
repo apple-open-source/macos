@@ -28,12 +28,14 @@
 #define _H_STATICCODE
 
 #include "cs.h"
+#include "csutilities.h"
 #include "Requirements.h"
 #include "requirement.h"
 #include "diskrep.h"
 #include "codedirectory.h"
 #include <Security/SecTrust.h>
 #include <CoreFoundation/CFData.h>
+#include <security_utilities/dispatch.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -93,8 +95,9 @@ protected:
 	private:
 		CFRef<CFMutableDictionaryRef> mCollection;
 		OSStatus mStatus;
+		Mutex mLock;
 	};
-	
+
 public:
 	SECCFFUNCTIONS(SecStaticCode, SecStaticCodeRef,
 		errSecCSInvalidObjectRef, gCFObjects().StaticCode)
@@ -105,7 +108,9 @@ public:
 
 	SecStaticCode(DiskRep *rep);
     virtual ~SecStaticCode() throw();
-	
+
+    void initializeFromParent(const SecStaticCode& parent);
+
     bool equal(SecCFObject &other);
     CFHashCode hash();
 	
@@ -231,7 +236,7 @@ private:
 	unsigned mTotalWork;				// total expected work (arbitrary units)
 	unsigned mCurrentWork;				// currently completed work
 	bool mCancelPending;				// cancellation was requested
-	Mutex mCancelLock;					// protects mCancelPending
+	Dispatch::Queue mProgressQueue;		// progress reporting queue
 
 	// cached contents
 	CFRef<CFDataRef> mDir;				// code directory data
@@ -251,7 +256,9 @@ private:
 	CFRef<CFURLRef> mResourceBase;		// URL form of resource base directory
 
 	SecCodeCallback mMonitor;			// registered monitor callback
-	
+
+	LimitedAsync *mLimitedAsync;		// limited async workers for verification
+
 	// signature verification outcome (mTrust == NULL => not done yet)
 	CFRef<SecTrustRef> mTrust;			// outcome of crypto validation (valid or not)
 	CFRef<CFArrayRef> mCertChain;

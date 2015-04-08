@@ -27,6 +27,7 @@
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFData.h>
 #include <corecrypto/ccn.h>
+#include <corecrypto/ccsha1.h>
 
 __BEGIN_DECLS
 
@@ -40,6 +41,8 @@ void SecFDHKNewKey(SecOTRFullDHKeyRef key);
 void SecFDHKAppendSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo);
 void SecFDHKAppendPublicSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo);
 void SecFDHKAppendCompactPublicSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo);
+
+static const size_t kSecDHKHashSize = CCSHA1_OUTPUT_SIZE;
 
 uint8_t* SecFDHKGetHash(SecOTRFullDHKeyRef pubKey);
 

@@ -617,7 +617,7 @@ SecCertificatePathRef SecOCSPResponseCopySigner(SecOCSPResponseRef this,
             kCFAllocatorDefault, (*certs)->Data, (*certs)->Length);
         if (cert) {
             CFDataRef certIssuer = SecCertificateGetNormalizedIssuerContent(cert);
-            if (CFEqual(issuerSubject, certIssuer)) {
+            if (certIssuer && CFEqual(issuerSubject, certIssuer)) {
                 SecCertificatePathRef signer = SecCertificatePathCopyAddingLeaf(issuer, cert);
                 CFRelease(cert);
                 if (signer) {

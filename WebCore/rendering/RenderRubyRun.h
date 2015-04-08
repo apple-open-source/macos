@@ -38,7 +38,7 @@ namespace WebCore {
 class RenderRubyBase;
 class RenderRubyText;
 
-// RenderRubyRun are 'inline-block/table' like objects,and wrap a single pairing of a ruby base with its ruby text(s).
+// RenderRubyRuns are 'inline-block/table' like objects, and wrap a single pairing of a ruby base with its ruby text(s).
 // See RenderRuby.h for further comments on the structure
 
 class RenderRubyRun final : public RenderBlockFlow {
@@ -67,6 +67,14 @@ public:
 
     static RenderRubyRun* staticCreateRubyRun(const RenderObject* parentRuby);
 
+    void updatePriorContextFromCachedBreakIterator(LazyLineBreakIterator&) const;
+    void setCachedPriorCharacters(UChar last, UChar secondToLast)
+    {
+        m_lastCharacter = last;
+        m_secondToLastCharacter = secondToLast;
+    }
+    bool canBreakBefore(const LazyLineBreakIterator&) const;
+    
 protected:
     RenderRubyBase* createRubyBase() const;
 
@@ -75,6 +83,10 @@ private:
     virtual const char* renderName() const { return "RenderRubyRun (anonymous)"; }
     virtual bool createsAnonymousWrapper() const { return true; }
     virtual void removeLeftoverAnonymousBlock(RenderBlock*) { }
+
+private:
+    UChar m_lastCharacter;
+    UChar m_secondToLastCharacter;
 };
 
 RENDER_OBJECT_TYPE_CASTS(RenderRubyRun, isRubyRun())

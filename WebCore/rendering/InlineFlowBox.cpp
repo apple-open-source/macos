@@ -179,6 +179,14 @@ void InlineFlowBox::removeChild(InlineBox* child)
     if (!isDirty())
         dirtyLineBoxes();
 
+    if (child->prevLeafChild() && child->prevLeafChild()->isInlineTextBox()) {
+        if (child->isInlineTextBox()) 
+            toInlineTextBox(child->prevLeafChild())->renderer().setContentIsKnownToFollow(toInlineTextBox(child)->renderer().contentIsKnownToFollow());
+        // FIXME: Handle the case where we remove the last inline box, and it's not a text box. If we're trying to share
+        // expansion opportunites both inside and outside a replaced element (such as for ruby bases), we need to search
+        // outside the current inline box tree to determine if there is content that follows the new last inline item.
+    }
+
     root().childRemoved(child);
 
     if (child == m_firstChild)
@@ -375,6 +383,7 @@ float InlineFlowBox::placeBoxesInInlineDirection(float logicalLeft, bool& needsW
 
 float InlineFlowBox::placeBoxRangeInInlineDirection(InlineBox* firstChild, InlineBox* lastChild, float& logicalLeft, float& minLogicalLeft, float& maxLogicalRight, bool& needsWordSpacing)
 {
+    float totalExpansion = 0;
     for (InlineBox* curr = firstChild; curr && curr != lastChild; curr = curr->nextOnLine()) {
         if (curr->renderer().isText()) {
             InlineTextBox* text = toInlineTextBox(curr);
@@ -388,6 +397,7 @@ float InlineFlowBox::placeBoxRangeInInlineDirection(InlineBox* firstChild, Inlin
             if (knownToHaveNoOverflow())
                 minLogicalLeft = std::min(logicalLeft, minLogicalLeft);
             logicalLeft += text->logicalWidth();
+            totalExpansion += text->expansion();
             if (knownToHaveNoOverflow())
                 maxLogicalRight = std::max(logicalLeft, maxLogicalRight);
         } else {
@@ -407,6 +417,7 @@ float InlineFlowBox::placeBoxRangeInInlineDirection(InlineBox* firstChild, Inlin
                 if (knownToHaveNoOverflow())
                     minLogicalLeft = std::min(logicalLeft, minLogicalLeft);
                 logicalLeft = flow->placeBoxesInInlineDirection(logicalLeft, needsWordSpacing);
+                totalExpansion += flow->expansion();
                 if (knownToHaveNoOverflow())
                     maxLogicalRight = std::max(logicalLeft, maxLogicalRight);
                 logicalLeft += flow->marginLogicalRight();
@@ -429,6 +440,7 @@ float InlineFlowBox::placeBoxRangeInInlineDirection(InlineBox* firstChild, Inlin
             }
         }
     }
+    setExpansionWithoutGrowing(totalExpansion);
     return logicalLeft;
 }
 
@@ -738,20 +750,45 @@ void InlineFlowBox::placeBoxesInBlockDirection(LayoutUnit top, LayoutUnit maxHei
     }
 }
 
-void InlineFlowBox::computeMaxLogicalTop(float& maxLogicalTop) const
+void InlineFlowBox::maxLogicalBottomForTextDecorationLine(float& maxLogicalBottom, const RenderElement* decorationRenderer, TextDecoration textDecoration) const
 {
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
-
-        if (descendantsHaveSameLineHeightAndBaseline())
+        
+        if (!(child->lineStyle().textDecorationsInEffect() & textDecoration))
+            continue; // If the text decoration isn't in effect on the child, then it must be outside of |decorationRenderer|'s hierarchy.
+        
+        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(toRenderInline(*decorationRenderer), &child->renderer()))
             continue;
+        
+        if (child->isInlineFlowBox())
+            toInlineFlowBox(child)->maxLogicalBottomForTextDecorationLine(maxLogicalBottom, decorationRenderer, textDecoration);
+        else {
+            if (child->isInlineTextBox() || child->lineStyle().textDecorationSkip() == TextDecorationSkipNone)
+                maxLogicalBottom = std::max<float>(maxLogicalBottom, child->logicalBottom());
+        }
+    }
+}
 
-        maxLogicalTop = std::max<float>(maxLogicalTop, curr->y());
-        float localMaxLogicalTop = 0;
-        if (curr->isInlineFlowBox())
-            toInlineFlowBox(curr)->computeMaxLogicalTop(localMaxLogicalTop);
-        maxLogicalTop = std::max<float>(maxLogicalTop, localMaxLogicalTop);
+void InlineFlowBox::minLogicalTopForTextDecorationLine(float& minLogicalTop, const RenderElement* decorationRenderer, TextDecoration textDecoration) const
+{
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
+            continue; // Positioned placeholders don't affect calculations.
+        
+        if (!(child->lineStyle().textDecorationsInEffect() & textDecoration))
+            continue; // If the text decoration isn't in effect on the child, then it must be outside of |decorationRenderer|'s hierarchy.
+        
+        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(toRenderInline(*decorationRenderer), &child->renderer()))
+            continue;
+        
+        if (child->isInlineFlowBox())
+            toInlineFlowBox(child)->minLogicalTopForTextDecorationLine(minLogicalTop, decorationRenderer, textDecoration);
+        else {
+            if (child->isInlineTextBox() || child->lineStyle().textDecorationSkip() == TextDecorationSkipNone)
+                minLogicalTop = std::min<float>(minLogicalTop, child->logicalTop());
+        }
     }
 }
 
@@ -1635,6 +1672,20 @@ void InlineFlowBox::collectLeafBoxesInLogicalOrder(Vector<InlineBox*>& leafBoxes
                 std::reverse(first, last);
         }                
         ++minLevel;
+    }
+}
+
+void InlineFlowBox::computeReplacedAndTextLineTopAndBottom(LayoutUnit& lineTop, LayoutUnit& lineBottom) const
+{
+    for (const auto* box = firstChild(); box; box = box->nextOnLine()) {
+        if (box->isInlineFlowBox())
+            toInlineFlowBox(box)->computeReplacedAndTextLineTopAndBottom(lineTop, lineBottom);
+        else {
+            if (box->logicalTop() < lineTop)
+                lineTop = box->logicalTop();
+            if (box->logicalBottom() > lineBottom)
+                lineBottom = box->logicalBottom();
+        }
     }
 }
 

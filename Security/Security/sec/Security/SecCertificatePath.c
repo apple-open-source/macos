@@ -119,7 +119,7 @@ static CFHashCode SecCertificatePathHash(CFTypeRef cf) {
 	return hashCode;
 }
 
-static CFStringRef SecCertificatePathCopyDescription(CFTypeRef cf) {
+static CFStringRef SecCertificatePathCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
 	SecCertificatePathRef certificatePath = (SecCertificatePathRef) cf;
     CFMutableStringRef desc = CFStringCreateMutable(kCFAllocatorDefault, 0);
     CFStringRef typeStr = CFCopyTypeIDDescription(CFGetTypeID(cf));

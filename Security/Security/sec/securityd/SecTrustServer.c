@@ -487,8 +487,8 @@ static bool SecMemoryCertificateSourceCopyParents(
 		(SecMemoryCertificateSourceRef)source;
 	CFDataRef normalizedIssuer =
         SecCertificateGetNormalizedIssuerContent(certificate);
-	CFArrayRef parents = CFDictionaryGetValue(msource->subjects,
-		normalizedIssuer);
+		    CFArrayRef parents = (normalizedIssuer) ? CFDictionaryGetValue(msource->subjects,
+		    	       normalizedIssuer) : NULL;
     /* FIXME filter parents by subjectID if certificate has an
        authorityKeyIdentifier. */
     secdebug("trust", "%@ parents -> %@", certificate, parents);

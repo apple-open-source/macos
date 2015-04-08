@@ -63,7 +63,7 @@ static void serializeAndDeserialize(SecOTRSessionRef* thisOne)
 
 
 
-#define sendMessagesCount(n) ((n) * 8)
+#define sendMessagesCount(n) ((n) * 14)
 static void sendMessages(int howMany, SecOTRSessionRef *bobSession, SecOTRSessionRef *aliceSession, bool serialize)
 {
     for(int count = howMany; count > 0; --count) {
@@ -74,6 +74,7 @@ static void sendMessages(int howMany, SecOTRSessionRef *bobSession, SecOTRSessio
 
         ok_status(SecOTRSSignAndProtectMessage(*aliceSession, rawAliceToBob, protectedAliceToBob), "encode message");
         ok_status(SecOTRSVerifyAndExposeMessage(*bobSession, protectedAliceToBob, bobDecode), "Decode message");
+
 
         if (serialize) {
             serializeAndDeserialize(bobSession);
@@ -92,8 +93,8 @@ static void sendMessages(int howMany, SecOTRSessionRef *bobSession, SecOTRSessio
         CFMutableDataRef protectedBobToAlice = CFDataCreateMutable(kCFAllocatorDefault, 0);
         CFMutableDataRef aliceDecode = CFDataCreateMutable(kCFAllocatorDefault, 0);
 
-        ok_status(SecOTRSSignAndProtectMessage(*bobSession, rawBobToAlice, protectedBobToAlice), "encode reply");
-        ok_status(SecOTRSVerifyAndExposeMessage(*aliceSession, protectedBobToAlice, aliceDecode), "decode reply");
+        ok_status(SecOTRSSignAndProtectMessage(*aliceSession, rawBobToAlice, protectedBobToAlice), "encode reply");
+        ok_status(SecOTRSVerifyAndExposeMessage(*bobSession, protectedBobToAlice, aliceDecode), "decode reply");
 
         if (serialize) {
             serializeAndDeserialize(bobSession);
@@ -109,6 +110,49 @@ static void sendMessages(int howMany, SecOTRSessionRef *bobSession, SecOTRSessio
         CFReleaseNull(protectedAliceToBob);
         CFReleaseNull(aliceDecode);
 
+        rawAliceToBob = CFDataCreate(kCFAllocatorDefault, (const uint8_t*)aliceToBob, (CFIndex) strlen(aliceToBob));
+         protectedAliceToBob = CFDataCreateMutable(kCFAllocatorDefault, 0);
+         bobDecode = CFDataCreateMutable(kCFAllocatorDefault, 0);
+
+        ok_status(SecOTRSSignAndProtectMessage(*aliceSession, rawAliceToBob, protectedAliceToBob), "encode message");
+        ok_status(SecOTRSVerifyAndExposeMessage(*bobSession, protectedAliceToBob, bobDecode), "Decode message");
+
+        if (serialize) {
+            serializeAndDeserialize(bobSession);
+            serializeAndDeserialize(aliceSession);
+        }
+
+        ok(CFDataGetLength(rawAliceToBob) == CFDataGetLength(bobDecode)
+           && 0 == memcmp(CFDataGetBytePtr(rawAliceToBob), CFDataGetBytePtr(bobDecode), (size_t)CFDataGetLength(rawAliceToBob)), "Didn't match!");
+
+        CFReleaseNull(rawAliceToBob);
+        CFReleaseNull(protectedAliceToBob);
+        CFReleaseNull(bobDecode);
+
+         bobToAlice = "i liked your silly message from me to you";
+         rawBobToAlice = CFDataCreate(kCFAllocatorDefault, (const uint8_t*)bobToAlice, (CFIndex) strlen(bobToAlice));
+         protectedBobToAlice = CFDataCreateMutable(kCFAllocatorDefault, 0);
+         aliceDecode = CFDataCreateMutable(kCFAllocatorDefault, 0);
+
+        ok_status(SecOTRSSignAndProtectMessage(*aliceSession, rawBobToAlice, protectedBobToAlice), "encode reply");
+        ok_status(SecOTRSVerifyAndExposeMessage(*bobSession, protectedBobToAlice, aliceDecode), "decode reply");
+
+        if (serialize) {
+            serializeAndDeserialize(bobSession);
+            serializeAndDeserialize(aliceSession);
+        }
+
+        ok(CFDataGetLength(rawBobToAlice) == CFDataGetLength(aliceDecode)
+           && 0 == memcmp(CFDataGetBytePtr(rawBobToAlice), CFDataGetBytePtr(aliceDecode), (size_t)CFDataGetLength(rawBobToAlice)), "reply matched");
+
+        CFReleaseNull(rawAliceToBob);
+        CFReleaseNull(rawBobToAlice);
+        CFReleaseNull(protectedBobToAlice);
+        CFReleaseNull(protectedAliceToBob);
+        CFReleaseNull(aliceDecode);
+
+
+
         CFStringRef stateString = CFCopyDescription(*bobSession);
         ok(stateString, "getting state from bob");
         CFReleaseNull(stateString);
@@ -123,7 +167,7 @@ static void sendMessages(int howMany, SecOTRSessionRef *bobSession, SecOTRSessio
                                + 2 + sendMessagesCount(1) \
                                + 1 + sendMessagesCount(1) \
                                + sendMessagesCount(3))
-static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSession, bool serialize, bool textMode, bool compact)
+static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSession, bool serializeNegotiating, bool serializeMessaging, bool textMode, bool compact)
 {
     const int kEmptyMessageSize = textMode ? 6 : 0;
 
@@ -132,14 +176,14 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     
     ok_status(SecOTRSAppendStartPacket(*bobSession, bobStartPacket), "Bob start packet");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(bobSession);
     
     CFMutableDataRef aliceStartPacket = CFDataCreateMutable(kCFAllocatorDefault, 0);
     
     ok_status(SecOTRSAppendStartPacket(*aliceSession, aliceStartPacket), "Alice start packet");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(aliceSession);
     
     // Step 2: Exchange the start packets, forcing the DH commit messages to collide
@@ -148,8 +192,8 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSProcessPacket(*aliceSession, bobStartPacket, aliceDHKeyResponse),
               "Bob DH packet failed");
     
-    if (serialize)
-        serializeAndDeserialize(aliceSession);
+    if (serializeNegotiating)
+        serializeAndDeserialize(aliceSession);    
     
     CFReleaseNull(bobStartPacket);
     
@@ -158,7 +202,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSProcessPacket(*bobSession, aliceStartPacket, bobDHKeyResponse),
               "Alice DH packet failed");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(bobSession);
     
     CFReleaseNull(aliceStartPacket);
@@ -170,7 +214,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSProcessPacket(*bobSession, aliceDHKeyResponse, bobRevealSigResponse),
               "Alice DH Key packet failed");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(bobSession);
     
     CFReleaseNull(aliceDHKeyResponse);
@@ -180,7 +224,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSProcessPacket(*aliceSession, bobDHKeyResponse, aliceRevealSigResponse),
               "Bob DH Key packet failed");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(aliceSession);
     
     CFReleaseNull(bobDHKeyResponse);
@@ -192,7 +236,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSProcessPacket(*aliceSession, bobRevealSigResponse, aliceSigResponse),
               "Bob Reveal sig failed");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(aliceSession);
     
     CFReleaseNull(bobRevealSigResponse);
@@ -202,7 +246,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSProcessPacket(*bobSession, aliceRevealSigResponse, bobSigResponse),
               "Alice Reveal sig failed");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(bobSession);
     
     CFReleaseNull(aliceRevealSigResponse);
@@ -213,7 +257,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSProcessPacket(*bobSession, aliceSigResponse, bobFinalResponse),
               "Alice Final Sig failed");
     
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(bobSession);
     
     CFMutableDataRef aliceFinalResponse = CFDataCreateMutable(kCFAllocatorDefault, 0);
@@ -225,7 +269,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     CFReleaseNull(aliceFinalResponse);
     CFReleaseNull(bobSigResponse);
 
-    if (serialize)
+    if (serializeNegotiating)
         serializeAndDeserialize(aliceSession);
     
     is(kEmptyMessageSize, CFDataGetLength(bobFinalResponse), "Bob had nothing left to say");
@@ -235,7 +279,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     CFReleaseNull(aliceSigResponse);
     CFReleaseNull(bobFinalResponse);
 
-    sendMessages(5, bobSession, aliceSession, serialize);
+    sendMessages(5, bobSession, aliceSession, serializeMessaging);
 
     const char* aliceToBob = "deferredMessage";
     CFDataRef rawAliceToBob = CFDataCreate(kCFAllocatorDefault, (const uint8_t*)aliceToBob, (CFIndex) strlen(aliceToBob));
@@ -245,17 +289,15 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
     ok_status(SecOTRSSignAndProtectMessage(*aliceSession, rawAliceToBob, protectedAliceToBob), "encode message");
 
 
-    const OSStatus expectedError = compact ? errSecAuthFailed : errSecOTRTooOld;
+    sendMessages(1, bobSession, aliceSession, serializeMessaging);
 
-    sendMessages(1, bobSession, aliceSession, serialize);
+    is(SecOTRSVerifyAndExposeMessage(*bobSession, protectedAliceToBob, bobDecode), errSecOTRTooOld, "Decode old message");
 
-    is(SecOTRSVerifyAndExposeMessage(*bobSession, protectedAliceToBob, bobDecode), expectedError, "Decode old message");
+    sendMessages(1, bobSession, aliceSession, serializeMessaging);
 
-    sendMessages(1, bobSession, aliceSession, serialize);
+    is(SecOTRSVerifyAndExposeMessage(*bobSession, protectedAliceToBob, bobDecode), errSecOTRTooOld, "Decode excessively old message");
 
-    is(SecOTRSVerifyAndExposeMessage(*bobSession, protectedAliceToBob, bobDecode), expectedError, "Decode excessively old message");
-
-    sendMessages(3, bobSession, aliceSession, serialize);
+    sendMessages(3, bobSession, aliceSession, serializeMessaging);
 
     CFReleaseNull(rawAliceToBob);
     CFReleaseNull(protectedAliceToBob);
@@ -263,7 +305,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
 }
 
 
-#define kTestTestCount (9 + kNegotiateTestCount * 2)
+#define kTestTestCount (11 + kNegotiateTestCount * 6)
 
 static void tests()
 {
@@ -301,6 +343,12 @@ static void tests()
 
     ok(aliceCompactSession, "create alice compact session");
     ok(bobCompactSession, "create bob compact session");
+    
+    SecOTRSessionRef aliceCompactHashesSession = SecOTRSessionCreateFromIDAndFlags(kCFAllocatorDefault, aliceID, bobPublicID, kSecOTRUseAppleCustomMessageFormat|kSecOTRIncludeHashesInMessages);
+    SecOTRSessionRef bobCompactHashesSession = SecOTRSessionCreateFromIDAndFlags(kCFAllocatorDefault, bobID, alicePublicID, kSecOTRUseAppleCustomMessageFormat|kSecOTRIncludeHashesInMessages);
+    
+    ok(aliceCompactHashesSession, "create alice compact session with hashes");
+    ok(bobCompactHashesSession, "create bob compact session with hashes");
 
     // Release the IDs, sessions shouldn't need us to retain them for them.
     CFReleaseNull(aliceID);
@@ -309,9 +357,17 @@ static void tests()
     CFReleaseNull(alicePublicID);
     CFReleaseNull(bobPublicID);
 
-    negotiate(&aliceSession, &bobSession, true, true, false);
+    negotiate(&aliceSession, &bobSession, true, true, true, false);
 
-    negotiate(&aliceCompactSession, &bobCompactSession, true, false, true);
+    negotiate(&aliceSession, &bobSession, true, false, true, false);
+    
+    negotiate(&aliceCompactSession, &bobCompactSession, true, true, false, true);
+
+    negotiate(&aliceCompactSession, &bobCompactSession, true, false, false, true);
+    
+    negotiate(&aliceCompactHashesSession, &bobCompactHashesSession, true, true, false, true);
+    
+    negotiate(&aliceCompactHashesSession, &bobCompactHashesSession, true, false, false, true);
 
     /* cleanup keychain */
     ok(SecOTRFIPurgeAllFromKeychain(&testError),"cleanup keychain");
@@ -320,6 +376,12 @@ static void tests()
 
     CFReleaseNull(aliceSession);
     CFReleaseNull(bobSession);
+    
+    CFReleaseNull(aliceCompactSession);
+    CFReleaseNull(bobCompactSession);
+    
+    CFReleaseNull(aliceCompactHashesSession);
+    CFReleaseNull(bobCompactHashesSession);
 }
 
 int otr_30_negotiation(int argc, char *const *argv)

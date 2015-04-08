@@ -3,7 +3,7 @@
  *                     1999 Lars Knoll <knoll@kde.org>
  *                     1999 Antti Koivisto <koivisto@kde.org>
  *                     2000 Dirk Mueller <mueller@kde.org>
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2008, 2013, 2014 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2009 Google Inc. All rights reserved.
@@ -270,13 +270,16 @@ void FrameView::reset()
     m_visuallyNonEmptyPixelCount = 0;
     m_isVisuallyNonEmpty = false;
     m_firstVisuallyNonEmptyLayoutCallbackPending = true;
-    m_maintainScrollPositionAnchor = 0;
+    m_maintainScrollPositionAnchor = nullptr;
 }
 
 void FrameView::removeFromAXObjectCache()
 {
-    if (AXObjectCache* cache = axObjectCache())
+    if (AXObjectCache* cache = axObjectCache()) {
+        if (HTMLFrameOwnerElement* owner = frame().ownerElement())
+            cache->childrenChanged(owner->renderer());
         cache->remove(this);
+    }
 }
 
 void FrameView::resetScrollbars()
@@ -438,6 +441,9 @@ void FrameView::setFrameRect(const IntRect& newRect)
 
     if (frame().isMainFrame())
         frame().mainFrame().pageOverlayController().didChangeViewSize();
+
+    // The frame view was resized, check if we should resume animated images.
+    resumeVisibleImageAnimationsIncludingSubframes();
 }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
@@ -1121,7 +1127,7 @@ void FrameView::layout(bool allowSubtree)
 
     if (!allowSubtree && m_layoutRoot) {
         m_layoutRoot->markContainingBlocksForLayout(false);
-        m_layoutRoot = 0;
+        m_layoutRoot = nullptr;
     }
 
     ASSERT(frame().view() == this);
@@ -1319,7 +1325,9 @@ void FrameView::layout(bool allowSubtree)
     layer->updateLayerPositionsAfterLayout(renderView()->layer(), updateLayerPositionFlags(layer, subtree, m_needsFullRepaint));
 
     updateCompositingLayersAfterLayout();
-    
+
+    m_layoutPhase = InPostLayerPositionsUpdatedAfterLayout;
+
     m_layoutCount++;
 
 #if PLATFORM(COCOA) || PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(EFL)
@@ -1338,6 +1346,8 @@ void FrameView::layout(bool allowSubtree)
     ASSERT(!root->needsLayout());
 
     updateCanBlitOnScrollRecursively();
+
+    handleDeferredScrollUpdateAfterContentSizeChange();
 
     if (document.hasListenerType(Document::OVERFLOWCHANGED_LISTENER))
         updateOverflowStatus(layoutWidth() < contentsWidth(), layoutHeight() < contentsHeight());
@@ -1366,6 +1376,11 @@ void FrameView::layout(bool allowSubtree)
     InspectorInstrumentation::didLayout(cookie, root);
 
     --m_nestedLayoutCount;
+}
+
+bool FrameView::shouldDeferScrollUpdateAfterContentSizeChange()
+{
+    return (m_layoutPhase < InPostLayout) && (m_layoutPhase != OutsideLayout);
 }
 
 RenderBox* FrameView::embeddedContentBox() const
@@ -1708,7 +1723,7 @@ IntPoint FrameView::maximumScrollPosition() const
     return maximumOffset;
 }
 
-void FrameView::delayedScrollEventTimerFired(Timer<FrameView>&)
+void FrameView::delayedScrollEventTimerFired(Timer&)
 {
     sendScrollEvent();
 }
@@ -1989,7 +2004,7 @@ void FrameView::scrollElementToRect(Element* element, const IntRect& rect)
 void FrameView::setScrollPosition(const IntPoint& scrollPoint)
 {
     TemporaryChange<bool> changeInProgrammaticScroll(m_inProgrammaticScroll, true);
-    m_maintainScrollPositionAnchor = 0;
+    m_maintainScrollPositionAnchor = nullptr;
     ScrollView::setScrollPosition(scrollPoint);
 }
 
@@ -2045,7 +2060,7 @@ void FrameView::didChangeScrollOffset()
     frame().loader().client().didChangeScrollOffset();
 }
 
-void FrameView::scrollPositionChangedViaPlatformWidget(const IntPoint& oldPosition, const IntPoint& newPosition)
+void FrameView::scrollPositionChangedViaPlatformWidgetImpl(const IntPoint& oldPosition, const IntPoint& newPosition)
 {
     updateLayerPositionsAfterScrolling();
     updateCompositingLayersAfterScrolling();
@@ -2129,6 +2144,8 @@ bool FrameView::shouldUpdateCompositingLayersAfterScrolling() const
 
 void FrameView::updateCompositingLayersAfterScrolling()
 {
+    ASSERT(m_layoutPhase >= InPostLayout || m_layoutPhase == OutsideLayout);
+
     if (!shouldUpdateCompositingLayersAfterScrolling())
         return;
 
@@ -2370,7 +2387,7 @@ void FrameView::enableSpeculativeTilingIfNeeded()
     m_speculativeTilingEnableTimer.startOneShot(speculativeTilingEnableDelay);
 }
 
-void FrameView::speculativeTilingEnableTimerFired(Timer<FrameView>&)
+void FrameView::speculativeTilingEnableTimerFired(Timer&)
 {
     if (m_speculativeTilingEnabled)
         return;
@@ -2378,7 +2395,7 @@ void FrameView::speculativeTilingEnableTimerFired(Timer<FrameView>&)
     adjustTiledBackingCoverage();
 }
 
-void FrameView::layoutTimerFired(Timer<FrameView>&)
+void FrameView::layoutTimerFired(Timer&)
 {
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!frame().document()->ownerElement())
@@ -2494,6 +2511,33 @@ void FrameView::scheduleRelayoutOfSubtree(RenderElement& newRelayoutRoot)
 bool FrameView::layoutPending() const
 {
     return m_layoutTimer.isActive();
+}
+
+bool FrameView::needsStyleRecalcOrLayout(bool includeSubframes) const
+{
+    if (frame().document() && frame().document()->childNeedsStyleRecalc())
+        return true;
+    
+    if (needsLayout())
+        return true;
+
+    if (!includeSubframes)
+        return false;
+
+    // Find child frames via the Widget tree, as updateLayoutAndStyleIfNeededRecursive() does.
+    Vector<Ref<FrameView>, 16> childViews;
+    childViews.reserveInitialCapacity(children().size());
+    for (auto& widget : children()) {
+        if (widget->isFrameView())
+            childViews.uncheckedAppend(toFrameView(*widget));
+    }
+
+    for (unsigned i = 0; i < childViews.size(); ++i) {
+        if (childViews[i]->needsStyleRecalcOrLayout())
+            return true;
+    }
+
+    return false;
 }
 
 bool FrameView::needsLayout() const
@@ -2745,7 +2789,12 @@ void FrameView::scrollToAnchor()
 
     // Scroll nested layers and frames to reveal the anchor.
     // Align to the top and to the closest side (this matches other browsers).
-    anchorNode->renderer()->scrollRectToVisible(rect, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignTopAlways);
+    if (anchorNode->renderer()->style().isHorizontalWritingMode())
+        anchorNode->renderer()->scrollRectToVisible(rect, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignTopAlways);
+    else if (anchorNode->renderer()->style().isFlippedBlocksWritingMode())
+        anchorNode->renderer()->scrollRectToVisible(rect, ScrollAlignment::alignRightAlways, ScrollAlignment::alignToEdgeIfNeeded);
+    else
+        anchorNode->renderer()->scrollRectToVisible(rect, ScrollAlignment::alignLeftAlways, ScrollAlignment::alignToEdgeIfNeeded);
 
     if (AXObjectCache* cache = frame().document()->existingAXObjectCache())
         cache->handleScrolledToAnchor(anchorNode.get());
@@ -2813,7 +2862,7 @@ bool FrameView::updateEmbeddedObjects()
     return m_embeddedObjectsToUpdate->isEmpty();
 }
 
-void FrameView::updateEmbeddedObjectsTimerFired(Timer<FrameView>*)
+void FrameView::updateEmbeddedObjectsTimerFired(Timer*)
 {
     RefPtr<FrameView> protect(this);
     m_updateEmbeddedObjectsTimer.stop();
@@ -2962,7 +3011,7 @@ void FrameView::willEndLiveResize()
     adjustTiledBackingCoverage();
 }
 
-void FrameView::postLayoutTimerFired(Timer<FrameView>&)
+void FrameView::postLayoutTimerFired(Timer&)
 {
     performPostLayoutTasks();
 }
@@ -3577,7 +3626,7 @@ void FrameView::setWasScrolledByUser(bool wasScrolledByUser)
 {
     if (m_inProgrammaticScroll)
         return;
-    m_maintainScrollPositionAnchor = 0;
+    m_maintainScrollPositionAnchor = nullptr;
     if (m_wasScrolledByUser == wasScrolledByUser)
         return;
     m_wasScrolledByUser = wasScrolledByUser;
@@ -3679,6 +3728,11 @@ void FrameView::paintContents(GraphicsContext* context, const IntRect& dirtyRect
         context->fillRect(dirtyRect, Color(0xFF, 0, 0), ColorSpaceDeviceRGB);
 #endif
 
+    if (m_layoutPhase == InViewSizeAdjust)
+        return;
+    
+    ASSERT(m_layoutPhase == InPostLayerPositionsUpdatedAfterLayout || m_layoutPhase == OutsideLayout);
+    
     RenderView* renderView = this->renderView();
     if (!renderView) {
         LOG_ERROR("called FrameView::paint with nil renderer");
@@ -3801,6 +3855,7 @@ void FrameView::updateLayoutAndStyleIfNeededRecursive()
     // Grab a copy of the children() set, as it may be mutated by the following updateLayoutAndStyleIfNeededRecursive
     // calls, as they can potentially re-enter a layout of the parent frame view, which may add/remove scrollbars
     // and thus mutates the children() set.
+    // FIXME: use FrameTree::traverseNextRendered().
     Vector<Ref<FrameView>, 16> childViews;
     childViews.reserveInitialCapacity(children().size());
     for (auto& widget : children()) {
@@ -3811,10 +3866,12 @@ void FrameView::updateLayoutAndStyleIfNeededRecursive()
     for (unsigned i = 0; i < childViews.size(); ++i)
         childViews[i]->updateLayoutAndStyleIfNeededRecursive();
 
-    // When frame flattening is on, child frame can mark parent frame dirty. In such case, child frame
-    // needs to call layout on parent frame recursively.
-    // This assert ensures that parent frames are clean, when child frames finished updating layout and style.
-    ASSERT(!needsLayout());
+    // A child frame may have dirtied us during its layout.
+    frame().document()->updateStyleIfNeeded();
+    if (needsLayout())
+        layout();
+
+    ASSERT(!frame().isMainFrame() || !needsStyleRecalcOrLayout());
 }
 
 bool FrameView::qualifiesAsVisuallyNonEmpty() const

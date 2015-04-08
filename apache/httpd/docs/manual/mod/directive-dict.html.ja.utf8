@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>ディレクティブの解説に使われる用語 - Apache HTTP サーバ</title>
+<title>ディレクティブの解説に使われる用語 - Apache HTTP サーバ バージョン 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -27,10 +27,6 @@
 <a href="../ko/mod/directive-dict.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/directive-dict.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
-<div class="outofdate">この日本語訳はすでに古くなっている
-            可能性があります。
-            最近更新された内容を見るには英語版をご覧下さい。
-        </div>
 
     <p>この文書は各 Apache <a href="directives.html">設定ディレクティブ</a>
     を説明するために使われている用語を説明します。</p>
@@ -186,6 +182,7 @@
       <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code>, 
       <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>, 
       <code class="directive"><a href="../mod/core.html#files">&lt;Files&gt;</a></code>, 
+      <code class="directive"><a href="../mod/core.html#if">&lt;If&gt;</a></code>, 
       <code class="directive"><a href="../mod/mod_proxy.html#proxy">&lt;Proxy&gt;</a></code>
       コンテナの中で、 <a href="../sections.html">設定セクション</a>
       で説明されている制限の下で使用できることを示します。</dd>

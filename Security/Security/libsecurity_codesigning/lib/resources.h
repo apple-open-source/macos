@@ -80,7 +80,7 @@ public:
 
 	static std::string escapeRE(const std::string &s);
 	
-	typedef void (^Scanner)(FTSENT *ent, uint32_t flags, const char *relpath, Rule *rule);
+	typedef void (^Scanner)(FTSENT *ent, uint32_t flags, const std::string relpath, Rule *rule);
 	void scan(Scanner next);
 	bool includes(string path) const;
 	Rule *findRule(string path) const;

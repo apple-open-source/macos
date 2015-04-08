@@ -1,3 +1,137 @@
+2015-02-11  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r179993. <rdar://problem/19813975>
+
+    2015-02-11  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] [64-bit] Work around MSVC2013 Runtime Bug
+            https://bugs.webkit.org/show_bug.cgi?id=141498
+            <rdar://problem/19803642>
+
+            Reviewed by Anders Carlsson.
+
+            Disable FMA3 instruction use in the MSVC math library to
+            work around a VS2013 runtime crash. We can remove this
+            workaround when we switch to VS2015.
+
+            * WTF.vcxproj/WTF.vcxproj: Add new files.
+            * WTF.vcxproj/WTF.vcxproj.filters: Ditto.
+            * wtf/win/WTFDLL.cpp: Added.
+
+2015-01-21  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r177000.
+
+    2014-12-08  Dean Jackson  <dino@apple.com>
+
+            [Apple] Use Accelerate framework to speed-up FEGaussianBlur
+            https://bugs.webkit.org/show_bug.cgi?id=139310
+            <rdar://problem/18434594>
+
+            Reviewed by Simon Fraser.
+
+            Add a HAVE_ACCELERATE flag, true on Apple platforms.
+
+            * wtf/Platform.h:
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r176982. rdar://problem/19452174
+
+    2014-12-08  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Fix iOS build after r176971.
+
+            I had previously modified the WTF forwarding header instead of modifying the real source.
+
+            * wtf/unicode/CharacterNames.h:
+
+2015-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174377. rdar://problem/19451247
+
+    2014-10-06  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] DateMath's calculateUTFOffset does not account for DST.
+            https://bugs.webkit.org/show_bug.cgi?id=137458
+            <rdar://problem/18559172>
+
+            Reviewed by Geoffrey Garen.
+
+            Check the return value of GetTimeZoneInformation and use the
+            proper bias against UTC (depending on whether we are in daylight
+            savings time, or standard time).
+
+            Also, handle possible error cases in the FileTimeToSystemTime
+            and SystemTimeToTzSpecificLocalTime, rather than using potentially
+            uninitialized values.
+
+            * wtf/DateMath.cpp:
+            (WTF::calculateUTCOffset): Use proper daylight-savings-time state.
+            (WTF::calculateDSTOffset): Avoid uninitialized data due to failing
+            API calls.
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r177448. rdar://problem/19451944
+
+    2014-12-17  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Correct DebugSuffix builds under MSBuild
+            https://bugs.webkit.org/show_bug.cgi?id=139733
+            <rdar://problem/19276880>
+
+            Reviewed by Simon Fraser.
+
+            * WTF.vcxproj/WTF.proj: Make sure to use the '_debug' suffix
+            when building the DebugSuffix target.
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r176896. rdar://problem/19451941
+
+    2014-12-05  Roger Fong  <roger_fong@apple.com>
+
+            [Win] proj files copying over too many resources..
+            https://bugs.webkit.org/show_bug.cgi?id=139315.
+            <rdar://problem/19148278>
+
+            Reviewed by Brent Fulgham.
+
+            * WTF.vcxproj/WTF.proj: Only copy WTF.dll.
+
+2015-01-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174162. rdar://problem/19451961
+
+    2014-10-01  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] 32-bit JavaScriptCore should limit itself to the C loop
+            https://bugs.webkit.org/show_bug.cgi?id=137304
+            <rdar://problem/18375370>
+
+            Reviewed by Michael Saboff.
+
+            * wtf/Platform.h: Force the C loop when building for 32-bit Windows.
+
+2015-01-14  Dana Burkart  <dburkart@apple.com>
+
+        Merged r173318. <rdar://problem/19424143>
+
+    2014-06-06  Jer Noble  <jer.noble@apple.com>
+
+            Refactoring: make MediaTime the primary time type for audiovisual times.
+            https://bugs.webkit.org/show_bug.cgi?id=133579
+
+            Reviewed by Eric Carlson.
+
+            Add a unary minus operator, and add unimplemented private casting operators, to make
+            unintentional double->MediaTime and MediaTime->double casts hard errors.
+
+            * wtf/MediaTime.cpp:
+            (WTF::MediaTime::operator-):
+            * wtf/MediaTime.h:
+
 2014-10-29  Lucas Forschler  <lforschler@apple.com>
 
         Merge parts of 172749 for rdar://problem/18757166

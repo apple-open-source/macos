@@ -2068,15 +2068,14 @@ smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *v
 		if (node_isimmutable(share, vp, NULL)) {
 			va->va_flags |= UF_IMMUTABLE;
 		}
-		/* 
-		 * The server has it marked as hidden, set the new UF_HIDDEN bit. Never
-		 * mark the root volume as hidden, unless they have the MNT_DONTBROWSE
-		 * set. Assume they know what they are doing if the MNT_DONTBROWSE is set.
-		 */
-		if ((np->n_dosattr & SMB_EFA_HIDDEN) && 
-			(!vnode_isvroot(vp) || (vfs_flags(smp->sm_mp) & MNT_DONTBROWSE))) {
-				va->va_flags |= UF_HIDDEN;
-		}
+        
+        /*
+         * The server has it marked as hidden, set the new UF_HIDDEN bit. Never
+         * mark the root volume as hidden.
+         */
+        if ((np->n_dosattr & SMB_EFA_HIDDEN) && !vnode_isvroot(vp)) {
+            va->va_flags |= UF_HIDDEN;
+        }
 		VATTR_SET_SUPPORTED(va, va_flags);
 	}
 	

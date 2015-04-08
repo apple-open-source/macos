@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mod_proxy_connect - Apache HTTP Server</title>
+<title>mod_proxy_connect - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -43,7 +43,7 @@
     requests, <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code> and
     <code class="module"><a href="../mod/mod_proxy_connect.html">mod_proxy_connect</a></code> have to be present in the server.</p>
 
-    <p>CONNECT is also used, when the server needs to send an HTTPS request
+    <p>CONNECT is also used when the server needs to send an HTTPS request
     through a forward proxy. In this case the server acts as a CONNECT client.
     This functionality is part of <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code> and
     <code class="module"><a href="../mod/mod_proxy_connect.html">mod_proxy_connect</a></code> is not needed in this case.</p>

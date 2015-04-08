@@ -5,7 +5,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>mpm_winnt - Apache HTTP Server</title>
+<title>mpm_winnt - Apache HTTP Server Version 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -59,9 +59,9 @@
     <code class="directive"><a href="../mod/core.html#acceptfilter">AcceptFilter</a></code> with accept filter 
     <code>none</code>.</p>
 
-    <div class="example"><p><code>
-        AcceptFilter none
-    </code></p></div>
+    <pre class="prettyprint lang-config">AcceptFilter http none
+AcceptFilter https none</pre>
+
     
     <p><em>In Apache httpd 2.0 and 2.2,
     <code class="directive">Win32DisableAcceptEx</code> was used for this purpose.</em></p>

@@ -4,7 +4,7 @@
              (C) 1998, 1999 Torben Weis (weis@kde.org)
              (C) 1999 Lars Knoll (knoll@kde.org)
              (C) 1999 Antti Koivisto (koivisto@kde.org)
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+   Copyright (C) 2004-2009, 2014 Apple Inc. All rights reserved.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -104,12 +104,13 @@ public:
 
     void layout(bool allowSubtree = true);
     bool didFirstLayout() const;
-    void layoutTimerFired(Timer<FrameView>&);
+    void layoutTimerFired(Timer&);
     void scheduleRelayout();
     void scheduleRelayoutOfSubtree(RenderElement&);
     void unscheduleRelayout();
     bool layoutPending() const;
     bool isInLayout() const { return m_layoutPhase == InLayout; }
+    bool inPaintableState() { return m_layoutPhase != InLayout && m_layoutPhase != InViewSizeAdjust && m_layoutPhase != InPostLayout; }
 
     RenderObject* layoutRoot(bool onlyDuringLayout = false) const;
     void clearLayoutRoot() { m_layoutRoot = nullptr; }
@@ -118,6 +119,8 @@ public:
     bool needsLayout() const;
     void setNeedsLayout();
     void setViewportConstrainedObjectsNeedLayout();
+
+    bool needsStyleRecalcOrLayout(bool includeSubframes = true) const;
 
     bool needsFullRepaint() const { return m_needsFullRepaint; }
 
@@ -232,14 +235,13 @@ public:
     virtual void setFixedVisibleContentRect(const IntRect&) override;
 #endif
     virtual void setScrollPosition(const IntPoint&) override;
-    void scrollPositionChangedViaPlatformWidget(const IntPoint& oldPosition, const IntPoint& newPosition);
     virtual void updateLayerPositionsAfterScrolling() override;
     virtual void updateCompositingLayersAfterScrolling() override;
     virtual bool requestScrollPositionUpdate(const IntPoint&) override;
     virtual bool isRubberBandInProgress() const override;
     virtual IntPoint minimumScrollPosition() const override;
     virtual IntPoint maximumScrollPosition() const override;
-    void delayedScrollEventTimerFired(Timer<FrameView>&);
+    void delayedScrollEventTimerFired(Timer&);
 
     void resumeVisibleImageAnimationsIncludingSubframes();
 
@@ -301,7 +303,7 @@ public:
 
     void restoreScrollbar();
 
-    void postLayoutTimerFired(Timer<FrameView>&);
+    void postLayoutTimerFired(Timer&);
 
     bool wasScrolledByUser() const;
     void setWasScrolledByUser(bool);
@@ -520,6 +522,7 @@ private:
         InLayout,
         InViewSizeAdjust,
         InPostLayout,
+        InPostLayerPositionsUpdatedAfterLayout,
     };
     LayoutPhase layoutPhase() const { return m_layoutPhase; }
 
@@ -535,6 +538,10 @@ private:
     bool shouldLayoutAfterContentsResized() const;
 
     bool shouldUpdateCompositingLayersAfterScrolling() const;
+
+    virtual bool shouldDeferScrollUpdateAfterContentSizeChange() override;
+
+    virtual void scrollPositionChangedViaPlatformWidgetImpl(const IntPoint& oldPosition, const IntPoint& newPosition) override;
 
     void applyOverflowToViewport(RenderElement*, ScrollbarMode& hMode, ScrollbarMode& vMode);
     void applyPaginationToViewport();
@@ -592,9 +599,9 @@ private:
     virtual void notifyPageThatContentAreaWillPaint() const override;
 
     void enableSpeculativeTilingIfNeeded();
-    void speculativeTilingEnableTimerFired(Timer<FrameView>&);
+    void speculativeTilingEnableTimerFired(Timer&);
 
-    void updateEmbeddedObjectsTimerFired(Timer<FrameView>*);
+    void updateEmbeddedObjectsTimerFired(Timer*);
     bool updateEmbeddedObjects();
     void updateEmbeddedObject(RenderEmbeddedObject&);
     void scrollToAnchor();
@@ -638,7 +645,7 @@ private:
     bool m_isOverlapped;
     bool m_contentIsOpaque;
 
-    Timer<FrameView> m_layoutTimer;
+    Timer m_layoutTimer;
     bool m_delayedLayout;
     RenderElement* m_layoutRoot;
 
@@ -647,8 +654,8 @@ private:
     bool m_inSynchronousPostLayout;
     int m_layoutCount;
     unsigned m_nestedLayoutCount;
-    Timer<FrameView> m_postLayoutTasksTimer;
-    Timer<FrameView> m_updateEmbeddedObjectsTimer;
+    Timer m_postLayoutTasksTimer;
+    Timer m_updateEmbeddedObjectsTimer;
     bool m_firstLayoutCallbackPending;
 
     bool m_firstLayout;
@@ -670,7 +677,7 @@ private:
     bool m_wasScrolledByUser;
     bool m_inProgrammaticScroll;
     bool m_safeToPropagateScrollToParent;
-    Timer<FrameView> m_delayedScrollEventTimer;
+    Timer m_delayedScrollEventTimer;
 
     double m_lastPaintTime;
 
@@ -699,7 +706,7 @@ private:
     RenderPtr<RenderScrollbarPart> m_scrollCorner;
 
     bool m_speculativeTilingEnabled;
-    Timer<FrameView> m_speculativeTilingEnableTimer;
+    Timer m_speculativeTilingEnableTimer;
 
 #if PLATFORM(IOS)
     bool m_useCustomFixedPositionLayoutRect;

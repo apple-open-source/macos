@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -88,6 +88,110 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 /* max age of upstream cached response */
 #define CACHED_MAX_AGE		300
 
+/* how long to cache a negative host entry */
+#define NEGATIVE_CACHE_AGE	300
+
+
+#pragma mark -- SecNegativeHostCache --
+
+@interface SecNegativeHostCache : NSObject
+{
+	NSMutableDictionary *_hostDict;
+}
+
++ (id)sharedHostCache;
+- (void)addHost:(NSString *)host forInterval:(NSTimeInterval)interval;
+- (void)removeHost:(NSString *)host;
+- (BOOL)containsHost:(NSString *)host;
+@end
+
+@implementation SecNegativeHostCache
+
+- (id)init
+{
+	if (self = [super init]) {
+		_hostDict = [[NSMutableDictionary alloc] init];
+	}
+	return self;
+}
+
+- (void)dealloc
+{
+	[_hostDict release];
+	[super dealloc];
+}
+
++ (id)sharedHostCache
+{
+	static id sSharedHostCache = nil;
+	@synchronized(self)
+	{
+		if (sSharedHostCache == nil) {
+			sSharedHostCache = [[self alloc] init];
+			// populate the cache with some known entries
+			// <rdar://19448128> TrustCenter is defunct (Jan 2015)
+			[sSharedHostCache addHost:@"ocsp.ix.tcclass1.tcuniversal-i.trustcenter.de" forInterval:NEGATIVE_CACHE_AGE];
+			[sSharedHostCache addHost:@"ocsp.tcuniversal-i.trustcenter.de" forInterval:NEGATIVE_CACHE_AGE];
+			[sSharedHostCache addHost:@"crl.tcuniversal-i.trustcenter.de" forInterval:NEGATIVE_CACHE_AGE];
+		}
+		return sSharedHostCache;
+	}
+}
+
+- (void)addHost:(NSString *)host forInterval:(NSTimeInterval)interval
+{
+	NSDate *expires = [NSDate dateWithTimeIntervalSinceNow:interval];
+	NSString *hostkey = [host lowercaseString];
+	@synchronized(self)
+	{
+		if (expires && hostkey) {
+			#if OCSP_DEBUG
+			NSLog(@"Adding negative cache entry for \"%@", hostkey);
+			#endif
+			[_hostDict setObject:expires forKey:hostkey];
+		}
+	}
+}
+
+- (void)removeHost:(NSString *)host
+{
+	NSString *hostkey = [host lowercaseString];
+	@synchronized(self)
+	{
+		if (hostkey) {
+			[_hostDict removeObjectForKey:hostkey];
+		}
+	}
+}
+
+- (BOOL)containsHost:(NSString *)host
+{
+	NSString *hostkey = [host lowercaseString];
+	@synchronized(self)
+	{
+		if (hostkey) {
+			NSDate *expires = (NSDate *)[_hostDict objectForKey:hostkey];
+			if (expires) {
+				NSTimeInterval delta = [expires timeIntervalSinceNow];
+				#if OCSP_DEBUG
+				NSLog(@"Found \"%@\" in negative cache (delta %ld)", hostkey, (long)delta);
+				#endif
+				if (delta < 0) {
+					[_hostDict removeObjectForKey:hostkey];
+					return NO;
+				}
+				return YES;
+			}
+		}
+		#if OCSP_DEBUG
+		NSLog(@"Did not find \"%@\" in negative cache", hostkey);
+		#endif
+		return NO;
+	}
+}
+
+@end
+
 
 #pragma mark -- SecURLLoader --
 
@@ -154,6 +258,12 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 
 	_finished = NO;
 
+	// Check whether we want to attempt connecting to this host
+	if ([[SecNegativeHostCache sharedHostCache] containsHost:[_url host]] == YES) {
+		[self timeoutNow];
+		return;
+	}
+
 	// Create an empty data to receive bytes from the download
 	_receivedData = [[NSMutableData alloc] init];
 
@@ -161,7 +271,7 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 	_connection = [[NSURLConnection alloc] initWithRequest:[self request] delegate:self];
 	if (!_connection) {
 		ocspdDebug("Failed to open connection (is network available?)");
-		[self timeout];
+		[self timeoutNow];
 		return;
 	}
 
@@ -190,22 +300,37 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 
 - (void)cancelLoad
 {
-	if (_timer) {
-		[_timer invalidate];
-		[_timer release];
-		_timer = nil;
+	@synchronized(self)
+	{
+		if (_timer) {
+			[_timer invalidate];
+			[_timer release];
+			_timer = nil;
+		}
+		if (_connection) {
+			[_connection cancel];
+			[_connection release];
+			_connection = nil;
+		}
+		if (_receivedData) {
+			// Hold onto the last data we received
+			if (_data) [_data release];
+			_data = _receivedData;
+			_receivedData = nil;
+		}
 	}
-	if (_connection) {
-		[_connection cancel];
-		[_connection release];
-		_connection = nil;
-	}
-	if (_receivedData) {
-		// Hold onto the last data we received
-		if (_data) [_data release];
-		_data = _receivedData;
-		_receivedData = nil;
-	}
+}
+
+- (void)timeoutNow
+{
+	// give up and cancel the download
+	[self cancelLoad];
+	// cache this host failure so we don't immediately try again
+	[[SecNegativeHostCache sharedHostCache] addHost:[ _url host] forInterval:NEGATIVE_CACHE_AGE];
+
+	OSStatus err = CSSMERR_APPLETP_NETWORK_FAILURE;
+	_error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:err userInfo:nil];
+	_finished = YES;
 }
 
 - (void)timeoutCheck
@@ -216,11 +341,7 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 	if (_timeToGiveUp > CFAbsoluteTimeGetCurrent()) {
 		return; // not time yet...
 	}
-	// give up and cancel the download
-	[self cancelLoad];
-	OSStatus err = CSSMERR_APPLETP_NETWORK_FAILURE;
-	_error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:err userInfo:nil];
-	_finished = YES;
+	[self timeoutNow];
 }
 
 - (void)resetTimeout
@@ -1141,6 +1262,7 @@ static void ocspdNetFetchAsync(
  * This is a basic "we have an internet connection" check.
  * It tests whether IP 0.0.0.0 is routable.
  */
+bool shouldAttemptNetFetch();
 bool shouldAttemptNetFetch()
 {
 	bool result = true;

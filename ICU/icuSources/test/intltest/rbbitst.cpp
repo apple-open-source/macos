@@ -1017,7 +1017,7 @@ void RBBITest::TestExtended() {
     tp.srcLine        = new UVector32(status);
     tp.srcCol         = new UVector32(status);
 
-    RegexMatcher      localeMatcher(UNICODE_STRING_SIMPLE("<locale *([\\p{L}\\p{Nd}_]*) *>"), 0, status);
+    RegexMatcher      localeMatcher(UNICODE_STRING_SIMPLE("<locale *([\\p{L}\\p{Nd}_@=-]*) *>"), 0, status);
     if (U_FAILURE(status)) {
         dataerrln("Failure in file %s, line %d, status = \"%s\"", __FILE__, __LINE__, u_errorName(status));
     }
