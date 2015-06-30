@@ -118,6 +118,30 @@ Boolean sslIsSessionActive(const SSLContext *ctx)
                                             underflow when calculating max write size */
 
 int kSplitDefaultValue;
+CFIndex kMinDhGroupSizeDefaultValue;
+
+#if TARGET_OS_IPHONE
+/*
+ * Instead of using CFPropertyListReadFromFile we use a
+ * CFPropertyListCreateWithStream directly
+ * here. CFPropertyListReadFromFile() uses
+ * CFURLCopyResourcePropertyForKey() andCF pulls in CoreServices for
+ * CFURLCopyResourcePropertyForKey() and that doesn't work in install
+ * enviroment.
+ */
+static CFPropertyListRef
+CopyPlistFromFile(CFURLRef url)
+{
+    CFDictionaryRef d = NULL;
+    CFReadStreamRef s = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+    if (s && CFReadStreamOpen(s)) {
+        d = (CFDictionaryRef)CFPropertyListCreateWithStream(kCFAllocatorDefault, s, 0, kCFPropertyListImmutable, NULL, NULL);
+    }
+    CFReleaseSafe(s);
+
+    return d;
+}
+#endif
 
 static void _SSLContextReadDefault()
 {
@@ -144,6 +168,29 @@ static void _SSLContextReadDefault()
 	else {
 		kSplitDefaultValue = defaultSplitDefaultValue;
 	}
+
+    /* Min DH Group Size */
+    kMinDhGroupSizeDefaultValue = CFPreferencesGetAppIntegerValue(CFSTR("SSLMinDhGroupSize"), kCFPreferencesCurrentApplication, NULL);
+
+#if TARGET_OS_IPHONE
+    /* on iOS, if the above returned nothing, we manually look into mobile's Managed Preferences */
+    /* Note that if the process is running as mobile, the above call will already have read the Managed Preference plist.
+       As a result, if you have some preferences set manually with defaults, which preference applies may be different for mobile vs not-mobile. */
+    if(kMinDhGroupSizeDefaultValue == 0) {
+        CFURLRef prefURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR("/Library/Managed Preferences/mobile/.GlobalPreferences.plist"), kCFURLPOSIXPathStyle, false);
+        if(prefURL) {
+            CFPropertyListRef plist = CopyPlistFromFile(prefURL);
+            if (plist) {
+                value =  CFDictionaryGetValue(plist, CFSTR("SSLMinDhGroupSize"));
+                if (isNumber(value)) {
+                    CFNumberGetValue(value, kCFNumberCFIndexType, &kMinDhGroupSizeDefaultValue);
+                }
+            }
+            CFReleaseSafe(plist);
+        }
+        CFReleaseSafe(prefURL);
+    }
+#endif
 }
 
 CFGiblisWithHashFor(SSLContext)
@@ -243,8 +290,13 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
 	 */
 	static pthread_once_t sReadDefault = PTHREAD_ONCE_INIT;
 	pthread_once(&sReadDefault, _SSLContextReadDefault);
-	if (kSplitDefaultValue > 0)
+    if (kSplitDefaultValue > 0) {
 		ctx->oneByteRecordEnable = true;
+    }
+
+    if(kMinDhGroupSizeDefaultValue) {
+        tls_handshake_set_min_dh_group_size(ctx->hdsk, (unsigned)kMinDhGroupSizeDefaultValue);
+    }
 
 	/* default for anonymous ciphers is DISABLED */
 	ctx->anonCipherEnable = false;
@@ -1914,6 +1966,16 @@ OSStatus SSLGetDiffieHellmanParams(
 #else
     return errSecUnimplemented;
 #endif /* APPLE_DH */
+}
+
+OSStatus SSLSetMinimumDHGroupSize(SSLContextRef ctx, unsigned nbits)
+{
+    return tls_handshake_set_min_dh_group_size(ctx->hdsk, nbits);
+}
+
+OSStatus SSLGetMinimumDHGroupSize(SSLContextRef ctx, unsigned *nbits)
+{
+    return tls_handshake_get_min_dh_group_size(ctx->hdsk, nbits);
 }
 
 OSStatus SSLSetRsaBlinding(

@@ -45,6 +45,8 @@
 
 #include <Security/SecCmsDigestContext.h>
 
+/* Return the maximum value between S and T */
+#define MAX(S, T) ({__typeof__(S) _max_s = S; __typeof__(T) _max_t = T; _max_s > _max_t ? _max_s : _max_t;})
 
 struct SecCmsDigestContextStr {
     Boolean		saw_contents;
@@ -71,6 +73,10 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 	return NULL;
 
     if (digcnt > 0) {
+        /* Security check to prevent under-allocation */
+        if (digcnt >= (int)(INT_MAX/sizeof(CSSM_CC_HANDLE))) {
+            goto loser;
+        }
 	cmsdigcx->digobjs = (CSSM_CC_HANDLE *)PORT_Alloc(digcnt * sizeof(CSSM_CC_HANDLE));
 	if (cmsdigcx->digobjs == NULL)
 	    goto loser;
@@ -187,6 +193,10 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolR
 
     mark = PORT_ArenaMark ((PLArenaPool *)poolp);
 
+    /* Security check to prevent under-allocation */
+    if (cmsdigcx->digcnt >= (int)((INT_MAX/(MAX(sizeof(CSSM_DATA_PTR),sizeof(CSSM_DATA))))-1)) {
+        goto loser;
+    }
     /* allocate digest array & CSSM_DATAs on arena */
     digests = (CSSM_DATA_PTR *)PORT_ArenaAlloc((PLArenaPool *)poolp, (cmsdigcx->digcnt+1) * sizeof(CSSM_DATA_PTR));
     digest = (CSSM_DATA_PTR)PORT_ArenaZAlloc((PLArenaPool *)poolp, cmsdigcx->digcnt * sizeof(CSSM_DATA));

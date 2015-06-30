@@ -111,6 +111,7 @@ enum {
 	errSecCSUnsealedFrameworkRoot =		-67008, /* unsealed contents present in the root directory of an embedded framework */
 	errSecCSWeakResourceEnvelope =		-67007, /* resource envelope is obsolete (version 1 signature) */
 	errSecCSCancelled =					-67006, /* operation was terminated by explicit cancellation */
+	errSecCSTooBig =                    -67004, /* code is too big for current signing format */
 };
 
 

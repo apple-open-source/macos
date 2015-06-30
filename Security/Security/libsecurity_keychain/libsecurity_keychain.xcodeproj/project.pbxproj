@@ -308,6 +308,8 @@
 		52E950D51509B48D00DA6511 /* tsaDERUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaDERUtilities.h; sourceTree = "<group>"; };
 		52FB42C1113F056D006D3B0A /* debuggingP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = debuggingP.h; sourceTree = "<group>"; };
 		52FB44A81146D769006D3B0A /* SecCertificateOIDs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateOIDs.h; sourceTree = "<group>"; };
+		85B946E01AF874B00075AE38 /* SecWhitelist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecWhitelist.c; sourceTree = "<group>"; };
+		85B946E11AF874B00075AE38 /* SecWhitelist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecWhitelist.h; sourceTree = "<group>"; };
 		AA31456E134B716B00133245 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		AC9ADAD2199AD6BA00BDAF54 /* kc-42-trust-revocation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-42-trust-revocation.c"; path = "regressions/kc-42-trust-revocation.c"; sourceTree = "<group>"; };
 		BE296DBE0EAC299C00FD22BE /* SecImportExport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecImportExport.c; sourceTree = "<group>"; };
@@ -327,7 +329,7 @@
 		C2AA2B45052E099D006D0211 /* ACL.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ACL.h; sourceTree = "<group>"; };
 		C2AA2B46052E099D006D0211 /* CCallbackMgr.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCallbackMgr.cp; sourceTree = "<group>"; };
 		C2AA2B47052E099D006D0211 /* CCallbackMgr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCallbackMgr.h; sourceTree = "<group>"; };
-		C2AA2B48052E099D006D0211 /* Certificate.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Certificate.cpp; sourceTree = "<group>"; };
+		C2AA2B48052E099D006D0211 /* Certificate.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Certificate.cpp; sourceTree = "<group>"; usesTabs = 1; };
 		C2AA2B49052E099D006D0211 /* Certificate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Certificate.h; sourceTree = "<group>"; };
 		C2AA2B4A052E099D006D0211 /* CertificateRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CertificateRequest.cpp; sourceTree = "<group>"; };
 		C2AA2B4B052E099D006D0211 /* CertificateRequest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CertificateRequest.h; sourceTree = "<group>"; };
@@ -402,7 +404,7 @@
 		C2AA2BA5052E099D006D0211 /* Security.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Security.h; sourceTree = "<group>"; };
 		C2AA2BAA052E099D006D0211 /* StorageManager.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = StorageManager.cpp; sourceTree = "<group>"; };
 		C2AA2BAB052E099D006D0211 /* StorageManager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = StorageManager.h; sourceTree = "<group>"; };
-		C2AA2BAC052E099D006D0211 /* Trust.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Trust.cpp; sourceTree = "<group>"; };
+		C2AA2BAC052E099D006D0211 /* Trust.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Trust.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
 		C2AA2BAD052E099D006D0211 /* Trust.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Trust.h; sourceTree = "<group>"; };
 		C2AA2BAE052E099D006D0211 /* TrustedApplication.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TrustedApplication.cpp; sourceTree = "<group>"; };
 		C2AA2BAF052E099D006D0211 /* TrustedApplication.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TrustedApplication.h; sourceTree = "<group>"; };
@@ -622,6 +624,8 @@
 				5261C289112F0D570047EF8B /* SecFrameworkP.c */,
 				521DC57D1125FEE300937BF2 /* SecCertificateP.c */,
 				521DC57E1125FEE300937BF2 /* SecCertificateP.h */,
+				85B946E01AF874B00075AE38 /* SecWhitelist.c */,
+				85B946E11AF874B00075AE38 /* SecWhitelist.h */,
 				4CCB00430580089000981D43 /* security_keychain.exp */,
 				52008C6311496BD200E8CA78 /* SecCertificateInternalP.h */,
 				C2AA2B55052E099D006D0211 /* generateErrStrings.pl */,

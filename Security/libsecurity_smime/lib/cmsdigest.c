@@ -52,6 +52,10 @@
 
 #include "SecCmsDigestContext.h"
 
+/* Return the maximum value between S and T (and U) */
+#define MAX(S, T) ({__typeof__(S) _max_s = S; __typeof__(T) _max_t = T; _max_s > _max_t ? _max_s : _max_t;})
+#define MAX_OF_3(S, T, U) ({__typeof__(U) _max_st = MAX(S,T); MAX(_max_st,U);})
+
 struct SecCmsDigestContextStr {
     PLArenaPool *	poolp;
     Boolean		saw_contents;
@@ -94,10 +98,18 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 
     if (digcnt > 0) {
 #if USE_CDSA_CRYPTO
+	/* Security check to prevent under-allocation */
+	if (digcnt >= (int)((INT_MAX/(MAX(sizeof(CSSM_CC_HANDLE),sizeof(SECAlgorithmID *))))-1)) {
+		goto loser;
+	}
 	cmsdigcx->digobjs = (CSSM_CC_HANDLE *)PORT_ArenaAlloc(poolp, digcnt * sizeof(CSSM_CC_HANDLE));
 	if (cmsdigcx->digobjs == NULL)
 	    goto loser;
 #else
+	/* Security check to prevent under-allocation */
+	if (digcnt >= (int)((INT_MAX/(MAX(sizeof(void *),sizeof(SECAlgorithmID *))))-1)) {
+		goto loser;
+	}
 	cmsdigcx->digobjs = (void**)PORT_ArenaAlloc(poolp, digcnt * sizeof(void *));
 	if (cmsdigcx->digobjs == NULL)
 	    goto loser;
@@ -186,6 +198,15 @@ SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *
                This may cause an invalid CMS blob larger than 4GB to be validated. Unlikely, but
                possible security issue. There is no way to return an error here, but a check at
                the upper level may happen. */
+	    /*
+	      rdar://problem/20642513
+	      Let's just die a horrible death rather than have the security issue.
+	      CMS blob over 4GB?  Oh well.
+	    */
+	    if (len > UINT32_MAX) {
+	      /* Ugh. */
+	      abort();
+	    }
             assert(len<=UINT32_MAX); /* Debug check. Correct as long as CC_LONG is uint32_t */
             switch (SECOID_GetAlgorithmTag(cmsdigcx->digestalgs[i])) {
             case SEC_OID_SHA1: CC_SHA1_Update((CC_SHA1_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
@@ -274,6 +295,10 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
 
     mark = PORT_ArenaMark (cmsdigcx->poolp);
 
+    /* Security check to prevent under-allocation */
+    if (cmsdigcx->digcnt >= (int)((INT_MAX/(MAX_OF_3(sizeof(SECAlgorithmID *),sizeof(SecAsn1Item *),sizeof(SecAsn1Item))))-1)) {
+        goto loser;
+    }
     /* allocate digest array & SecAsn1Items on arena */
     digestalgs = (SECAlgorithmID **)PORT_ArenaZAlloc(cmsdigcx->poolp, (cmsdigcx->digcnt+1) * sizeof(SECAlgorithmID *));
     digests = (SecAsn1Item * *)PORT_ArenaZAlloc(cmsdigcx->poolp, (cmsdigcx->digcnt+1) * sizeof(SecAsn1Item *));

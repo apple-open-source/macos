@@ -88,13 +88,16 @@ static uint8_t * mod128_oid_encoding_ptr(uint8_t *ptr, uint32_t src, bool final)
 
 static uint8_t * oid_der_data(PRArenaPool *poolp, CFStringRef oid_string, size_t *oid_data_len)
 {
+    CFArrayRef oid = NULL;
     /* estimate encoded length from base 10 (4 bits) to base 128 (7 bits) */
-    size_t tmp_oid_length = ((CFStringGetLength(oid_string) * 4) / 7) + 1;
+    require(((size_t)CFStringGetLength(oid_string) < (SIZE_MAX/4)), out); // Guard against integer overflow on size_t
+    size_t tmp_oid_length = ((((size_t)CFStringGetLength(oid_string)) * 4) / 7) + 1;
     uint8_t *tmp_oid_data = PORT_ArenaAlloc(poolp, tmp_oid_length);
     uint8_t *tmp_oid_data_ptr = tmp_oid_data;
 
-    CFArrayRef oid = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault,
-                                                            oid_string, CFSTR("."));
+    require(tmp_oid_data, out); // Allocation failure
+    oid = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault,
+						 oid_string, CFSTR("."));
     CFIndex i = 0, count = CFArrayGetCount(oid);
     SInt32 first_digit = 0, digit;
     for (i = 0; i < count; i++) {

@@ -26,6 +26,7 @@
 #include "CommonCMACSPI.h"
 #include "CommonCryptorPriv.h"
 #include <corecrypto/ccaes.h>
+#include <corecrypto/cc_priv.h>
 #include "ccdebug.h"
 #include "ccMemory.h"
 

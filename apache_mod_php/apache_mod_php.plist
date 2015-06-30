@@ -4,28 +4,28 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2014-1-15</string>
+		<string>2015-5-3</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>d31629e9c2fb5f438ab2dc0aa597cd82</string>
+		<string>f5666659d9279f725f4351866bb73bed</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
 			<string>Missing man pages</string>
 			<string>Bug fixes for phar</string>
 			<string>Removed GPLv3 bison-generated parsers</string>
-	</array>
+                </array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
-		<key>OpenSourceMD5</key>
-		<string>23d2275b653a9c038dbfa9cf64151e17</string>
+		<key>OpenSourceModificationsMD5</key>
+		<string>e32fdde6d5145b360af54ce0fab1d195</string>
 		<key>OpenSourceURL</key>
 		<string>http://php.net/downloads.php</string>
 		<key>OpenSourceVersion</key>
-		<string>5.5.20</string>
+		<string>5.5.24</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>

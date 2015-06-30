@@ -39,10 +39,11 @@ TPCertInfo *tpDbFindIssuerCert(
 	const TPClItemInfo		*subjectItem,
 	const CSSM_DL_DB_LIST	*dbList,
 	const char 				*verifyTime,		// may be NULL
-	bool					&partialIssuerKey);	// RETURNED
+	bool					&partialIssuerKey,	// RETURNED
+    TPCertInfo              *oldRoot);
 
 /*
- * Search a list of DBs for a CRL from the specified issuer and (optional)  
+ * Search a list of DBs for a CRL from the specified issuer and (optional)
  * TPVerifyContext.verifyTime. 
  * Just a boolean return - we found it, or not. If we did, we return a
  * TPCrlInfo which has been verified with the specified TPVerifyContext.

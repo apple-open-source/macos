@@ -115,6 +115,19 @@ void *SecNssCoder::malloc(size_t len)
 	return rtn;
 }
 
+/* allocate space for num copies of specified type */
+void *SecNssCoder::malloc_T(
+                            size_t unit_bytesize,
+                            size_t num_units)
+{
+    if (num_units>=SIZE_MAX/unit_bytesize) {
+        THROW_ERROR;
+        return NULL;
+    }
+    return malloc(unit_bytesize * num_units);
+}
+
+
 /* malloc item.Data, set item.Length */
 void SecNssCoder::allocItem(
 	SECItem					&item,

@@ -12,6 +12,10 @@
 
 #include "Security_regressions.h"
 
+/* Test <rdar://problem/16669564>
+   Retrieving attributes and data when item contains no data crashed.
+ */
+
 static void tests(void)
 {
     CFDictionaryRef item = CFDictionaryCreateForCFTypes(NULL,

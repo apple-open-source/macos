@@ -91,6 +91,10 @@ SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, void **obj
      * Allocate arrays to hold the individual encodings which we will use
      * for comparisons and the reordered attributes as they are sorted.
      */
+    // Security check to prevent under-allocation
+    if (num_objs<0 || num_objs>=(int)((INT_MAX/sizeof(SecAsn1Item *))-1)) {
+        goto loser;
+    }
     enc_objs = (SecAsn1Item **)PORT_ArenaZAlloc(poolp, (num_objs + 1) * sizeof(SecAsn1Item *));
     if (enc_objs == NULL)
 	goto loser;

@@ -586,6 +586,11 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
         {
             _seenKVSStoreChange = YES;
             NSSet *keysChangedInCloud = [NSSet setWithArray:[userInfo objectForKey:NSUbiquitousKeyValueStoreChangedKeysKey]];
+
+            /* We are saying that we want to try processing a key no matter what,
+             * *if* it has changed in the cloud. */
+            [_pendingKeys minusSet:keysChangedInCloud];
+
             NSSet *keysOfInterestThatChanged = [self pendKeysAndGetPendingForCurrentLockState:keysChangedInCloud];
             NSMutableDictionary *changedValues = [self copyValues:keysOfInterestThatChanged];
             if ([reason integerValue] == NSUbiquitousKeyValueStoreInitialSyncChange)
@@ -669,9 +674,12 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
             // Update pendingKeys and handle them
             [_pendingKeys minusSet: handledKeys];
             bool hadShadowPendingKeys = [_shadowPendingKeys count];
-            NSSet *filteredKeys = [self pendKeysAndGetPendingForCurrentLockState:_shadowPendingKeys];
+            // Move away shadownPendingKeys first, because pendKeysAndGetPendingForCurrentLockState
+            // will look at them. See rdar://problem/20733166.
+            NSSet *oldShadowPendingKeys = _shadowPendingKeys;
             _shadowPendingKeys = nil;
-            
+            NSSet *filteredKeys = [self pendKeysAndGetPendingForCurrentLockState:oldShadowPendingKeys];
+
             // Write state to disk
             [self persistState];
             

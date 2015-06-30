@@ -1,3 +1,564 @@
+2015-06-08  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r183682.
+
+    2015-05-01  Brady Eidson  <beidson@apple.com>
+
+            Add API to disable meta refreshes.
+            <rdar://problem/20333198> and https://bugs.webkit.org/show_bug.cgi?id=144269
+
+            Reviewed by Alexey Proskuryakov.
+
+            Test: loader/meta-refresh-disabled.html
+
+            * dom/Document.cpp:
+            (WebCore::Document::processHttpEquiv): Bail early if Settings have meta refreshes disabled.
+            * page/Settings.in:
+
+2015-05-31  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r185018.
+
+    2015-05-29  Brady Eidson  <beidson@apple.com>
+
+            Review feedback followup for r185003.
+            https://bugs.webkit.org/show_bug.cgi?id=145463
+
+            Reviewed by Darin Adler.
+
+            * platform/sql/SQLiteDatabase.cpp:
+            (WebCore::SQLiteDatabase::overrideUnauthorizedFunctions): `static const` one thing, c++-style cast another.
+
+2015-05-31  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r185003.
+
+    2015-05-29  Brady Eidson  <beidson@apple.com>
+
+            WebSQL default functions can bypass authorizer.
+            <rdar://problem/21048994> and https://bugs.webkit.org/show_bug.cgi?id=145463
+
+            Reviewed by Sam Weinig and Alexey Proskuryakov.
+
+            No new tests yet.
+
+            * platform/sql/SQLiteDatabase.cpp:
+            (WebCore::unauthorizedSQLFunction): Function to install into SQLite to override some built-in functions.
+            (WebCore::SQLiteDatabase::open):
+            (WebCore::SQLiteDatabase::overrideUnauthorizedFunctions): Install function overrides for functions that
+               take arbitrary input that are also meant to be disabled by virtue of them not being whitelisted.
+            * platform/sql/SQLiteDatabase.h:
+
+2015-05-08  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r183649.
+
+    2015-04-30  Brady Eidson  <beidson@apple.com>
+
+            Build fix after r183646 for less enlightened platforms.
+
+            Unreviewed.
+
+            * Modules/webdatabase/DatabaseBackendBase.cpp:
+            (WebCore::fullyQualifiedInfoTableName): Windows doesn’t have stpcpy :(
+
+2015-05-08  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r183646.
+
+    2015-04-30  Brady Eidson  <beidson@apple.com>
+
+            Javascript using WebSQL can create their own WebKit info table.
+            <rdar://problem/20688792> and https://bugs.webkit.org/show_bug.cgi?id=144466
+
+            Reviewed by Alex Christensen.
+
+            Test: storage/websql/alter-to-info-table.html
+
+            * Modules/webdatabase/DatabaseBackendBase.cpp:
+            (WebCore::DatabaseBackendBase::databaseInfoTableName): Return the info table name.
+            (WebCore::fullyQualifiedInfoTableName): Append "main." to the info table name.
+            (WebCore::DatabaseBackendBase::DatabaseBackendBase): Use the fully qualified name.
+            (WebCore::DatabaseBackendBase::performOpenAndVerify): Ditto.
+            (WebCore::DatabaseBackendBase::getVersionFromDatabase): Ditto.
+            (WebCore::DatabaseBackendBase::setVersionInDatabase): Ditto.
+
+2015-05-01  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r183524.
+
+    2015-04-28  Brent Fulgham  <bfulgham@apple.com>
+
+            REGRESSION(180076): [Mac, iOS] Correct possible null dereference in printing code
+            https://bugs.webkit.org/show_bug.cgi?id=144366
+            <rdar://problem/20533513>
+
+            Reviewed by Dean Jackson.
+
+            * rendering/RenderBlockFlow.cpp:
+            (WebCore::needsAppleMailPaginationQuirk): Check if the document settings is a nullptr
+            before attempting to dereference it. 
+
+2015-04-28  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r183280. rdar://problem/20694404
+
+    2015-04-24  Brady Eidson  <beidson@apple.com>
+
+            Origin header is preserved on cross-origin redirects.
+            https://bugs.webkit.org/show_bug.cgi?id=144157.
+
+            Reviewed by Sam Weinig.
+
+            Tests: http/tests/security/cors-post-redirect-301.html
+                   http/tests/security/cors-post-redirect-302.html
+                   http/tests/security/cors-post-redirect-307.html
+                   http/tests/security/cors-post-redirect-308.html
+
+            * platform/network/cf/ResourceHandleCFNet.cpp:
+            (WebCore::ResourceHandle::willSendRequest): Always clear any origin header for cross-origin redirects.
+            * platform/network/mac/ResourceHandleMac.mm:
+            (WebCore::ResourceHandle::willSendRequest): Ditto.
+
+2015-04-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r181656 and r182985.
+
+    2015-04-18  Simon Fraser  <simon.fraser@apple.com>
+
+            REGRESSION (r181656): Animated tiled layers are missing content
+            https://bugs.webkit.org/show_bug.cgi?id=143911
+            rdar://problem/20596328
+
+            Reviewed by Darin Adler.
+
+            After r181656, all requestAnimationFrame was falling back to timers, and not
+            using the platform's DisplayRefreshMonitor, because of a Nullopt vs nullptr
+            fumble. As a result, GraphicsLayerUpdater (which updates tiled layers during
+            animations) was failing to do any updates.
+
+            Replace this confusing Optional<> code with simpler code that just forces the
+            clients to make a DisplayRefreshMonitor if they can, first asking
+            ChromeClient, and then falling back to createDefaultDisplayRefreshMonitor().
+
+            Make lots of things into references, and use C++11 initialization in some places.
+
+            Add Internals API to allow a test to get the number of layer flushes that have
+            occurred.
+
+            * dom/ScriptedAnimationController.cpp:
+            (WebCore::ScriptedAnimationController::ScriptedAnimationController):
+            (WebCore::ScriptedAnimationController::windowScreenDidChange):
+            (WebCore::ScriptedAnimationController::scheduleAnimation):
+            (WebCore::ScriptedAnimationController::createDisplayRefreshMonitor):
+            * dom/ScriptedAnimationController.h:
+            * page/ChromeClient.h:
+            * platform/graphics/DisplayRefreshMonitor.cpp:
+            (WebCore::DisplayRefreshMonitor::createDefaultDisplayRefreshMonitor):
+            (WebCore::DisplayRefreshMonitor::create):
+            (WebCore::DisplayRefreshMonitor::addClient):
+            (WebCore::DisplayRefreshMonitor::removeClient):
+            (WebCore::DisplayRefreshMonitor::displayDidRefresh):
+            * platform/graphics/DisplayRefreshMonitor.h:
+            * platform/graphics/DisplayRefreshMonitorClient.cpp:
+            (WebCore::DisplayRefreshMonitorClient::~DisplayRefreshMonitorClient):
+            * platform/graphics/DisplayRefreshMonitorClient.h:
+            * platform/graphics/DisplayRefreshMonitorManager.cpp:
+            (WebCore::DisplayRefreshMonitorManager::createMonitorForClient):
+            (WebCore::DisplayRefreshMonitorManager::registerClient):
+            (WebCore::DisplayRefreshMonitorManager::unregisterClient):
+            (WebCore::DisplayRefreshMonitorManager::scheduleAnimation):
+            (WebCore::DisplayRefreshMonitorManager::displayDidRefresh):
+            (WebCore::DisplayRefreshMonitorManager::windowScreenDidChange):
+            * platform/graphics/DisplayRefreshMonitorManager.h:
+            * platform/graphics/GraphicsLayerUpdater.cpp:
+            (WebCore::GraphicsLayerUpdater::GraphicsLayerUpdater):
+            (WebCore::GraphicsLayerUpdater::scheduleUpdate):
+            (WebCore::GraphicsLayerUpdater::screenDidChange):
+            (WebCore::GraphicsLayerUpdater::displayRefreshFired):
+            (WebCore::GraphicsLayerUpdater::createDisplayRefreshMonitor):
+            * platform/graphics/GraphicsLayerUpdater.h:
+            * rendering/RenderLayerCompositor.cpp:
+            (WebCore::RenderLayerCompositor::RenderLayerCompositor):
+            (WebCore::RenderLayerCompositor::flushPendingLayerChanges):
+            (WebCore::RenderLayerCompositor::notifyFlushBeforeDisplayRefresh):
+            (WebCore::RenderLayerCompositor::flushLayersSoon):
+            (WebCore::RenderLayerCompositor::createDisplayRefreshMonitor):
+            (WebCore::RenderLayerCompositor::startTrackingLayerFlushes):
+            (WebCore::RenderLayerCompositor::layerFlushCount):
+            * rendering/RenderLayerCompositor.h:
+            * testing/Internals.cpp:
+            (WebCore::Internals::startTrackingLayerFlushes):
+            (WebCore::Internals::layerFlushCount):
+            * testing/Internals.h:
+            * testing/Internals.idl:
+
+    2015-03-17  Timothy Horton  <timothy_horton@apple.com>
+
+            Reproducible null deref under ScriptedAnimationController::createDisplayRefreshMonitor
+            https://bugs.webkit.org/show_bug.cgi?id=142776
+            <rdar://problem/18921338>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Test: fast/animation/request-animation-frame-unparented-iframe-crash.html
+
+            In some cases (like the new test), we can end up trying to start
+            requestAnimationFrame on a Document that has no Page. Most paths null-checked
+            the Page and did the right thing, but one failed to do so. In addition,
+            the current fallback (when Page is null) can result in us constructing
+            the wrong kind of DisplayRefreshMonitor, which could lead to trouble
+            down the road when it's reused. Instead, just completely avoid making a
+            DisplayRefreshMonitor in the null-page case.
+
+            * dom/ScriptedAnimationController.cpp:
+            (WebCore::ScriptedAnimationController::createDisplayRefreshMonitor):
+            If the page is null, bail.
+
+            * dom/ScriptedAnimationController.h:
+            * platform/graphics/DisplayRefreshMonitor.cpp:
+            (WebCore::DisplayRefreshMonitor::create):
+            Use Optional<> to make it easy to distinguish between ChromeClient
+            being unreachable (because we don't have a Page for some reason) and
+            ChromeClient declaring that it doesn't want to override the type of
+            DisplayRefreshMonitor that is created.
+
+            If ChromeClient was unreachable for some reason, we'll get back an engaged
+            nullptr and return it (instead of creating a DisplayRefreshMonitor based
+            on the platform). This avoids creating the wrong type of DisplayRefreshMonitor
+            in the rare case where we can't reach the ChromeClient (e.g. a freshly unparented
+            IFrame).
+
+            If instead the client returns a disengaged Nullopt, we'll interpret that as
+            "construct the default type", which falls back on the platform #ifdefs to
+            decide what to make.2015-04-18  Simon Fraser  <simon.fraser@apple.com>
+
+            REGRESSION (r181656): Animated tiled layers are missing content
+            https://bugs.webkit.org/show_bug.cgi?id=143911
+            rdar://problem/20596328
+
+            Reviewed by Darin Adler.
+
+            After r181656, all requestAnimationFrame was falling back to timers, and not
+            using the platform's DisplayRefreshMonitor, because of a Nullopt vs nullptr
+            fumble. As a result, GraphicsLayerUpdater (which updates tiled layers during
+            animations) was failing to do any updates.
+
+            Replace this confusing Optional<> code with simpler code that just forces the
+            clients to make a DisplayRefreshMonitor if they can, first asking
+            ChromeClient, and then falling back to createDefaultDisplayRefreshMonitor().
+
+            Make lots of things into references, and use C++11 initialization in some places.
+
+            Add Internals API to allow a test to get the number of layer flushes that have
+            occurred.
+
+            * dom/ScriptedAnimationController.cpp:
+            (WebCore::ScriptedAnimationController::ScriptedAnimationController):
+            (WebCore::ScriptedAnimationController::windowScreenDidChange):
+            (WebCore::ScriptedAnimationController::scheduleAnimation):
+            (WebCore::ScriptedAnimationController::createDisplayRefreshMonitor):
+            * dom/ScriptedAnimationController.h:
+            * page/ChromeClient.h:
+            * platform/graphics/DisplayRefreshMonitor.cpp:
+            (WebCore::DisplayRefreshMonitor::createDefaultDisplayRefreshMonitor):
+            (WebCore::DisplayRefreshMonitor::create):
+            (WebCore::DisplayRefreshMonitor::addClient):
+            (WebCore::DisplayRefreshMonitor::removeClient):
+            (WebCore::DisplayRefreshMonitor::displayDidRefresh):
+            * platform/graphics/DisplayRefreshMonitor.h:
+            * platform/graphics/DisplayRefreshMonitorClient.cpp:
+            (WebCore::DisplayRefreshMonitorClient::~DisplayRefreshMonitorClient):
+            * platform/graphics/DisplayRefreshMonitorClient.h:
+            * platform/graphics/DisplayRefreshMonitorManager.cpp:
+            (WebCore::DisplayRefreshMonitorManager::createMonitorForClient):
+            (WebCore::DisplayRefreshMonitorManager::registerClient):
+            (WebCore::DisplayRefreshMonitorManager::unregisterClient):
+            (WebCore::DisplayRefreshMonitorManager::scheduleAnimation):
+            (WebCore::DisplayRefreshMonitorManager::displayDidRefresh):
+            (WebCore::DisplayRefreshMonitorManager::windowScreenDidChange):
+            * platform/graphics/DisplayRefreshMonitorManager.h:
+            * platform/graphics/GraphicsLayerUpdater.cpp:
+            (WebCore::GraphicsLayerUpdater::GraphicsLayerUpdater):
+            (WebCore::GraphicsLayerUpdater::scheduleUpdate):
+            (WebCore::GraphicsLayerUpdater::screenDidChange):
+            (WebCore::GraphicsLayerUpdater::displayRefreshFired):
+            (WebCore::GraphicsLayerUpdater::createDisplayRefreshMonitor):
+            * platform/graphics/GraphicsLayerUpdater.h:
+            * rendering/RenderLayerCompositor.cpp:
+            (WebCore::RenderLayerCompositor::RenderLayerCompositor):
+            (WebCore::RenderLayerCompositor::flushPendingLayerChanges):
+            (WebCore::RenderLayerCompositor::notifyFlushBeforeDisplayRefresh):
+            (WebCore::RenderLayerCompositor::flushLayersSoon):
+            (WebCore::RenderLayerCompositor::createDisplayRefreshMonitor):
+            (WebCore::RenderLayerCompositor::startTrackingLayerFlushes):
+            (WebCore::RenderLayerCompositor::layerFlushCount):
+            * rendering/RenderLayerCompositor.h:
+            * testing/Internals.cpp:
+            (WebCore::Internals::startTrackingLayerFlushes):
+            (WebCore::Internals::layerFlushCount):
+            * testing/Internals.h:
+            * testing/Internals.idl:
+
+2015-04-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r181656. rdar://problem/20545362
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r182835. rdar://problem/20645249
+
+    2015-04-14  Zalan Bujtas  <zalan@apple.com>
+
+            Make inline continuation style change logic consistent.
+            https://bugs.webkit.org/show_bug.cgi?id=143737
+            rdar://problem/20486596
+
+            Reviewed by Simon Fraser.
+
+            Do not force RenderBlock type-casting on the first sibling of the continuation's container.
+            The first sibling of the container of a continuation should be handled as the rest of the siblings.
+
+            Test: fast/inline/inline-with-column-span-and-remove-block-child-crash.html
+
+            * rendering/RenderInline.cpp:
+            (WebCore::updateStyleOfAnonymousBlockContinuations):
+            (WebCore::RenderInline::styleDidChange):
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r182076. rdar://problem/20545378
+
+    2015-03-27  Brent Fulgham  <bfulgham@apple.com>
+
+            Null dereference in InbandMetadataTextTrack handling
+            https://bugs.webkit.org/show_bug.cgi?id=143144
+            <rdar://problem/18983250>
+
+            Reviewed by Eric Carlson.
+
+            * platform/graphics/avfoundation/InbandMetadataTextTrackPrivateAVF.cpp:
+            (WebCore::InbandMetadataTextTrackPrivateAVF::updatePendingCueEndTimes): Check for null return value from
+            'client()', just like we do in all other methods.
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r181656. rdar://problem/20545362
+
+    2015-03-17  Timothy Horton  <timothy_horton@apple.com>
+
+            Reproducible null deref under ScriptedAnimationController::createDisplayRefreshMonitor
+            https://bugs.webkit.org/show_bug.cgi?id=142776
+            <rdar://problem/18921338>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Test: fast/animation/request-animation-frame-unparented-iframe-crash.html
+
+            In some cases (like the new test), we can end up trying to start
+            requestAnimationFrame on a Document that has no Page. Most paths null-checked
+            the Page and did the right thing, but one failed to do so. In addition,
+            the current fallback (when Page is null) can result in us constructing
+            the wrong kind of DisplayRefreshMonitor, which could lead to trouble
+            down the road when it's reused. Instead, just completely avoid making a
+            DisplayRefreshMonitor in the null-page case.
+
+            * dom/ScriptedAnimationController.cpp:
+            (WebCore::ScriptedAnimationController::createDisplayRefreshMonitor):
+            If the page is null, bail.
+
+            * dom/ScriptedAnimationController.h:
+            * platform/graphics/DisplayRefreshMonitor.cpp:
+            (WebCore::DisplayRefreshMonitor::create):
+            Use Optional<> to make it easy to distinguish between ChromeClient
+            being unreachable (because we don't have a Page for some reason) and
+            ChromeClient declaring that it doesn't want to override the type of
+            DisplayRefreshMonitor that is created.
+
+            If ChromeClient was unreachable for some reason, we'll get back an engaged
+            nullptr and return it (instead of creating a DisplayRefreshMonitor based
+            on the platform). This avoids creating the wrong type of DisplayRefreshMonitor
+            in the rare case where we can't reach the ChromeClient (e.g. a freshly unparented
+            IFrame).
+
+            If instead the client returns a disengaged Nullopt, we'll interpret that as
+            "construct the default type", which falls back on the platform #ifdefs to
+            decide what to make.
+
+            * platform/graphics/DisplayRefreshMonitorManager.cpp:
+            (WebCore::DisplayRefreshMonitorManager::ensureMonitorForClient):
+            (WebCore::DisplayRefreshMonitorManager::scheduleAnimation):
+            Silently handle the case where we failed to make a DisplayRefreshMonitor.
+
+            * platform/graphics/DisplayRefreshMonitor.h:
+            * platform/graphics/DisplayRefreshMonitorClient.h:
+            * platform/graphics/GraphicsLayerUpdater.cpp:
+            (WebCore::GraphicsLayerUpdater::createDisplayRefreshMonitor):
+            * platform/graphics/GraphicsLayerUpdater.h:
+            * rendering/RenderLayerCompositor.cpp:
+            (WebCore::RenderLayerCompositor::createDisplayRefreshMonitor):
+            * rendering/RenderLayerCompositor.h:
+            Adjust to the new signature of createDisplayRefreshMonitor, and return
+            an engaged (nullptr) Optional if we can't get to ChromeClient for any reason.
+
+            * page/ChromeClient.h:
+            Return Nullopt (indicating a lack of override) by default.
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r180520. rdar://problem/20545427
+
+    2015-02-22  Dean Jackson  <dino@apple.com>
+
+            [iOS] Max canvas size is lower than expected
+            https://bugs.webkit.org/show_bug.cgi?id=141886
+            <rdar://problem/19729246>
+
+            Reviewed by Tim Horton.
+
+            Use the same maximum canvas area for all ports,
+            which bumps the iOS limit up from 4580 * 1145
+            to 16k * 16k.
+
+            * html/HTMLCanvasElement.cpp: Update MaxCanvasArea.
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r179850. rdar://problem/20545362
+
+    2015-02-09  Timothy Horton  <timothy_horton@apple.com>
+
+            Avoid using a HashMap for DisplayRefreshMonitorManager, which rarely has more than one item
+            https://bugs.webkit.org/show_bug.cgi?id=141353
+
+            Reviewed by Anders Carlsson.
+
+            No new tests, because there's no behavior change.
+
+            * platform/graphics/DisplayRefreshMonitorManager.cpp:
+            (WebCore::DisplayRefreshMonitorManager::ensureMonitorForClient):
+            (WebCore::DisplayRefreshMonitorManager::unregisterClient):
+            (WebCore::DisplayRefreshMonitorManager::displayDidRefresh):
+            * platform/graphics/DisplayRefreshMonitorManager.h:
+            Use a Vector of RefPtr<DisplayRefreshMonitor> instead of a HashMap
+            from uint64_t to RefPtr<DisplayRefreshMonitor>. There's usually only one
+            display, so there's usually only one DisplayRefreshMonitor. Linear search
+            on the Vector will be faster than the hash lookup in all conceivable cases.
+            This also avoids the situation mentioned in the comments in DisplayRefreshMonitorManager.h
+            where we don't know enough about PlatformDisplayID to safely hash it.
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r181409
+
+    2015-03-10  Andy Estes  <aestes@apple.com>
+
+            REGRESSION (r180985): contentfiltering/block-after-add-data.html crashes with GuardMalloc
+            https://bugs.webkit.org/show_bug.cgi?id=142526
+
+            Reviewed by Darin Adler.
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::dataReceived): Don't delete m_contentFilter until after we're done using its replacement data.
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r182965
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r182284
+
+    2015-04-02  Alexey Proskuryakov  <ap@apple.com>
+
+            Clean up access checks in JSHistoryCustom.cpp
+            https://bugs.webkit.org/show_bug.cgi?id=143227
+
+            Reviewed by Sam Weinig.
+
+            * bindings/js/JSHistoryCustom.cpp:
+            (WebCore::JSHistory::putDelegate):
+            (WebCore::JSHistory::deleteProperty):
+            (WebCore::JSHistory::deletePropertyByIndex):
+            (WebCore::JSHistory::getOwnPropertyNames):
+            (WebCore::JSHistory::pushState):
+            (WebCore::JSHistory::replaceState):
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r182051
+
+    2015-03-26  Zalan Bujtas  <zalan@apple.com>
+
+            Inline continuation code should not take anonymous containing wrapper granted.
+            https://bugs.webkit.org/show_bug.cgi?id=133312
+
+            Reviewed by Dave Hyatt.
+
+            It's wrong to assume that when RenderInline is part of an inline continuation, its containing block
+            is an anonymous wrapper and its sibling might be a block level renderer.
+            When the inline continuation is no longer needed, for example when the block level renderer that initiated the continuation
+            is detached from the render tree, the inline renderes still continue to form continuation.(however they no longer require
+            anonymous wrappers)
+
+            Test: fast/inline/crash-when-position-property-is-changed-and-no-longer-in-continuation.html
+
+            * rendering/RenderInline.cpp:
+            (WebCore::updateStyleOfAnonymousBlockContinuations):
+            (WebCore::RenderInline::styleDidChange):
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r181409
+
+    2015-03-10  Andy Estes  <aestes@apple.com>
+
+            REGRESSION (r180985): contentfiltering/block-after-add-data.html crashes with GuardMalloc
+            https://bugs.webkit.org/show_bug.cgi?id=142526
+
+            Reviewed by Darin Adler.
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::dataReceived): Don't delete m_contentFilter until after we're done using its replacement data.
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r180110
+
+    2015-02-14  Alexey Proskuryakov  <ap@apple.com>
+
+            rel="noreferrer" should make window.opener null
+            https://bugs.webkit.org/show_bug.cgi?id=141579
+
+            Reviewed by Darin Adler.
+
+            Tests: http/tests/navigation/target-blank-opener-post.html
+                   http/tests/navigation/target-blank-opener.html
+
+            We used to avoid passing window.opener policy by temporarily storing it in a FrameLoader
+            member variable. This works for some clients - ones that invoke delegate callbacks
+            synchronously - but not in the general case.
+
+            So, changed to passing the policy explicitly.
+
+            * WebCore.exp.in:
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::FrameLoader):
+            (WebCore::FrameLoader::urlSelected):
+            (WebCore::FrameLoader::loadURLIntoChildFrame):
+            (WebCore::FrameLoader::loadFrameRequest):
+            (WebCore::FrameLoader::loadURL):
+            (WebCore::FrameLoader::load):
+            (WebCore::FrameLoader::loadPostRequest):
+            (WebCore::FrameLoader::continueLoadAfterNewWindowPolicy):
+            * loader/FrameLoader.h:
+            (WebCore::FrameLoader::suppressOpenerInNewFrame): Deleted.
+            * loader/FrameLoaderTypes.h:
+            * loader/NavigationScheduler.cpp:
+            * page/ContextMenuController.cpp:
+            (WebCore::openNewWindow):
+            (WebCore::ContextMenuController::contextMenuItemSelected):
+
 2015-03-31  Babak Shafiei  <bshafiei@apple.com>
 
         Merge r182204.

@@ -563,13 +563,13 @@ size_t BundleDiskRep::pageSize(const SigningContext &ctx)
 // Strict validation.
 // Takes an array of CFNumbers of errors to tolerate.
 //
-void BundleDiskRep::strictValidate(const ToleratedErrors& tolerated)
+void BundleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated)
 {
 	std::vector<OSStatus> fatalErrors;
 	set_difference(mStrictErrors.begin(), mStrictErrors.end(), tolerated.begin(), tolerated.end(), back_inserter(fatalErrors));
 	if (!fatalErrors.empty())
 		MacOSError::throwMe(fatalErrors[0]);
-	mExecRep->strictValidate(tolerated);
+	mExecRep->strictValidate(cd, tolerated);
 }
 
 void BundleDiskRep::recordStrictError(OSStatus error)

@@ -2097,6 +2097,8 @@ _SSLNewDatagramContext
 _SSLGetDatagramWriteSize
 _SSLSetPSKSharedSecret
 _SSLSetPSKIdentity
+_SSLSetMinimumDHGroupSize
+_SSLGetMinimumDHGroupSize
 
 //
 // libsecurity_transform

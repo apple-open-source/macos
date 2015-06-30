@@ -5,10 +5,7 @@
  *  Created by Niels on Thu Feb 27 2003.
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
- *	$Log: IOFireWireLibNuDCL.h,v $
- *	Revision 1.9  2007/03/14 01:01:14  collin
- *	*** empty log message ***
- *
+ *	$Log: not supported by cvs2svn $
  *	Revision 1.8  2007/01/26 20:52:32  ayanowit
  *	changes to user-space isoch stuff to support 64-bit apps.
  *	

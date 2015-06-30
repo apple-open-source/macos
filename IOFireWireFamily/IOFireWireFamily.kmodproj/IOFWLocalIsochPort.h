@@ -29,10 +29,7 @@
  *
  * HISTORY
  *
- * $Log: IOFWLocalIsochPort.h,v $
- * Revision 1.10  2004/06/10 20:57:36  niels
- * *** empty log message ***
- *
+ * $Log: not supported by cvs2svn $
  * Revision 1.9  2003/08/30 00:16:44  collin
  * *** empty log message ***
  *

@@ -124,6 +124,8 @@ static Boolean wantsPrelinkedKernelCopy(CFURLRef theVolRootURL);
 #define k_prelinkedkernelFilePath kPrelinkedKernelsPath "/prelinkedkernel"
 
 #endif
+static Boolean isRootVolURL(CFURLRef theURL);
+
 
 /*******************************************************************************
 *******************************************************************************/
@@ -2589,9 +2591,6 @@ finish:
     return result;
 }
 
-static void setVolumeRootInAlertDict(CFURLRef theURL,
-                                     CFMutableDictionaryRef theDict);
-
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus
@@ -2813,64 +2812,39 @@ createPrelinkedKernel(
     result = EX_OK;
 
 finish:
-    if (sNoLoadKextAlertDict) {
-        /* notify kextd that we have some nonsigned kexts going into the
-         * kernel cache.
-         */
-        if (toolArgs->volumeRootURL) {
-            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
-                                     sNoLoadKextAlertDict);
+    if (isKextdRunning() && isRootVolURL(toolArgs->volumeRootURL)) {
+        // <rdar://problem/20688847> only post notifications if kextcache was
+        // targeting the root volume
+        if (sNoLoadKextAlertDict) {
+            /* notify kextd that we have some nonsigned kexts going into the
+             * kernel cache.
+             */
+            postNoteAboutKexts(CFSTR("No Load Kext Notification"),
+                               sNoLoadKextAlertDict );
         }
-        postNoteAboutKexts(CFSTR("No Load Kext Notification"),
-                           sNoLoadKextAlertDict );
-    }
-    
-    if (sRevokedKextAlertDict) {
-        /* notify kextd that we have some kexts with revoked certificate.
-         */
-        if (toolArgs->volumeRootURL) {
-            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
-                                     sRevokedKextAlertDict);
+        
+        if (sRevokedKextAlertDict) {
+            /* notify kextd that we have some kexts with revoked certificate.
+             */
+            postNoteAboutKexts(CFSTR("Revoked Cert Kext Notification"),
+                               sRevokedKextAlertDict );
         }
-        postNoteAboutKexts(CFSTR("Revoked Cert Kext Notification"),
-                           sRevokedKextAlertDict );
-    }
-#if 0 // not yet
-    if (sUnsignedKextAlertDict) {
-        /* notify kextd that we have some unsigned kexts going into the
-         * kernel cache.
-         */
-        if (toolArgs->volumeRootURL) {
-            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
-                                     sUnsignedKextAlertDict);
+        
+        if (sInvalidSignedKextAlertDict) {
+            /* notify kextd that we have some invalid signed kexts going into the
+             * kernel cache.
+             */
+            postNoteAboutKexts(CFSTR("Invalid Signature Kext Notification"),
+                               sInvalidSignedKextAlertDict);
         }
-        postNoteAboutKexts(CFSTR("Unsigned Kext Notification"),
-                           sUnsignedKextAlertDict);
-    }
-#endif
-    
-    if (sInvalidSignedKextAlertDict) {
-        /* notify kextd that we have some invalid signed kexts going into the
-         * kernel cache.
-         */
-        if (toolArgs->volumeRootURL) {
-            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
-                                     sInvalidSignedKextAlertDict);
+        
+        if (sExcludedKextAlertDict) {
+            /* notify kextd that we have some excluded kexts going into the
+             * kernel cache.
+             */
+            postNoteAboutKexts(CFSTR("Excluded Kext Notification"),
+                               sExcludedKextAlertDict);
         }
-        postNoteAboutKexts(CFSTR("Invalid Signature Kext Notification"),
-                           sInvalidSignedKextAlertDict);
-    }
-    
-    if (sExcludedKextAlertDict) {
-        /* notify kextd that we have some excluded kexts going into the
-         * kernel cache.
-         */
-        if (toolArgs->volumeRootURL) {
-            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
-                                     sExcludedKextAlertDict);
-        }
-        postNoteAboutKexts(CFSTR("Excluded Kext Notification"),
-                           sExcludedKextAlertDict);
     }
 
     SAFE_RELEASE(generatedArchs);
@@ -2889,25 +2863,37 @@ finish:
     return result;
 }
 
-static void setVolumeRootInAlertDict(CFURLRef theURL,
-                                     CFMutableDictionaryRef theDict)
+/* NOTE -> Null URL means no /Volumes/XXX prefix was used, also a null string
+ * in the URL is also treated as root volume
+ */
+static Boolean isRootVolURL(CFURLRef theURL)
 {
-    CFStringRef   myVolRoot;
+    Boolean     result = false;
+    char        volRootBuf[PATH_MAX];
     
-    myVolRoot = (CFStringRef)
-        CFDictionaryGetValue(theDict,
-                             CFSTR("VolRootKey"));
-    if (myVolRoot == NULL) {
-        myVolRoot = CFURLCopyFileSystemPath(theURL,
-                                            kCFURLPOSIXPathStyle);
-        if (myVolRoot) {
-            CFDictionarySetValue(theDict,
-                                 CFSTR("VolRootKey"),
-                                 myVolRoot);
-            SAFE_RELEASE(myVolRoot);
+    if (theURL == NULL) {
+        result = true;
+        goto finish;
+    }
+    
+    volRootBuf[0] = 0x00;
+    if (CFURLGetFileSystemRepresentation(theURL,
+                                         true,
+                                         (UInt8 *)volRootBuf,
+                                         sizeof(volRootBuf)) == false) {
+        // this should not happen, but just in case...
+        volRootBuf[0] = 0x00;
+    }
+    if (strlen(volRootBuf) < 2) {
+        // will count a null string also as root vole
+        if (volRootBuf[0] == 0x00 || volRootBuf[0] == '/') {
+            result = true;
         }
     }
-    return;
+    
+finish:
+    return(result);
+    
 }
 
 /*******************************************************************************

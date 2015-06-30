@@ -28,10 +28,7 @@
  *
  */
 /*
-	$Log: IOFWUserAsyncStreamListener.h,v $
-	Revision 1.4  2007/02/16 19:03:43  arulchan
-	*** empty log message ***
-
+	$Log: not supported by cvs2svn $
 	Revision 1.3  2007/02/07 06:35:20  collin
 	*** empty log message ***
 	

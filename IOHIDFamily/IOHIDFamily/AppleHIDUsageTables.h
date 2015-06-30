@@ -68,6 +68,7 @@ enum
     kHIDUsage_AppleVendor_TopCaseReserved       = 0x000D, /* Application Collection */
     kHIDUsage_AppleVendor_Motion                = 0x000E, /* Application Collection */
     kHIDUsage_AppleVendor_KeyboardBacklight     = 0x000F, /* Application Collection */
+    kHIDUsage_AppleVendor_DeviceMotionLite      = 0x0010, /* Application Collection */
 };
 
 

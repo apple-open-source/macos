@@ -368,10 +368,18 @@ size_t MachORep::pageSize(const SigningContext &)
 //
 // Strict validation
 //
-void MachORep::strictValidate(const ToleratedErrors& tolerated)
+void MachORep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated)
 {
+	// if the constructor found suspicious issues, fail a struct validation now
 	if (mExecutable->isSuspicious() && tolerated.find(errSecCSBadMainExecutable) == tolerated.end())
 		MacOSError::throwMe(errSecCSBadMainExecutable);
+	
+	// the signature's code extent must be what we would have picked (no funny hand editing)
+	if (cd) {
+		auto_ptr<MachO> macho(mExecutable->architecture());
+		if (cd->codeLimit != macho->signingExtent())
+			MacOSError::throwMe(errSecCSSignatureInvalid);
+	}
 }
 
 

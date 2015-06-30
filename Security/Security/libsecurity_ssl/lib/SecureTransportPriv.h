@@ -440,7 +440,12 @@ OSStatus SSLSetPSKIdentity(SSLContextRef ctx,
 OSStatus SSLGetPSKIdentity(SSLContextRef ctx,
                            const void **pskIdentity,
                            size_t *pskIdentityLen);
-    
+
+/* For client side, set the minimum allowed DH group size for DHE ciphersuites */
+OSStatus SSLSetMinimumDHGroupSize(SSLContextRef ctx, unsigned nbits);
+
+OSStatus SSLGetMinimumDHGroupSize(SSLContextRef ctx, unsigned *nbits);
+
 #if TARGET_OS_IPHONE
 
 /* Following are SPIs on iOS */

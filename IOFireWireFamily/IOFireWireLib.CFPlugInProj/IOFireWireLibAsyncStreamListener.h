@@ -26,10 +26,7 @@
  *  Created by Arul on Thu Sep 28 2006.
  *  Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
- *	$Log: IOFireWireLibAsyncStreamListener.h,v $
- *	Revision 1.3  2006/12/13 21:34:23  ayanowit
- *	For 4222965, replaced all io async method calls with new Leopard API version.
- *
+ *	$Log: not supported by cvs2svn $
  *	Revision 1.2  2006/12/06 00:01:10  arulchan
  *	Isoch Channel 31 Generic Receiver
  *	

@@ -342,6 +342,7 @@ static SSLContextRef make_ssl_ref(bool server, int client_side_auth, bool dh_ano
     require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);
 
+    require_noerr(SSLSetMinimumDHGroupSize(ctx, 512), out);
 
     if (!dh_anonymous) {
         if (server)

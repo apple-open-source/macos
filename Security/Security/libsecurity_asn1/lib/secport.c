@@ -108,13 +108,22 @@ PORTCharConversionFunc ucs2Utf8ConvertFunc;
 PORTCharConversionWSwapFunc  ucs2AsciiConvertFunc;
 #endif  /* __APPLE__ */
 
+/* NSPR memory allocation functions (PR_Malloc, PR_Calloc, and PR_Realloc)
+ * use the PRUint32 type for the size parameter. Before we pass a size_t or
+ * unsigned long size to these functions, we need to ensure it is <= half of
+ * the maximum PRUint32 value to avoid truncation and catch a negative size.
+ */
+#define MAX_SIZE (PR_UINT32_MAX >> 1)
+
 void *
 PORT_Alloc(size_t bytes)
 {
-    void *rv;
+    void *rv = NULL;
 
-    /* Always allocate a non-zero amount of bytes */
-    rv = (void *)PR_Malloc(bytes ? bytes : 1);
+    if (bytes <= MAX_SIZE) {
+	/* Always allocate a non-zero amount of bytes */
+	rv = PR_Malloc(bytes ? bytes : 1);
+    }
     if (!rv) {
 	++port_allocFailures;
 	PORT_SetError(SEC_ERROR_NO_MEMORY);
@@ -125,9 +134,11 @@ PORT_Alloc(size_t bytes)
 void *
 PORT_Realloc(void *oldptr, size_t bytes)
 {
-    void *rv;
+    void *rv = NULL;
 
-    rv = (void *)PR_Realloc(oldptr, bytes);
+    if (bytes <= MAX_SIZE) {
+	rv = PR_Realloc(oldptr, bytes);
+    }
     if (!rv) {
 	++port_allocFailures;
 	PORT_SetError(SEC_ERROR_NO_MEMORY);
@@ -138,10 +149,12 @@ PORT_Realloc(void *oldptr, size_t bytes)
 void *
 PORT_ZAlloc(size_t bytes)
 {
-    void *rv;
+    void *rv = NULL;
 
-    /* Always allocate a non-zero amount of bytes */
-    rv = (void *)PR_Calloc(1, bytes ? bytes : 1);
+    if (bytes <= MAX_SIZE) {
+	/* Always allocate a non-zero amount of bytes */
+	rv = PR_Calloc(1, bytes ? bytes : 1);
+    }
     if (!rv) {
 	++port_allocFailures;
 	PORT_SetError(SEC_ERROR_NO_MEMORY);
@@ -199,9 +212,10 @@ PORT_NewArena(unsigned long chunksize)
 {
     PORTArenaPool *pool;
     
-    /* 64 bits cast: Safe. We only use chunksize 1024. */
-    PORT_Assert(chunksize<=PR_UINT32_MAX);
-
+    if (chunksize > MAX_SIZE) {
+	PORT_SetError(SEC_ERROR_NO_MEMORY);
+	return NULL;
+    }
     pool = PORT_ZNew(PORTArenaPool);
     if (!pool) {
 	return NULL;
@@ -215,19 +229,24 @@ PORT_NewArena(unsigned long chunksize)
 		return NULL;
     }
 	#endif
-    PL_InitArenaPool(&pool->arena, "security", (PRUint32) chunksize, (PRUint32)sizeof(double));
+    PL_InitArenaPool(&pool->arena, "security", (PRUint32)chunksize, sizeof(double));
     return(&pool->arena);
 }
 
 void *
 PORT_ArenaAlloc(PLArenaPool *arena, size_t size)
 {
-    void *p;
+    void *p = NULL;
 
     PORTArenaPool *pool = (PORTArenaPool *)arena;
 
-    PORT_Assert(size<=PR_UINT32_MAX);
+    if (size <= 0) {
+	size = 1;
+    }
 
+    if (size > MAX_SIZE) {
+	/* you lose. */
+    } else 
     /* Is it one of ours?  Assume so and check the magic */
     if (ARENAPOOL_MAGIC == pool->magic ) {
 		#if ARENA_POOL_LOCK
@@ -263,7 +282,12 @@ PORT_ArenaAlloc(PLArenaPool *arena, size_t size)
 void *
 PORT_ArenaZAlloc(PLArenaPool *arena, size_t size)
 {
-    void *p = PORT_ArenaAlloc(arena, size);
+    void *p;
+
+    if (size <= 0)
+        size = 1;
+
+    p = PORT_ArenaAlloc(arena, size);
 
     if (p) {
 	PORT_Memset(p, 0, size);
@@ -272,7 +296,9 @@ PORT_ArenaZAlloc(PLArenaPool *arena, size_t size)
     return(p);
 }
 
-/* XXX - need to zeroize!! - jsw */
+/*
+ * If zero is true, zeroize the arena memory before freeing it.
+ */
 void
 PORT_FreeArena(PLArenaPool *arena, PRBool zero)
 {
@@ -313,6 +339,10 @@ PORT_FreeArena(PLArenaPool *arena, PRBool zero)
 		}
     }
 	#endif
+    if (zero) {
+        PL_ClearArenaPool(arena, 0);
+    }
+
     if (doFreeArenaPool) {
 		PL_FreeArenaPool(arena);
     } else {
@@ -331,21 +361,28 @@ void *
 PORT_ArenaGrow(PLArenaPool *arena, void *ptr, size_t oldsize, size_t newsize)
 {
     PORTArenaPool *pool = (PORTArenaPool *)arena;
-    PORT_Assert(newsize >= oldsize);
-    PORT_Assert(oldsize <= PR_UINT32_MAX);
-    PORT_Assert(newsize <= PR_UINT32_MAX);
     
+    if (newsize > MAX_SIZE) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return NULL;
+    }
+#ifdef __APPLE__
+    if (newsize < oldsize) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE); // Not expected
+        return NULL;
+    }
+#endif
     if (ARENAPOOL_MAGIC == pool->magic ) {
-		#if ARENA_POOL_LOCK
-		PZ_Lock(pool->lock);
-		#endif
-		/* Do we do a THREADMARK check here? */
-		PL_ARENA_GROW(ptr, arena, (PRUint32)oldsize, (PRUint32)( newsize - oldsize ) );
-		#if ARENA_POOL_LOCK
-		PZ_Unlock(pool->lock);
-		#endif
+        #if ARENA_POOL_LOCK
+            PZ_Lock(pool->lock);
+        #endif
+        /* Do we do a THREADMARK check here? */
+            PL_ARENA_GROW(ptr, arena, (PRUint32)oldsize, (PRUint32)( newsize - oldsize ) );
+        #if ARENA_POOL_LOCK
+            PZ_Unlock(pool->lock);
+        #endif
     } else {
-		PL_ARENA_GROW(ptr, arena, (PRUint32)oldsize, (PRUint32)( newsize - oldsize ) );
+        PL_ARENA_GROW(ptr, arena, (PRUint32)oldsize, (PRUint32)( newsize - oldsize ) );
     }
     
     return(ptr);

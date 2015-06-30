@@ -28,10 +28,7 @@
  *
  */
 /*
-	$Log: IOFWUserPseudoAddressSpace.cpp,v $
-	Revision 1.25  2010/05/20 22:49:43  calderon
-	Fixes issues with offset argument of pseudo address space read handler being wrong.
-
+	$Log: not supported by cvs2svn $
 	Revision 1.24  2009/10/16 23:59:06  calderon
 	<rdar://problem/7046489> 10A402 AsyncTester results in Error-Server verified Incorrect number of bytes
 	<rdar://problem/7111060> PanicTracer: 3 panics at IOFireWireFamily : IOFWUserPseudoAddressSpace::doPacket

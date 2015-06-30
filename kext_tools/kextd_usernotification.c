@@ -130,7 +130,7 @@ static void kextd_raise_unsignedkext_notification(
 static void kextd_raise_excludedkext_notification(
                                                   CFStringRef alertHeader,
                                                   CFArrayRef  alertMessageArray );
-
+static int validateKextsAlertDict( CFDictionaryRef theDict );
 
 /*******************************************************************************
 *******************************************************************************/
@@ -1512,7 +1512,6 @@ static void revealInFinder(CFArrayRef theArray)
 
 void writeKextAlertPlist( CFDictionaryRef theDict, int theAlertType )
 {
-    CFStringRef             myVolRoot       = NULL;  // do NOT release
     CFArrayRef              myKextArray;             // do NOT release
     CFURLRef                myURL           = NULL;  // must release
     CFStringRef             myPath          = NULL;  // must release
@@ -1524,22 +1523,12 @@ void writeKextAlertPlist( CFDictionaryRef theDict, int theAlertType )
     Boolean                 closeReadStream     = false;
     Boolean                 closeWriteStream    = false;
     
-    if (theDict == NULL) {
+    if (validateKextsAlertDict(theDict) != 0) {
         goto finish;
     }
-    myKextArray = (CFArrayRef)
-        CFDictionaryGetValue(theDict, CFSTR("KextInfoArrayKey"));
-    if (myKextArray == NULL || CFArrayGetCount(myKextArray) < 1) {
-        goto finish;
-    }
-    
-    /* note for the kextcache case we could target a volume other than the boot
-     * volume.  In that case we need to add the "/Volumes/XXXvol/"
-     * to the path.
-     */
-    myVolRoot = (CFStringRef) CFDictionaryGetValue( theDict,
-                                                    CFSTR("VolRootKey"));
-    myPath = createPathFromAlertType(myVolRoot, theAlertType);
+
+    myKextArray = (CFArrayRef) CFDictionaryGetValue(theDict, CFSTR("KextInfoArrayKey"));
+    myPath = createPathFromAlertType(NULL, theAlertType);
     if (myPath == NULL) {
         OSKextLogMemError();
         goto finish;
@@ -1690,7 +1679,7 @@ void sendRevokedCertAlert( CFDictionaryRef theDict )
     CFArrayRef  myKextArray;             // do NOT release
     CFIndex     count, i;
     
-    if (theDict == NULL) {
+    if (validateKextsAlertDict(theDict) != 0) {
         goto finish;
     }
     myKextArray = (CFArrayRef)
@@ -2313,6 +2302,109 @@ finish:
     //SAFE_RELEASE(myTranslatePath);
     
     return( myPath );
+}
+
+
+/*******************************************************************************
+ * Do some sanity checking on this dictionary, do not trust the source.
+ *******************************************************************************/
+static int validateKextsAlertDict( CFDictionaryRef theDict )
+{
+    CFArrayRef  myKextArray;            // do NOT release
+    CFIndex     count, i;
+    int         result = -1;
+    
+    if (theDict == NULL || CFGetTypeID(theDict) != CFDictionaryGetTypeID()) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          CFSTR("%s invalid dictionary type \n"),
+                          __func__);
+        goto finish;
+    }
+    
+    myKextArray = (CFArrayRef) CFDictionaryGetValue(theDict, CFSTR("KextInfoArrayKey"));
+    if (myKextArray == NULL) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          CFSTR("%s null array \n"),
+                          __func__);
+        goto finish;
+    }
+    if ( CFGetTypeID(myKextArray) != CFArrayGetTypeID() ) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          CFSTR("%s invalid array type \n"),
+                          __func__);
+        goto finish;
+    }
+    if (CFArrayGetCount(myKextArray) < 1 || CFArrayGetCount(myKextArray) > 10) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          CFSTR("%s invalid array count %lu \n"),
+                          __func__, CFArrayGetCount(myKextArray));
+        goto finish;
+    }
+    
+    count = CFArrayGetCount(myKextArray);
+    for (i = 0; i < count; i++) {
+        CFDictionaryRef         myDict;                 // do NOT release
+        CFStringRef             myString;               // do NOT release
+        
+        myDict = (CFDictionaryRef) CFArrayGetValueAtIndex(myKextArray, i);
+        if (myDict == NULL || CFGetTypeID(myDict) != CFDictionaryGetTypeID()) {
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("%s invalid kext array dictionary \n"),
+                              __func__);
+            goto finish;
+        }
+        
+        if (CFDictionaryGetCount(myDict) > 3) {
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("%s invalid dictionary count %lu \n"),
+                              __func__, CFDictionaryGetCount(myDict));
+            goto finish;
+        }
+        
+        myString = CFDictionaryGetValue(myDict, CFSTR("KextPathKey"));
+        if (myString == NULL ||
+            CFGetTypeID(myString) != CFStringGetTypeID() ||
+            CFStringGetLength(myString) > 1024) {
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("%s invalid kext path value \n"),
+                              __func__);
+            goto finish;
+        }
+        
+        myString = CFDictionaryGetValue(myDict, kCFBundleIdentifierKey);
+        if (myString == NULL ||
+            CFGetTypeID(myString) != CFStringGetTypeID() ||
+            CFStringGetLength(myString) > 256) {
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("%s invalid kext bundle ID value \n"),
+                              __func__);
+            goto finish;
+        }
+        
+        myString = CFDictionaryGetValue(myDict, kCFBundleVersionKey);
+        if (myString == NULL ||
+            CFGetTypeID(myString) != CFStringGetTypeID() ||
+            CFStringGetLength(myString) > 256) {
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("%s invalid kext bundle version value \n"),
+                              __func__);
+            goto finish;
+        }
+        
+    } // for loop...
+    result = 0;
+    
+finish:
+    return result;
 }
 
 

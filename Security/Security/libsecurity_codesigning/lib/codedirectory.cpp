@@ -160,6 +160,18 @@ void CodeDirectory::checkIntegrity() const
 		if (!contains((*this)[pagesConsumed-1], hashSize))	// referenced too many main hash slots
 			MacOSError::throwMe(errSecCSSignatureFailed);
 	}
+	
+	// check consistency between the page-coverage fields
+	if (pageSize) {
+		if (codeLimit == 0)									// can't have paged signatures with no covered data
+			MacOSError::throwMe(errSecCSSignatureFailed);
+		size_t coveredPages = ((codeLimit-1) >> pageSize) + 1; // page slots required to cover codeLimit
+		if (coveredPages != nCodeSlots)
+			MacOSError::throwMe(errSecCSSignatureFailed);
+	} else {
+		if ((codeLimit > 0) != nCodeSlots)	// must have one code slot, or none if no code
+			MacOSError::throwMe(errSecCSSignatureFailed);
+	}
 }
 
 

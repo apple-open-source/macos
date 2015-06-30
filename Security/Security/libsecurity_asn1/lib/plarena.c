@@ -99,6 +99,9 @@ PR_IMPLEMENT(void) PL_InitArenaPool(
 #endif
 }
 
+#if __APPLE__
+#define MAX_SIZE (PR_UINT32_MAX >> 1)
+#endif
 
 /*
 ** PL_ArenaAllocate() -- allocate space from an arena pool
@@ -125,14 +128,17 @@ PR_IMPLEMENT(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb)
     char *rp;     /* returned pointer */
 
     PR_ASSERT((nb & pool->mask) == 0);
-    
-    nb = (PRUint32)PL_ARENA_ALIGN(pool, nb); /* force alignment */
+#ifdef __APPLE__
+    nb = PL_ARENA_ALIGN(pool, nb); /* force alignment, cast is useless/causes warning. */
+#else
+    nb = (PRUword)PL_ARENA_ALIGN(pool, nb); /* force alignment */
+#endif
 
     /* attempt to allocate from arenas at pool->current */
     {
         a = pool->current;
         do {
-            if ( a->avail +nb <= a->limit )  {
+            if ( nb <= a->limit - a->avail )  {
                 pool->current = a;
                 rp = (char *)a->avail;
                 a->avail += nb;
@@ -143,12 +149,28 @@ PR_IMPLEMENT(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb)
 
     /* attempt to allocate from the heap */ 
     {  
-        PRSize sz = PR_MAX(pool->arenasize, nb);
-        sz += sizeof(*a) + pool->mask;  /* header and alignment slop */
-        a = (PLArena*)PR_MALLOC(sz);
+        PRUint32 sz = PR_MAX(pool->arenasize, nb);
+        if (PR_UINT32_MAX - sz < sizeof *a + pool->mask) {
+            a = NULL;
+        } else {
+            sz += sizeof *a + pool->mask;  /* header and alignment slop */
+            a = (PLArena*)PR_MALLOC(sz);
+        }
+#ifdef __APPLE__
+        // Check for integer overflow on a->avail += nb
+        PRUword a_avail_tmp=(PRUword)PL_ARENA_ALIGN(pool, a + 1);
+        if (a_avail_tmp + nb < a_avail_tmp)
+        {
+            PR_FREEIF(a); // Set a back to NULL
+        }
+#endif
         if ( NULL != a )  {
             a->limit = (PRUword)a + sz;
+#ifdef __APPLE__
+            a->base = a->avail = a_avail_tmp;
+#else
             a->base = a->avail = (PRUword)PL_ARENA_ALIGN(pool, a + 1);
+#endif
             rp = (char *)a->avail;
             a->avail += nb;
             /* the newly allocated arena is linked after pool->current 
@@ -184,14 +206,19 @@ PR_IMPLEMENT(void *) PL_ArenaGrow(
 	PRUint32 newSize;			// bytes actually mallocd here
 	
 	/* expand at least by 2x */
-	origAlignSize = PL_ARENA_ALIGN(pool, origSize);	
-	newSize = PR_MAX(origAlignSize+incr, 2*origAlignSize);
-	newSize = PL_ARENA_ALIGN(pool, newSize);	
+	origAlignSize = PL_ARENA_ALIGN(pool, origSize);
+    newSize = PR_MAX(origAlignSize+incr, 2*origAlignSize);
+    newSize = PL_ARENA_ALIGN(pool, newSize);
+#if __APPLE__
+    // Enforce maximal size before any potential implicit truncation
+    if (newSize>=MAX_SIZE || origSize>=MAX_SIZE || incr>=MAX_SIZE) {
+        return NULL;
+    }
+#endif
     PL_ARENA_ALLOCATE(newp, pool, newSize);
     if (newp == NULL) {
-		return NULL;
-	}
-	
+        return NULL;
+    }
 	/* 
 	 * Trim back the memory we just allocated to the amount our caller really
 	 * needs, leaving the remainder for grow-in-place on subsequent calls
@@ -234,6 +261,21 @@ PR_IMPLEMENT(void *) PL_ArenaGrow(
 	 * of the old buffer (until the arena pool is freed, of course).
 	 */
     return newp;
+}
+
+static void ClearArenaList(PLArena *a, PRInt32 pattern)
+{
+
+    for (; a; a = a->next) {
+        PR_ASSERT(a->base <= a->avail && a->avail <= a->limit);
+        a->avail = a->base;
+        PL_CLEAR_UNUSED_PATTERN(a, pattern);
+    }
+}
+
+PR_IMPLEMENT(void) PL_ClearArenaPool(PLArenaPool *pool, PRInt32 pattern)
+{
+    ClearArenaList(pool->first.next, pattern);
 }
 
 /*

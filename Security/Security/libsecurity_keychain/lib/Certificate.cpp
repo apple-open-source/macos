@@ -150,7 +150,7 @@ try
 
 	if (mSha1Hash)
 		CFRelease(mSha1Hash);
-}
+}    
 catch (...)
 {
 }

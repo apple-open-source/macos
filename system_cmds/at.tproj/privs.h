@@ -103,8 +103,8 @@ gid_t real_gid, effective_gid;
 	PRIV_START \
 	effective_uid = (a); \
 	effective_gid = (b); \
-	if (setregid((gid_t)-1, effective_gid)<0) perr("cannot setregid"); \
-	if (setreuid((uid_t)-1, effective_uid)<0) perr("cannot setreuid"); \
+	if (setegid(effective_gid)<0) perr("cannot setegid"); \
+	if (seteuid(effective_uid)<0) perr("cannot seteuid"); \
 	PRIV_END \
 }
 #endif

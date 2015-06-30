@@ -5,10 +5,7 @@
 *  Created by Niels on Fri Feb 21 2003.
 *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
 *
-*	$Log: IOFWDCL.h,v $
-*	Revision 1.20  2008/11/14 00:17:11  arulchan
-*	fix for rdar://5939334
-*
+*	$Log: not supported by cvs2svn $
 *	Revision 1.19  2007/03/14 01:01:12  collin
 *	*** empty log message ***
 *	

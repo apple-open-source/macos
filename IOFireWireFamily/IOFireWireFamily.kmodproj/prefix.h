@@ -5,10 +5,7 @@
  *  Created by Niels on Tue Mar 11 2003.
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
- * $Log: prefix.h,v $
- * Revision 1.4  2007/02/07 06:35:21  collin
- * *** empty log message ***
- *
+ * $Log: not supported by cvs2svn $
  * Revision 1.3  2004/03/03 19:53:37  niels
  * fix prefix header for native target building
  *

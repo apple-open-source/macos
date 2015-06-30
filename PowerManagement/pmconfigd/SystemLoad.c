@@ -267,7 +267,7 @@ static void updateUserPresentActive( )
         presentActive = true;
     }
 
-    if (!userActive.loggedIn || displayIsOff) {
+    if (displayIsOff) {
         presentActive = false;
     }
 

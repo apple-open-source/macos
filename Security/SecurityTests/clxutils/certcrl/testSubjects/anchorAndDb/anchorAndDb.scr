@@ -11,6 +11,10 @@
 # this directory, each containing exactly one of those certs. If you recreate the certs
 # be sure to replace the certs in the corresponding keychain.
 #
+# Note: since the RSA MD2 root which signed the amazon.com certificate has
+# been removed from the System Roots keychain (<rdar://7880748>),
+# we are no longer checking the CSSM_CERT_STATUS_IS_IN_ANCHORS bit for that cert.
+#
 globals
 allowUnverified = true
 crlNetFetchEnable = false

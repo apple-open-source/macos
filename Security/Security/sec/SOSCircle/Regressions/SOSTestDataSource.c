@@ -272,7 +272,7 @@ static CFStringRef dsGetName(SOSDataSourceRef ds) {
     return CFSTR("The sky is made of butterflies");
 }
 
-static void dsSetNotifyPhaseBlock(SOSDataSourceRef ds, SOSDataSourceNotifyBlock notifyBlock) {
+static void dsSetNotifyPhaseBlock(SOSDataSourceRef ds, dispatch_queue_t queue, SOSDataSourceNotifyBlock notifyBlock) {
     ((SOSTestDataSourceRef)ds)->notifyBlock = Block_copy(notifyBlock);
 }
 

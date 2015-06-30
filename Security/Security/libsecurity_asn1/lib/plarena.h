@@ -79,7 +79,7 @@ struct PLArenaStats {
 struct PLArenaPool {
     PLArena     first;          /* first arena in pool list */
     PLArena     *current;       /* arena from which to allocate space */
-    PRSize      arenasize;      /* net exact size of a new arena */
+    PRUint32    arenasize;      /* net exact size of a new arena */
     PRUword     mask;           /* alignment mask (power-of-2 - 1) */
 #ifdef PL_ARENAMETER
     PLArenaStats stats;
@@ -104,13 +104,14 @@ struct PLArenaPool {
 #define PL_ARENA_ALLOCATE(p, pool, nb) \
     PR_BEGIN_MACRO \
         PLArena *_a = (pool)->current; \
-        PRUint32 _nb = PL_ARENA_ALIGN(pool, nb); \
+        typeof((nb)) _nb = PL_ARENA_ALIGN(pool, nb); /* __APPLE__ more to be generic */ \
         PRUword _p = _a->avail; \
         PRUword _q = _p + _nb; \
-        if (_q > _a->limit) \
+        if (_nb > (_a->limit - _a->avail)) {/* __APPLE__ */ \
             _p = (PRUword)PL_ArenaAllocate(pool, _nb); \
-        else \
+        } else { \
             _a->avail = _q; \
+        } \
         p = (void *)_p; \
         PL_ArenaCountAllocation(pool, nb); \
     PR_END_MACRO
@@ -118,11 +119,12 @@ struct PLArenaPool {
 #define PL_ARENA_GROW(p, pool, size, incr) \
     PR_BEGIN_MACRO \
         PLArena *_a = (pool)->current; \
+        typeof((incr)) _incr = PL_ARENA_ALIGN(pool, incr); /* __APPLE__ more to be generic */ \
         PRUword _p = _a->avail; \
-        PRUword _q = (PRUword)p + size + incr; \
+        PRUword _q = _p + _incr; \
         if (_p == (PRUword)(p) + PL_ARENA_ALIGN(pool, size) && \
-            _q <= _a->limit) { \
-            _a->avail = PL_ARENA_ALIGN(pool, _q); \
+             _incr <= _a->limit - _a->avail) { /* __APPLE__ */\
+            _a->avail = _q; \
             PL_ArenaCountInplaceGrowth(pool, size, incr); \
         } else { \
             p = PL_ArenaGrow(pool, p, size, incr); \
@@ -133,13 +135,18 @@ struct PLArenaPool {
 #define PL_ARENA_MARK(pool) ((void *) (pool)->current->avail)
 #define PR_UPTRDIFF(p,q) ((PRUword)(p) - (PRUword)(q))
 
+#define PL_CLEAR_UNUSED_PATTERN(a, pattern) \
+    PR_BEGIN_MACRO \
+        PR_ASSERT((a)->avail <= (a)->limit); \
+        memset((void*)(a)->avail, (pattern), (a)->limit - (a)->avail); \
+    PR_END_MACRO
 #ifdef DEBUG
 #define PL_FREE_PATTERN 0xDA
-#define PL_CLEAR_UNUSED(a) (PR_ASSERT((a)->avail <= (a)->limit), \
-                           memset((void*)(a)->avail, PL_FREE_PATTERN, \
-                           (a)->limit - (a)->avail))
-#define PL_CLEAR_ARENA(a)  memset((void*)(a), PL_FREE_PATTERN, \
-                           (a)->limit - (PRUword)(a))
+#define PL_CLEAR_UNUSED(a) PL_CLEAR_UNUSED_PATTERN((a), PL_FREE_PATTERN)
+#define PL_CLEAR_ARENA(a) \
+    PR_BEGIN_MACRO \
+        memset((void*)(a), PL_FREE_PATTERN, (a)->limit - (PRUword)(a)); \
+    PR_END_MACRO
 #else
 #define PL_CLEAR_UNUSED(a)
 #define PL_CLEAR_ARENA(a)

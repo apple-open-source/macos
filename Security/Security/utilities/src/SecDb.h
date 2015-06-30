@@ -86,7 +86,7 @@ CFTypeID SecDbGetTypeID(void);
 
 SecDbRef SecDbCreate(CFStringRef dbName, bool (^opened)(SecDbConnectionRef dbconn, bool did_create, CFErrorRef *error));
 
-void SecDbSetNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase);
+void SecDbSetNotifyPhaseBlock(SecDbRef db, dispatch_queue_t queue, SecDBNotifyBlock notifyPhase);
 
 // Read only connections go to the end of the queue, writeable
 // connections go to the start of the queue.  Use SecDbPerformRead() and SecDbPerformWrite() if you

@@ -808,11 +808,23 @@ void IOFireWireAVCUserClient::remakeConnections(void *arg)
 IOReturn IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback(io_user_reference_t *asyncRef, uint64_t userRefcon, uint64_t *returnParam)
 {
 	FIRELOG_MSG(("IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback (this=0x%08X, userRefcon=0x%08X)\n",this,userRefcon));
-
-	bcopy(asyncRef,fAsyncAVCCmdCallbackInfo,sizeof(OSAsyncReference64));
-	*returnParam = 0x12345678;
-	
-	return kIOReturnSuccess;
+    IOReturn status = kIOReturnSuccess;
+    
+    if( status == kIOReturnSuccess )
+    {
+        if( asyncRef == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
+    if( status == kIOReturnSuccess )
+    {
+        bcopy(asyncRef,fAsyncAVCCmdCallbackInfo,sizeof(OSAsyncReference64));
+        *returnParam = 0x12345678;
+    }
+    
+	return status;
 }
 
 //////////////////////////////////////////////////////

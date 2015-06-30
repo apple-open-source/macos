@@ -83,13 +83,14 @@ SecCmsAttributeCreate(PRArenaPool *poolp, SECOidTag oidtag, CSSM_DATA_PTR value,
 	goto loser;
 
     if (value != NULL) {
-	if ((copiedvalue = SECITEM_AllocItem(poolp, NULL, (unsigned int)value->Length)) == NULL)
+	if ((copiedvalue = SECITEM_AllocItem(poolp, NULL, value->Length)) == NULL)
 	    goto loser;
 
 	if (SECITEM_CopyItem(poolp, copiedvalue, value) != SECSuccess)
 	    goto loser;
 
-	SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue);
+        if (SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue) != SECSuccess)
+            goto loser;
     }
 
     attr->encoded = encoded;

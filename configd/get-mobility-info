@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2014 Apple Inc.
+# Copyright (c) 2004-2015 Apple Inc.
 #
 # get-mobility-info
 #
@@ -99,9 +99,9 @@ if [ -x /usr/bin/dig -a -f /etc/resolv.conf ]; then
 fi
 
 #
-# Signal "networkd" to log its "state" info. This logging will continue while
-# we execute a few other commands and should be complete by the time we collect
-# the log content.
+# Signal "networkd" and "mDNSResponder" early to log their "state" info. This
+# logging will continue while we execute a few other commands and should be
+# complete by the time we collect the log content.
 #
 if [ -x /usr/bin/killall ]; then
 	#
@@ -110,68 +110,9 @@ if [ -x /usr/bin/killall ]; then
 	${PRIV} /usr/bin/killall -INFO networkd					2>/dev/null
 
 	#
-	# discoveryd info
+	# request mDNSResponder state
 	#
-	if [ -x /usr/libexec/discoveryd -a -x /usr/sbin/discoveryutil ]; then
-		${PRIV} pgrep -q -x discoveryd
-		if [ $? -eq 0 ]; then
-			P_ARG=""
-			case "`${PRIV} discoveryutil help 2>&1`" in
-			    Warning:* )
-				P_ARG="--priv"
-				;;
-			esac
-			#
-			# upgrade logging (if needed)
-			#
-			CLASS_o=`${PRIV} discoveryutil ${P_ARG} logclass`
-			CLASS_n=`${PRIV} discoveryutil ${P_ARG} logclass Cache`
-
-			LEVEL_o=`${PRIV} discoveryutil ${P_ARG} loglevel | awk '{ print $5 }'`
-			if [ ${LEVEL_o} -le 1 ]; then
-				LEVEL_n=`${PRIV} discoveryutil ${P_ARG} loglevel Intermediate | awk '{ print $5 }'`
-			else
-				LEVEL_n=${LEVEL_o}
-			fi
-
-			cp /dev/null						discoveryd-info
-			for c in			\
-				clientlisteners		\
-				configinterfaces	\
-				configresolvers		\
-				dnsproxystate		\
-				mdnsbrowses		\
-				mdnscachecontents	\
-				mdnscachestats		\
-				mdnslisteners		\
-				mdnsregistrations	\
-				nattraversals		\
-				udnscachecontents	\
-				udnscachestats		\
-				udnsresolvers		\
-				udnsunanswered		\
-
-			do
-				echo "#"					>> discoveryd-info
-				echo "# discoveryutil ${c}"			>> discoveryd-info
-				echo "#"					>> discoveryd-info
-				${PRIV} discoveryutil ${P_ARG} --timeout ${c}	>> discoveryd-info
-			done
-
-			if [ "$CLASS_o" != "$CLASS_n" ]; then
-				#
-				# restore log settings
-				#
-				${PRIV} discoveryutil ${P_ARG} lognoclass Cache		>/dev/null
-			fi
-
-			if [ "$LEVEL_o" != "$LEVEL_n" ]; then
-				${PRIV} discoveryutil ${P_ARG} loglevel ${LEVEL_o}	>/dev/null
-			fi
-
-			${PRIV} cat /var/run/com.apple.discoveryd-trace.sb	> com.apple.discoveryd-trace.sb	2>/dev/null
-		fi
-	fi
+	${PRIV} /usr/bin/killall -INFO mDNSResponder				2>/dev/null
 
 	sleep 1
 fi
@@ -554,7 +495,7 @@ if [ -x /usr/local/bin/ddt ]; then
     /bin/echo -n ""					>  dispatch-info
     for BIN in		\
 	configd		\
-	discoveryd	\
+	mDNSResponder	\
 
     do
 	echo "#"					>> dispatch-info
@@ -719,14 +660,14 @@ report_binary_info()
 get_binary_info()
 {
     for BIN in										\
+	/usr/libexec/InternetSharing							\
 	/usr/libexec/bootpd								\
 	/usr/libexec/configd								\
-	/usr/libexec/discoveryd								\
+	/usr/libexec/misd								\
 	/usr/sbin/awacsd								\
+	/usr/sbin/mDNSResponder								\
 	/usr/sbin/pppd									\
 	/usr/sbin/racoon								\
-	/usr/libexec/misd								\
-	/usr/libexec/InternetSharing							\
 	/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration	\
 
     do
@@ -834,8 +775,8 @@ if [ -x /usr/bin/what -a -x /usr/bin/sum -a -x /bin/ls ]; then
 fi
 
 #
-# to give a chance for "networkd" to finish dumping its state, the last
-# thing we do is collect the logs
+# to give a chance for "networkd" and "mDNSResponder" to finish dumping their
+# state, the last thing we do is collect the logs
 #
 
 #
@@ -928,9 +869,9 @@ if [ -x /bin/ls ]; then
 			awacsd			\
 			bootpd			\
 			configd			\
-			discoveryd		\
-			discoveryd_helper	\
 			eapolclient		\
+			mDNSResponder		\
+			mDNSResponderHelper	\
 			pppd			\
 			racoon			\
 			socketfilterfw		\

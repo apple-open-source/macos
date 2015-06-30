@@ -3,7 +3,8 @@ VERSION		= 5.52
 DISTFILE	= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.').tar.gz
 
 OSLICENSES	= /usr/local/OpenSourceLicenses
-PATCHFILES	= patch-unix_unix.c patch-quarantine patch-CVE-2008-0888
+PATCHFILES	= patch-unix_unix.c patch-quarantine patch-CVE-2008-0888 \
+			unzip-6.0_overflow2.diff patch-list.c
 
 SRCROOT		?= $(shell pwd)
 OBJROOT		?= $(SRCROOT)/obj
@@ -33,11 +34,12 @@ destroot: patchsrc unpacksrc
 		-f unix/Makefile macosx install \
 		prefix=$(DSTROOT)/usr \
 		MANDIR=$(DSTROOT)/usr/share/man/'man$$(manext)' \
-		LOC="-Wall -Os -g -mdynamic-no-pic $(RC_CFLAGS)" LD="$(CC) $(RC_CFLAGS)" \
-		CC="$(CC)"  INSTALL="$(INSTALL) -s" DESTDIR=$(DSTROOT)
+		LOC="$(CFLAGS) $(RC_CFLAGS)" LD="$(CC) $(RC_CFLAGS)" \
+		CC="$(CC)"  INSTALL="$(INSTALL)" DESTDIR=$(DSTROOT) STRIP="echo"
 
 symbols:
 	$(CP) $(OBJROOT)/$(PROJECT)-$(VERSION)/unzip $(SYMROOT)
+	$(DSYMUTIL) $(SYMROOT)/unzip
 
 ossinfo: unpacksrc
 	$(MKDIR) $(DSTROOT)/$(OSLICENSES)
@@ -49,5 +51,5 @@ unpacksrc:
 
 patchsrc: unpacksrc
 	for p in $(PATCHFILES); do			\
-		cd $(OBJROOT)/$(PROJECT)-$(VERSION) && patch -f -p0 --posix < $(SRCROOT)/$${p};	\
+		patch -d $(OBJROOT)/$(PROJECT)-$(VERSION) -f -p0 --posix < $(SRCROOT)/$${p} || exit 1;	\
 	done

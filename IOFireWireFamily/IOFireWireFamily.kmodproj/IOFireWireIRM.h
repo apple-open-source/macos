@@ -28,10 +28,7 @@
  * Remote ports are implemented by the driver for the remote device.
  *
  * HISTORY
- * $Log: IOFireWireIRM.h,v $
- * Revision 1.4  2006/11/13 23:19:38  ayanowit
- * Changes for the kernel side of the new IRMAllocations Leopard APIs.
- *
+ * $Log: not supported by cvs2svn $
  * Revision 1.3  2003/07/21 06:52:59  niels
  * merge isoch to TOT
  *

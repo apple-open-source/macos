@@ -26,10 +26,7 @@
  *  Created on Mon Mar 12 2001.
  *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
- * $Log: IOFireWireLibIsochPort.cpp,v $
- * Revision 1.58  2009/01/16 02:53:19  collin
- * and finally put TOT back...
- *
+ * $Log: not supported by cvs2svn $
  * Revision 1.54  2009/01/15 01:40:02  collin
  * <rdar://problem/6400981> BRB-VERIFY: 10A222: Trying to record a movie through QT X, getting error message.
  *

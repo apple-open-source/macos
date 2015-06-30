@@ -36,6 +36,8 @@
 #include <SecureObjectSync/SOSManifest.h>
 #include <utilities/SecCFRelease.h>
 
+#include <dispatch/dispatch.h>
+
 __BEGIN_DECLS
 
 /* SOSDataSource protocol (non opaque). */
@@ -107,7 +109,7 @@ struct SOSDataSource {
 
     // General SOSDataSource methods
     CFStringRef (*dsGetName)(SOSDataSourceRef ds);
-    void (*dsSetNotifyPhaseBlock)(SOSDataSourceRef ds, SOSDataSourceNotifyBlock notifyBlock);
+    void (*dsSetNotifyPhaseBlock)(SOSDataSourceRef ds, dispatch_queue_t queue, SOSDataSourceNotifyBlock notifyBlock);
     SOSManifestRef (*dsCopyManifest)(SOSDataSourceRef ds, CFErrorRef *error);
     bool (*dsForEachObject)(SOSDataSourceRef ds, SOSManifestRef manifest, CFErrorRef *error, void (^handleObject)(CFDataRef key, SOSObjectRef object, bool *stop));
     CFDataRef (*dsCopyStateWithKey)(SOSDataSourceRef ds, CFStringRef key, CFStringRef pdmn, CFErrorRef *error);
@@ -138,8 +140,8 @@ static inline CFStringRef SOSDataSourceGetName(SOSDataSourceRef ds) {
     return ds->dsGetName(ds);
 }
 
-static inline void SOSDataSourceSetNotifyPhaseBlock(SOSDataSourceRef ds, SOSDataSourceNotifyBlock notifyBlock) {
-    ds->dsSetNotifyPhaseBlock(ds, notifyBlock);
+static inline void SOSDataSourceSetNotifyPhaseBlock(SOSDataSourceRef ds, dispatch_queue_t queue, SOSDataSourceNotifyBlock notifyBlock) {
+    ds->dsSetNotifyPhaseBlock(ds, queue, notifyBlock);
 }
 
 static inline SOSManifestRef SOSDataSourceCopyManifest(SOSDataSourceRef ds, CFErrorRef *error) {

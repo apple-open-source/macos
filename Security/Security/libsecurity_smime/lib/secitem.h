@@ -56,7 +56,7 @@ SEC_BEGIN_PROTOS
 ** unused and our improved APIs (aka Stan) are looming, I left it out.
 */
 extern SECItem *SECITEM_AllocItem(PRArenaPool *arena, SECItem *item,
-				  unsigned int len);
+				  size_t len);
 
 /*
 ** Reallocate the data for the specified "item".  If "arena" is not NULL,

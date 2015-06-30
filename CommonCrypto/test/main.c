@@ -1,6 +1,7 @@
 #include <stdio.h>
 
-
+#include <CommonCrypto/CommonCrypto.h>
+#include <CommonCrypto/CommonCryptoPriv.h>
 #include "testenv.h"
 
 int main (int argc, char * const *argv) {

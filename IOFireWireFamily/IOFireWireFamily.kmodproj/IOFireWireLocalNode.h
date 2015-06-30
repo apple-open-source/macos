@@ -24,10 +24,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
-	$Log: IOFireWireLocalNode.h,v $
-	Revision 1.8  2009/03/26 22:45:17  calderon
-	<rdar://6728033> User client fails to terminate with unexpected consuequences
-
+	$Log: not supported by cvs2svn $
 	Revision 1.7  2008/11/14 00:17:12  arulchan
 	fix for rdar://5939334
 	

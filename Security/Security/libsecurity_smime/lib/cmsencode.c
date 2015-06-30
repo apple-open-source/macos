@@ -437,7 +437,7 @@ nss_cms_encoder_work_data(SecCmsEncoderRef p7ecx, CSSM_DATA_PTR dest,
     /* Encrypt this chunk. */
     if (cinfo->ciphcx != NULL) {
 	CSSM_SIZE inlen;	/* length of data being encrypted */
-	CSSM_SIZE outlen;	/* length of encrypted data */
+	CSSM_SIZE outlen = 0;	/* length of encrypted data */
 	CSSM_SIZE buflen;	/* length available for encrypted data */
 
 	inlen = len;

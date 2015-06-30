@@ -105,7 +105,7 @@ public:
 		
 	/* allocate space for num copies of specified type */
 	template <class T> T *mallocn(unsigned num = 1) 
-		{ return reinterpret_cast<T *>(malloc(sizeof(T) * num)); }
+		{ return reinterpret_cast<T *>(malloc_T(sizeof(T),num)); }
 
 	/* malloc item.Data, set item.Length */
 	void allocItem(
@@ -132,6 +132,9 @@ public:
 	
 private:
 	PLArenaPool		*mPool;
+
+    void *malloc_T(size_t unit_bytesize,
+                   size_t num_units);
 };
 
 /*

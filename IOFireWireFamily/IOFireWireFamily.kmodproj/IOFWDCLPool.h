@@ -5,10 +5,7 @@
  *  Created by Niels on Fri Mar 07 2003.
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
- *	$Log: IOFWDCLPool.h,v $
- *	Revision 1.15  2008/11/14 00:17:12  arulchan
- *	fix for rdar://5939334
- *
+ *	$Log: not supported by cvs2svn $
  *	Revision 1.14  2008/03/03 23:31:42  ayanowit
  *	another gcc-42 fix.
  *	

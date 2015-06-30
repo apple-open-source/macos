@@ -20,10 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
-	$Log: IOFWQEventSource.h,v $
-	Revision 1.2  2002/09/25 00:27:20  niels
-	flip your world upside-down
-
+	$Log: not supported by cvs2svn $
 */
 
 #ifndef _IOKIT_IOFWQEVENTSOURCE_H

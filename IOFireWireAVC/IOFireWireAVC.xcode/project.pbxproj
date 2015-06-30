@@ -321,9 +321,15 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 30EC56990895F6B80057E458 /* Build configuration list for PBXProject "IOFireWireAVC" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOAVCFamily */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -557,10 +563,7 @@
 		30EC56900895F6B80057E458 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -575,7 +578,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.2;
+				MODULE_VERSION = 4.2.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -596,10 +599,7 @@
 		30EC56910895F6B80057E458 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
@@ -611,7 +611,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.2;
+				MODULE_VERSION = 4.2.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -632,10 +632,7 @@
 		30EC56920895F6B80057E458 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FIRELOG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -648,7 +645,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.2;
+				MODULE_VERSION = 4.2.3;
 				OTHER_CFLAGS = "-DFIRELOG=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -668,10 +665,7 @@
 		30EC56930895F6B80057E458 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
 				HEADER_SEARCH_PATHS = "";
@@ -682,7 +676,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.2;
+				MODULE_VERSION = 4.2.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -775,6 +769,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				SDKROOT = macosx.internal;
 			};
 			name = Development;
 		};
@@ -782,6 +777,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
 		};
@@ -789,6 +785,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				SDKROOT = macosx.internal;
 			};
 			name = FireLog;
 		};
@@ -796,6 +793,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				SDKROOT = macosx.internal;
 			};
 			name = Default;
 		};

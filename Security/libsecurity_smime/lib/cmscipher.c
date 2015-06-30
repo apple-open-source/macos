@@ -174,9 +174,6 @@ static unsigned long  rc2_unmap(unsigned long x)
 #ifndef kCCBlockSizeRC2
 #define kCCBlockSizeRC2 8
 #endif
-#ifndef kCCAlgorithmRC2
-#define kCCAlgorithmRC2 -1
-#endif
 #endif
 
 static SecCmsCipherContextRef

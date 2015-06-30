@@ -5,10 +5,7 @@
  *  Created by Niels on Thu Feb 27 2003.
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
- *	$Log: IOFireWireLibDevice.h,v $
- *	Revision 1.23  2007/10/16 16:50:21  ayanowit
- *	Removed existing "work-in-progress" support for buffer-fill isoch.
- *
+ *	$Log: not supported by cvs2svn $
  *	Revision 1.22  2007/06/21 04:08:45  collin
  *	*** empty log message ***
  *	

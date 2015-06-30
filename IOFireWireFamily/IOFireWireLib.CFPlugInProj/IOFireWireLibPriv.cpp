@@ -28,10 +28,7 @@
  *
  */
 /*
-	$Log: IOFireWireLibPriv.cpp,v $
-	Revision 1.42  2003/07/21 06:53:11  niels
-	merge isoch to TOT
-
+	$Log: not supported by cvs2svn $
 	Revision 1.41.6.2  2003/07/21 06:44:48  niels
 	*** empty log message ***
 	

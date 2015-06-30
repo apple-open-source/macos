@@ -5,7 +5,7 @@
  #
  @@LoadModule@@
 +#LoadModule php5_module libexec/apache2/libphp5.so
-+#LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
++LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
  
  <IfModule unixd_module>
  #

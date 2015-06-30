@@ -37,7 +37,6 @@
 #include <CommonCrypto/CommonHMacSPI.h>
 #include <CommonCrypto/CommonCMACSPI.h>
 #include <CommonCrypto/CommonRandomSPI.h>
-#include <CommonCrypto/CommonSelfTest.h>
 
 #if 0
 // The following headers will be jettisoned once all internal projects

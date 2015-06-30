@@ -337,7 +337,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSSM_
     SECOidTag pubkAlgTag;
     CSSM_DATA signature = { 0 };
     OSStatus rv;
-    PLArenaPool *poolp, *tmppoolp;
+    PLArenaPool *poolp, *tmppoolp = NULL;
     const SECAlgorithmID *algID;
     SECAlgorithmID freeAlgID;
     //CERTSubjectPublicKeyInfo *spki;
@@ -443,6 +443,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSSM_
 	rv = SEC_SignData(&signature, encoded_attrs.Data, (int)encoded_attrs.Length,
 	                  privkey, digestalgtag, pubkAlgTag);
 	PORT_FreeArena(tmppoolp, PR_FALSE); /* awkward memory management :-( */
+	tmppoolp = 0;
     } else {
 	rv = SGN_Digest(privkey, digestalgtag, pubkAlgTag, &signature, digest);
     }
@@ -491,6 +492,8 @@ loser:
 	 * by SecKey...it all boils down to a free() in the end though. */
 	SECOID_DestroyAlgorithmID((SECAlgorithmID *)algID, PR_FALSE);
     }
+    if (tmppoolp)
+	PORT_FreeArena(tmppoolp, PR_FALSE);
     return SECFailure;
 }
 

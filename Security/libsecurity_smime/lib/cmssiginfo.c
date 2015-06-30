@@ -320,7 +320,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
     SECOidTag pubkAlgTag;
     SecAsn1Item signature = { 0 };
     OSStatus rv;
-    PLArenaPool *poolp, *tmppoolp;
+    PLArenaPool *poolp, *tmppoolp = NULL;
     const SECAlgorithmID *algID = NULL;
     //CERTSubjectPublicKeyInfo *spki;
 
@@ -444,6 +444,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
 #endif
 
 	PORT_FreeArena(tmppoolp, PR_FALSE); /* awkward memory management :-( */
+	tmppoolp = 0;
     } else {
         signature.Length = SecKeyGetSize(privkey, kSecKeySignatureSize);
         signature.Data = PORT_ZAlloc(signature.Length);
@@ -481,6 +482,8 @@ loser:
 	SECITEM_FreeItem (&signature, PR_FALSE);
     if (privkey)
 	SECKEY_DestroyPrivateKey(privkey);
+    if (tmppoolp)
+	PORT_FreeArena(tmppoolp, PR_FALSE);
     return SECFailure;
 }
 

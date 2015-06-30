@@ -88,4 +88,6 @@ _SSLSetECDSACurves
 _SSLGetNumberOfClientAuthTypes
 _SSLGetClientAuthTypes
 _SSLGetNegotiatedClientAuthType
+_SSLSetMinimumDHGroupSize
+_SSLGetMinimumDHGroupSize
 

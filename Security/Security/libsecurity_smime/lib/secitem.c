@@ -40,7 +40,7 @@
 #include <security_asn1/secerr.h>
 
 SECItem *
-SECITEM_AllocItem(PRArenaPool *arena, SECItem *item, unsigned int len)
+SECITEM_AllocItem(PRArenaPool *arena, SECItem *item, size_t len)
 {
     SECItem *result = NULL;
     void *mark = NULL;

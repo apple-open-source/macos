@@ -60,7 +60,7 @@ public:
 	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
 	size_t pageSize(const SigningContext &ctx);
 
-	void strictValidate(const ToleratedErrors& tolerated);
+	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated);
 	
 	void flush();		// flush cache
 	

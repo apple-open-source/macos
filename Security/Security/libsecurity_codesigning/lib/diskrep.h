@@ -80,7 +80,7 @@ public:
 		const SigningContext &ctx);							// default internal requirements [none]
 	virtual size_t pageSize(const SigningContext &ctx);		// default main executable page size [infinite, i.e. no paging]
 
-	virtual void strictValidate(const ToleratedErrors& tolerated); // perform strict validation
+	virtual void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated); // perform strict validation
 	virtual CFArrayRef allowedResourceOmissions();			// allowed (default) resource omission rules
 
 	bool mainExecutableIsMachO() { return mainExecutableImage() != NULL; }
@@ -220,7 +220,7 @@ public:
 		{ return mOriginal->defaultRequirements(arch, ctx); }
 	size_t pageSize(const SigningContext &ctx) { return mOriginal->pageSize(ctx); }
 
-	void strictValidate(const ToleratedErrors& tolerated) { mOriginal->strictValidate(tolerated); }
+	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated) { mOriginal->strictValidate(cd, tolerated); }
 	CFArrayRef allowedResourceOmissions() { return mOriginal->allowedResourceOmissions(); }
 
 private:

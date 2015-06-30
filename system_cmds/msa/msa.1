@@ -1,0 +1,154 @@
+.Dd 3/7/14
+.Dt msa 1
+.Os Darwin
+.Sh NAME
+.Nm msa
+.Nd Mach spy agency. Shows mach ipc, vouchers, importance boosts, etc.
+.Sh SYNOPSIS             \" Section Header - required - don't modify
+.Nm
+.Op Fl ho
+.Op Fl -help
+.Op Fl -verbose
+.Op Fl -version
+.Op Fl -lifecycle Ar all | user | none
+.Op Fl -mach-msg Ar all | user | voucher | none
+.Op Fl -ouput Ar file
+.Op Fl -raw-timestamps
+.Op Fl -mach-absolute-time
+.Op Fl -event-index
+.Op Ar
+.Sh DESCRIPTION
+The
+.Nm
+command is used to observe voucher and importance propagation.
+.Nm
+displays mach message senders and receivers, message state (voucher, importance, reply expected, etc.) and receiver behavior such as refusing a voucher.
+.Nm
+shows process & thread lifecycle events, adoption & clearing of vouchers by threads, process importance count changes, and process DarwinBG state.
+.Nm
+uses the kernel trace facility and can be run live or against saved trace files.
+.Pp
+Options are as follows:
+.Pp
+
+.Bl -tag -width -indent
+.It Fl h, -help
+Print help.
+.It Fl -verbose
+Print additional details and output.
+.It Fl -version
+Print version info.
+.It Fl -lifecycle Ar all | user | none
+Set the process and thread lifecycle filter level. The default is "user".
+.Bl -tag -width -indent
+.It all
+Show kernel & userspace process and thread events
+.It user
+Show userspace process and thread events
+.It none
+Show no process and thread events
+.El
+.It Fl -mach-msg Ar all | user | voucher | none
+Set the mach message sender/receiver filter level. The default is "voucher".
+.Bl -tag -width -indent
+.It all
+Show all mach message senders/receivers
+.It user
+Show mach message senders/receivers where both the sender and receiver are in userspace
+.It voucher
+Show "interesting" mach message senders/receivers. An "interesting" message is any message containing a voucher, any message not containing a voucher if the sending thread has adopted a voucher, and any message carrying importance.
+.It none
+Show no mach message senders/receivers
+.El
+.It Fl o, -output Ar file
+Write output to 
+.Ar file
+.It Fl -raw-timestamps
+Do not show time as a delta from the first trace event, print the actual time offsets.
+.It Fl -mach-absolute-time
+Do not translate time from mach absolute units to nanoseconds.
+.It Fl -event-index
+Print the index of each event.
+.El
+.Sh OUTPUT
+.Nm
+displays columns of data, the first five columns are fixed. The data after the fifth column depends on the type of event. Example output below (your terminal will need to be at least 200 characters wide to display this correctly):
+
+        Time(uS)          Type      Thread     ThreadVoucher                   Process  ;;  Message-From/To                  MsgID        MsgVoucher   DeliveryTime  FLAGS
+         9304.56          send         8C2                 -          coreaudiod (236)  ;;  -> coreaudiod (236)                  2                 -              -  ONEWAY 
+         9346.52       impdelv         8A6                 -          coreaudiod (236)  ;;  linked to coreaudiod (236)'s live importance chain
+         9349.02          recv         8A6                 -          coreaudiod (236)  ;;  <- coreaudiod (236)                  2  5EBD6CB68FF6401F          44.46  
+         9361.50         adopt         8A6  5EBD6CB68FF6401F          coreaudiod (236)  ;;
+
+.Bl -tag -width -indent
+.It The column headers have the following meanings:
+.Bl -tag -width -indent
+.It Time
+The Time column displays the number of microseconds elapsed since
+.Nm
+started, or since the first event in the trace file. This value may be modified by
+.Fl -raw-timestamps
+or
+.Fl -mach-absolute-time.
+You might set these flags in order to correlate timestamps with output from another process that was printing mach_absolute_time() based timestamps.
+.It Type
+This describes the type of event being reported. Information to the right of the ';;' will vary based on this type.
+.It Thread
+The Thread column shows the thread id of the thread that generated the event. This is the thread id as displayed by
+.Xr trace 1
+and
+.Xr kdprof 1
+and may be cross correlated with trace events shown by either. Note that in some cases a thread in process A may cause changes in process B, for example a thread in Safari might raise the importance of a daemon.
+.It ThreadVoucher
+The ThreadVoucher column shows the id of any voucher currently adopted by the thread. This voucher id is the same identifier as shown by
+.Xr lsmp 1 .
+A '-' means that
+.Nm
+has not yet seen a voucher adopt for the thread. A NULL voucher is displayed as '0'.
+.It Process
+The Process column shows the name and pid of the process executing. The name is limited to 16 characters and may appear truncated.
+.El
+.It Mach message send/recv have the following additional column headers:
+.Bl -tag -width -indent
+.It Message-From/To
+This field shows either the sender or the recipient of the message. The arrow at the beginning will indicate the direction the message is flowing. A '->' means sent to, a '<-' means received from. The name of the sender or recipient is limited to 16 characters and may appear truncated. Rarely, you may see '???' as the name, which means
+.Nm
+was unable to determine the source or destination of the message.
+.It MsgID
+The MsgID is a unique identifier for each mach message. A mach message has exactly one sender, and one receiver. However, a sending process may send several messages to a receiver before any are received. The MsgID allows disambiguation of exact message send and receipt time.
+.It MsgVoucher
+If this field is set, it shows the id of the voucher being carried by the mach message. Note that in some cases, the sender will show no voucher, but the receiver will have a voucher. This is the kernel providing a voucher for a process sending "old style" importance to a process that wants to receive vouchers.
+.It DeliveryTime
+This is the time it took to deliver the message, in uS. If the time cannot be calculated, it will show as '-'.
+.It FLAGS
+The FLAGS field will indicate various mach message behaviors:
+.Bl -tag -width -indent
+.It ONEWAY
+This message cannot be replied to
+.It MSGH_BITS_RAISED_IMPORTANCE
+This message carries "old style" importance
+.It VOUCHER-REFUSED
+The message carried a voucher, and the receiver refused to accept it
+.El
+.El
+.El
+.Sh EXAMPLES
+.Bl -tag -width -indent
+.It Here are several examples of usage:
+.Bl -tag -width -indent
+.It msa | grep BOOST
+This will show live boost/unboost behavior. Useful for watching what UI interactions will cause boosting.
+.It msa | grep -e APP-NAME -e DAEMON-NAME -e OTHER-DAEMON-NAME
+This will restrict output to only events dealing with an app and targetted daemons. This is useful to reduce the amount of data you need to watch.
+.It trace -L /tmp/temp.trace; msa /tmp/temp.trace
+This uses trace to capture a trace file for later analysis by msa.
+.El
+.El
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr kdprof 1 ,
+.Xr lsmp 1,
+.Xr trace 1
+.\" .Sh BUGS              \" Document known, unremedied bugs
+.\" .Sh HISTORY           \" Document history if command behaves in a unique manner

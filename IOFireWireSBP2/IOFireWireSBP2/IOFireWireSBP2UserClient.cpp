@@ -557,6 +557,14 @@ IOReturn IOFireWireSBP2UserClient::setMessageCallback
 {
 	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
 	
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	if( status == kIOReturnSuccess )
 	{
 		bcopy( arguments->asyncReference, fMessageCallbackAsyncRef, sizeof(OSAsyncReference64) );
@@ -670,6 +678,14 @@ IOReturn IOFireWireSBP2UserClient::setLoginCallback
 {
 	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
 	
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	if( status == kIOReturnSuccess )
 	{
 		bcopy( arguments->asyncReference, fLoginCallbackAsyncRef, sizeof(OSAsyncReference64) );
@@ -765,6 +781,14 @@ IOReturn IOFireWireSBP2UserClient::setLogoutCallback
 {
 	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
 	
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	if( status == kIOReturnSuccess )
 	{
 		bcopy( arguments->asyncReference, fLogoutCallbackAsyncRef, sizeof(OSAsyncReference64) );
@@ -838,6 +862,14 @@ IOReturn IOFireWireSBP2UserClient::setUnsolicitedStatusNotify
 	
     FWKLOG(( "IOFireWireSBP2UserClient : setUnsolicitedStatusNotify\n" ));
 	
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	if( status == kIOReturnSuccess )
 	{
 		bcopy( arguments->asyncReference, fUnsolicitedStatusNotifyAsyncRef, sizeof(OSAsyncReference64) );
@@ -900,6 +932,14 @@ IOReturn IOFireWireSBP2UserClient::setStatusNotify
 	
     FWKLOG(( "IOFireWireSBP2UserClient : setStatusNotify\n" ));
 
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	if( status == kIOReturnSuccess )
 	{
 		bcopy( arguments->asyncReference, fStatusNotifyAsyncRef, sizeof(OSAsyncReference64) );
@@ -1295,6 +1335,14 @@ IOReturn IOFireWireSBP2UserClient::submitFetchAgentReset(  IOExternalMethodArgum
 	
     FWKLOG(( "IOFireWireSBP2UserClient : submitFetchAgentReset\n" ));
 
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	IOFireWireSBP2Login * login = NULL;
 	if( status == kIOReturnSuccess )
 	{
@@ -1454,6 +1502,14 @@ IOReturn IOFireWireSBP2UserClient::setFetchAgentWriteCompletion(  IOExternalMeth
 {
 	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
 	
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	if( status == kIOReturnSuccess )
 	{
 		bcopy( arguments->asyncReference, fFetchAgentWriteAsyncRef, sizeof(OSAsyncReference64) );
@@ -2144,10 +2200,18 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBCallback
 	(  IOExternalMethodArguments * arguments )
 {
     IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
-    IOFireWireSBP2ManagementORB * orb;
+    IOFireWireSBP2ManagementORB * orb = NULL;
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBCallback\n" ));
 
+    if( status == kIOReturnSuccess )
+    {
+        if( arguments->asyncReference == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
     if( status == kIOReturnSuccess )
     {
 		orb = (IOFireWireSBP2ManagementORB*) fExporter->lookupObjectForType( arguments->scalarInput[0], OSTypeID(IOFireWireSBP2ManagementORB) );
@@ -2277,7 +2341,7 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeORB
    IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBManageeORB\n" ));
-	IOFireWireSBP2ManagementORB * mgmtORB;
+	IOFireWireSBP2ManagementORB * mgmtORB = NULL;
 	IOFireWireSBP2ORB * manageeORB = NULL;
 		
 	if( status == kIOReturnSuccess )
@@ -2325,7 +2389,7 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeLogin
 
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBManageeLogin\n" ));
-	IOFireWireSBP2ManagementORB * orb;
+	IOFireWireSBP2ManagementORB * orb = NULL;
 	IOFireWireSBP2Login * manageeLogin = NULL;
 		
 	if( status == kIOReturnSuccess )

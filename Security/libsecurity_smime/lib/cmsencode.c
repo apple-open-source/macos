@@ -417,7 +417,7 @@ nss_cms_encoder_work_data(SecCmsEncoderRef p7ecx, SecAsn1Item * dest,
     /* Encrypt this chunk. */
     if (cinfo->ciphcx != NULL) {
 	unsigned int inlen;	/* length of data being encrypted */
-	unsigned int outlen;	/* length of encrypted data */
+	unsigned int outlen = 0;	/* length of encrypted data */
 	unsigned int buflen;	/* length available for encrypted data */
 
         /* 64 bits cast: only an issue if unsigned int is smaller than size_t.

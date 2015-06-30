@@ -45,6 +45,7 @@ PCSCMonitor::PCSCMonitor(Server &server, const char* pathToCache, ServiceLevel l
 	: Listener(kNotificationDomainPCSC, SecurityServer::kNotificationAllEvents),
       server(server),
 	  mServiceLevel(level),
+      MachServer::Timer(true),
 	  mCachePath(pathToCache),
 	  mTokenCache(NULL)
 {

@@ -5,10 +5,7 @@
  *  Created by Niels on Tue Feb 11 2003.
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
- *	$Log: IOFireWireLibNuDCLPool.h,v $
- *	Revision 1.6  2003/08/27 19:27:04  niels
- *	*** empty log message ***
- *
+ *	$Log: not supported by cvs2svn $
  *	Revision 1.5  2003/08/26 05:11:22  niels
  *	*** empty log message ***
  *	

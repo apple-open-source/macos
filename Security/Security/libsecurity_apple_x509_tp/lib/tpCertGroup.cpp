@@ -24,6 +24,7 @@
 #include "certGroupUtils.h"
 #include "TPCertInfo.h"
 #include "TPCrlInfo.h"
+#include "tpCertAllowList.h"
 #include "tpPolicies.h"
 #include "tpdebugging.h"
 #include "tpCrlVerify.h"
@@ -178,7 +179,6 @@ errOut:
 	return ourRtn;
 }
 #endif	/* TP_PKINIT_SERVER_HACK */
-
 
 /*-----------------------------------------------------------------------------
  * CertGroupConstruct
@@ -724,13 +724,20 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 				constructReturn = CSSMERR_TP_NOT_TRUSTED;
 			}
 
-			/*
+ 			/*
  			 * Those errors can be allowed, cert-chain-wide, per individual
 			 * certs' allowedErrors
 			 */
 			if((constructReturn != CSSM_OK) &&
 			    outCertGroup.isAllowedError(constructReturn)) {
 				constructReturn = CSSM_OK;
+			}
+            
+			/*
+			 * Allow non-trusted root if whitelist check permits
+			 */
+			if (constructReturn == CSSMERR_TP_NOT_TRUSTED) {
+				constructReturn = tpCheckCertificateAllowList(outCertGroup);
 			}
 			break;
 	}

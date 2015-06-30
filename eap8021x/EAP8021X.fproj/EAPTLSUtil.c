@@ -400,6 +400,9 @@ EAPSSLContextCreate(SSLProtocol protocol, bool is_server,
 	    goto cleanup;
 	}
     }
+#define EAP_MIN_DH_GROUP_SIZE		512
+    (void)SSLSetMinimumDHGroupSize(ctx, EAP_MIN_DH_GROUP_SIZE);
+
 #if NEED_TO_DISABLE_ONE_BYTE_OPTION
     SSLSetSessionOption(ctx, kSSLSessionOptionSendOneByteRecord, FALSE);
 #endif /* NEED_TO_DISABLE_ONE_BYTE_OPTION */

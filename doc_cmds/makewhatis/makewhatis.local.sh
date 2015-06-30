@@ -46,7 +46,7 @@ do
 	esac
 done
 
-dirs=`echo $dirs | sed 's/:/ /g'`
+dirs=`echo $dirs | awk -F: '{ for (i = 1; i <= NF; i++) { if ($i !~ "\\.app/" && $i !~ "/CommandLineTools/") { printf $i " " } } printf "\n" }'`
 case X"$dirs" in X) echo "usage: $0 [options] directories ..."; exit 1;; esac
 
 localdirs=`find -H $dirs -fstype local -type d -prune -print`

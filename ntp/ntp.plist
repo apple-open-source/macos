@@ -25,6 +25,9 @@
 		<string>http://bk1.ntp.org/ntp-dev/ntpd/ntp_io.c?PAGE=diffs&amp;REV=54922b535Kq0xpbylpfIhlJ8E_cqIA</string>
 		<string>fix for NTP Bug 2671</string>
 		<string>RedHat patches CVE-2014-9293/9294</string>
+		<string>CVE-2015-1799: Authentication doesn't protect symmetric associations against DoS attacks.</string>
+		<string>CVE-2015-1798: ntpd accepts unauthenticated packets with symmetric key crypto.</string>
+		<string>Bug 2797] ntp-keygen trapped in endless loop for MD5 keys on big-endian machines.</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>ntp</string>

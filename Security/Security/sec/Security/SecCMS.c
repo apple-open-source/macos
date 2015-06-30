@@ -192,7 +192,8 @@ make_attr(PLArenaPool *poolp, SecAsn1Item *type, SecAsn1Item *value, bool encode
         if (SECITEM_CopyItem(poolp, copiedvalue, value) != SECSuccess)
             goto loser;
 
-        SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue);
+        if (SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue) != SECSuccess)
+            goto loser;
     }
 
     attr->encoded = encoded;

@@ -59,6 +59,7 @@
 void **
 SecCmsArrayAlloc(PRArenaPool *poolp, int n)
 {
+    if (n>=(int)(INT_MAX/sizeof(void *))) {return (void **)NULL;} // Prevent under-allocation due to integer overflow
     return (void **)PORT_ArenaZAlloc(poolp, n * sizeof(void *));
 }
 
@@ -85,6 +86,10 @@ SecCmsArrayAdd(PRArenaPool *poolp, void ***array, void *obj)
 	n = 0; p = *array;
 	while (*p++)
 	    n++;
+	if (n>=(int)((INT_MAX/sizeof(void *))-2)) {
+		// Prevent under-allocation due to integer overflow
+		return SECFailure;
+	}
 	dest = (void **)PORT_ArenaGrow (poolp, 
 			      *array,
 			      (n + 1) * sizeof(void *),
@@ -143,12 +148,19 @@ SecCmsArraySort(void **primary, int (*compare)(void *,void *), void **secondary,
 {
     int n, i, limit, lastxchg;
     void *tmp;
-
+    int n_2nd=0,n_3rd=0;
     n = SecCmsArrayCount(primary);
 
     PORT_Assert(secondary == NULL || SecCmsArrayCount(secondary) == n);
     PORT_Assert(tertiary == NULL || SecCmsArrayCount(tertiary) == n);
-    
+
+    if (secondary) {
+        n_2nd = SecCmsArrayCount(secondary);
+    }
+    if (tertiary) {
+        n_3rd = SecCmsArrayCount(tertiary);
+    }
+
     if (n <= 1)	/* ordering is fine */
 	return;
     
@@ -162,12 +174,12 @@ SecCmsArraySort(void **primary, int (*compare)(void *,void *), void **secondary,
 		tmp = primary[i+1];
 		primary[i+1] = primary[i];
 		primary[i] = tmp;
-		if (secondary) {		/* secondary array? */
-		    tmp = secondary[i+1];	/* exchange there as well */
+		if (secondary && ((i+1)<n_2nd)) {/* secondary array? */
+		    tmp = secondary[i+1];	 /* exchange there as well */
 		    secondary[i+1] = secondary[i];
 		    secondary[i] = tmp;
 		}
-		if (tertiary) {			/* tertiary array? */
+		if (tertiary && ((i+1)<n_3rd)) {/* tertiary array? */
 		    tmp = tertiary[i+1];	/* exchange there as well */
 		    tertiary[i+1] = tertiary[i];
 		    tertiary[i] = tmp;

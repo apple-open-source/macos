@@ -24,10 +24,7 @@
  *
  * HISTORY
  *
- * $Log: IOFireWireUserClient.h,v $
- * Revision 1.69  2008/07/04 00:05:23  arulchan
- * fix for rdar://6035774
- *
+ * $Log: not supported by cvs2svn $
  * Revision 1.68  2008/05/07 03:28:00  collin
  * 64 bit session ref support
  *

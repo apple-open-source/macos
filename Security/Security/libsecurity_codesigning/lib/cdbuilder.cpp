@@ -183,6 +183,9 @@ CodeDirectory *CodeDirectory::Builder::build()
 	if (!(mDir = (CodeDirectory *)calloc(1, total)))	// initialize to zero
 		UnixError::throwMe(ENOMEM);
 	
+	if (mExecLength > UINT32_MAX)
+		MacOSError::throwMe(errSecCSTooBig);
+	
 	// fill header
 	mDir->initialize(total);
 	mDir->version = version;

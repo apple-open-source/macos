@@ -28,6 +28,7 @@
 #include "CommonDigestSPI.h"
 #include "CommonDigestPriv.h"
 #include <corecrypto/cchmac.h>
+#include <corecrypto/cc_priv.h>
 #include "ccMemory.h"
 #include "ccdebug.h"
 

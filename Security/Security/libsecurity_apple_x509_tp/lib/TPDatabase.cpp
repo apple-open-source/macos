@@ -96,7 +96,8 @@ TPCertInfo *tpDbFindIssuerCert(
 	const TPClItemInfo		*subjectItem,
 	const CSSM_DL_DB_LIST	*dbList,
 	const char 				*verifyTime,		// may be NULL
-	bool					&partialIssuerKey)	// RETURNED
+	bool					&partialIssuerKey,	// RETURNED
+    TPCertInfo              *oldRoot)
 {
 	StLock<Mutex> _(SecTrustKeychainsGetMutex());
 
@@ -187,11 +188,16 @@ TPCertInfo *tpDbFindIssuerCert(
 				}
 			}
 			switch(crtn) {
-				case CSSM_OK:
-					break;
 				case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:
 					partialIssuerKey = true;
 					break;
+                case CSSM_OK:
+                    if((oldRoot == NULL) ||
+                       !tp_CompareCerts(issuerCert->itemData(), oldRoot->itemData())) {
+                        /* We found a new root cert which does not match the old one */
+                        break;
+                    }
+                    /* else fall through to search for a different one */
 				default:
 					if(issuerCert != NULL) {
 						/* either holding onto this cert, or done with it. */
@@ -265,8 +271,12 @@ TPCertInfo *tpDbFindIssuerCert(
 						foundIt = false;
 						switch(crtn) {
 							case CSSM_OK:
-								foundIt = true;
-								break;
+                                /* duplicate check, again */
+                                if((oldRoot == NULL) ||
+                                   !tp_CompareCerts(issuerCert->itemData(), oldRoot->itemData())) {
+                                    foundIt = true;
+                                }
+                                break;
 							case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:
 								partialIssuerKey = true;
 								foundIt = true;

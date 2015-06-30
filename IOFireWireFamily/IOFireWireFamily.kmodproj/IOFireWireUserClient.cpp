@@ -27,10 +27,7 @@
 *
 */
 /*
-	$Log: IOFireWireUserClient.cpp,v $
-	Revision 1.162  2011/12/17 00:57:00  calderon
-	<rdar://problem/9589404> IOFireWireUserClient allows arbitrarily sized stack allocations.
-
+	$Log: not supported by cvs2svn $
 	Revision 1.161  2009/05/08 01:10:34  calderon
 	<rdar://6863576> FireWire tracepoints should be inlined for performance
 
@@ -2499,6 +2496,11 @@ IOFireWireUserClient::setAsyncRef_Packet (
 	void*,
 	void*)
 {
+    if( asyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	const OSObject * object = fExporter->lookupObject ( addressSpaceHandle ) ;
 	if ( !object )
 	{
@@ -2533,6 +2535,11 @@ IOFireWireUserClient::setAsyncRef_SkippedPacket(
 	void*,
 	void*)
 {
+    if( asyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	const OSObject * object = fExporter->lookupObject ( inAddrSpaceRef ) ;
 	if ( !object )
 	{
@@ -2573,6 +2580,11 @@ IOFireWireUserClient::setAsyncRef_Read(
 	void*,
 	void*)
 {
+    if( asyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	const OSObject * object = fExporter->lookupObject ( inAddrSpaceRef ) ;
 	if ( !object )
 	{
@@ -2613,6 +2625,11 @@ IOFireWireUserClient::setAsyncRef_BusReset(
 	void*,
 	void*)
 {
+    if( asyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	super::setAsyncReference64 ( asyncRef, (mach_port_t) asyncRef[0], (mach_vm_address_t)inCallback, (io_user_reference_t)inRefCon ) ;
 	
 	bcopy(asyncRef, fBusResetAsyncNotificationRef, sizeof(OSAsyncReference64)) ;
@@ -2630,6 +2647,11 @@ IOFireWireUserClient::setAsyncRef_BusResetDone(
 	void*,
 	void*)
 {
+    if( inAsyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	super::setAsyncReference64 ( inAsyncRef, (mach_port_t) inAsyncRef[0], inCallback, (io_user_reference_t)inRefCon ) ;
 
 	bcopy(inAsyncRef, fBusResetDoneAsyncNotificationRef, sizeof(OSAsyncReference64)) ;
@@ -3651,6 +3673,14 @@ IOFireWireUserClient::createAsyncCommand(	OSAsyncReference64 asyncRef,
 {
 	IOReturn status = kIOReturnSuccess;
 
+    if( status == kIOReturnSuccess )
+    {
+        if( asyncRef == NULL )
+        {
+            status = kIOReturnBadArgument;
+        }
+    }
+    
 	IOFWUserCommand * cmd = NULL;
 	if( status == kIOReturnSuccess )
 	{
@@ -3698,6 +3728,11 @@ IOFireWireUserClient::userAsyncCommand_Submit(
 	
 	IOReturn error = kIOReturnSuccess ;
 	
+    if( asyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	if ( params->kernCommandRef )
 	{
 		const OSObject * object = fExporter->lookupObject( params->kernCommandRef ) ;
@@ -4099,6 +4134,11 @@ IOFireWireUserClient::setAsyncStreamRef_Packet (
 {
 	IOReturn result = kIOReturnBadArgument;
 
+    if( asyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	const OSObject * object = fExporter->lookupObject ( asyncStreamListenerHandle ) ;
 	if ( !object )
 	{
@@ -4135,6 +4175,11 @@ IOFireWireUserClient::setAsyncStreamRef_SkippedPacket (
 {
 	IOReturn result = kIOReturnBadArgument;
 	
+    if( asyncRef == NULL )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	const OSObject * object = fExporter->lookupObject ( inAsyncStreamListenerRef ) ;
 	if ( !object )
 	{

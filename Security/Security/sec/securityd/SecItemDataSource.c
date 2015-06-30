@@ -190,15 +190,11 @@ static CFStringRef dsGetName(SOSDataSourceRef data_source) {
     return ds->name;
 }
 
-static void dsSetNotifyPhaseBlock(SOSDataSourceRef data_source, SOSDataSourceNotifyBlock notifyBlock) {
+static void dsSetNotifyPhaseBlock(SOSDataSourceRef data_source, dispatch_queue_t queue, SOSDataSourceNotifyBlock notifyBlock) {
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
-    SecDbSetNotifyPhaseBlock(ds->db, ^(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, SecDbTransactionSource source, struct SOSDigestVector *removals, struct SOSDigestVector *additions) {
-        if (notifyBlock) {
-            notifyBlock(&ds->ds, (SOSTransactionRef)dbconn, phase, source, removals, additions);
-        } else {
-            secerror("NULL notifyBlock");   // TODO: remove message; see SOSEngineSetTrustedPeers
-        }
-    });
+    SecDbSetNotifyPhaseBlock(ds->db, queue, notifyBlock ? ^(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, SecDbTransactionSource source, struct SOSDigestVector *removals, struct SOSDigestVector *additions) {
+        notifyBlock(&ds->ds, (SOSTransactionRef)dbconn, phase, source, removals, additions);
+    } : NULL);
 }
 
 

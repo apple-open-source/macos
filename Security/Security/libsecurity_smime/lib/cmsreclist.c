@@ -130,8 +130,8 @@ nss_cms_recipient_list_create(SecCmsRecipientInfoRef *recipientinfos)
 
     /* count the number of recipient identifiers */
     count = nss_cms_recipients_traverse(recipientinfos, NULL);
-    if (count <= 0) {
-	/* no recipients? */
+    if (count <= 0 || count>=(int)((INT_MAX/sizeof(SecCmsRecipient *))-1)) {
+	/* no recipients? or risk of underallocation 20130783 */
 	PORT_SetError(SEC_ERROR_BAD_DATA);
 #if 0
 	PORT_SetErrorString("Cannot find recipient data in envelope.");

@@ -339,32 +339,19 @@ static void SOSEngineSetTrustedPeers(SOSEngineRef engine, CFStringRef myPeerID, 
                 secerror("failed to load manifest from datasource: %@", dsError);
                 CFReleaseNull(dsError);
             }
-            SOSDataSourceSetNotifyPhaseBlock(engine->dataSource, ^(SOSDataSourceRef ds, SOSTransactionRef txn, SOSDataSourceTransactionPhase phase, SOSDataSourceTransactionSource source, struct SOSDigestVector *removals, struct SOSDigestVector *additions) {
+            SOSDataSourceSetNotifyPhaseBlock(engine->dataSource, engine->queue, ^(SOSDataSourceRef ds, SOSTransactionRef txn, SOSDataSourceTransactionPhase phase, SOSDataSourceTransactionSource source, struct SOSDigestVector *removals, struct SOSDigestVector *additions) {
                 SOSManifestRef mfdel = SOSManifestCreateWithDigestVector(removals, NULL);
                 SOSManifestRef mfadd = SOSManifestCreateWithDigestVector(additions, NULL);
-                dispatch_block_t processUpdates = ^{
-                    CFErrorRef localError = NULL;
-                    if (!SOSEngineUpdateChanges(engine, txn, phase, source, mfdel, mfadd, &localError)) {
-                        secerror("updateChanged failed: %@", localError);
-                    }
-                    CFReleaseSafe(localError);
-                    CFReleaseSafe(mfdel);
-                    CFReleaseSafe(mfadd);
-                };
-
-                // WARNING: This will deadlock the engine if you call a
-                // SecItem API function while holding the engine lock!
-                // However making this async right now isn't safe yet either
-                // Due to some code in the enginer using Get v/s copy to
-                // access some of the values that would be modified
-                // asynchronously here since the engine is coded as if
-                // running on a serial queue.
-                dispatch_sync(engine->queue, processUpdates);
+                CFErrorRef localError = NULL;
+                if (!SOSEngineUpdateChanges(engine, txn, phase, source, mfdel, mfadd, &localError)) {
+                    secerror("updateChanged failed: %@", localError);
+                }
+                CFReleaseSafe(localError);
+                CFReleaseSafe(mfdel);
+                CFReleaseSafe(mfadd);
             });
         } else {
-            SOSDataSourceSetNotifyPhaseBlock(engine->dataSource, ^(SOSDataSourceRef ds, SOSTransactionRef txn, SOSDataSourceTransactionPhase phase, SOSDataSourceTransactionSource source, struct SOSDigestVector *removals, struct SOSDigestVector *additions) {
-                secnoticeq("engine", "No peers to notify");     // TODO: DEBUG - remove this
-            });
+            SOSDataSourceSetNotifyPhaseBlock(engine->dataSource, NULL, NULL);
             CFReleaseNull(engine->manifest);
         }
     }

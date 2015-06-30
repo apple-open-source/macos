@@ -92,7 +92,8 @@ SecCmsAttributeCreate(PRArenaPool *poolp, SECOidTag oidtag, SecAsn1Item * value,
 	if (SECITEM_CopyItem(poolp, copiedvalue, value) != SECSuccess)
 	    goto loser;
 
-	SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue);
+        if (SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue) != SECSuccess)
+            goto loser;
     }
 
     attr->encoded = encoded;

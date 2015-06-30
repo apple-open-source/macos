@@ -97,11 +97,15 @@ PR_EXTERN(void) PL_FinishArenaPool(PLArenaPool *pool);
 
 /*
 ** Compact all of the arenas in a pool so that no space is wasted.
+** NOT IMPLEMENTED.  Do not use.
 **/
 PR_EXTERN(void) PL_CompactArenaPool(PLArenaPool *pool);
 
 /*
 ** Friend functions used by the PL_ARENA_*() macros.
+**
+** WARNING: do not call these functions directly. Always use the
+** PL_ARENA_*() macros.
 **/
 PR_EXTERN(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb);
 
@@ -109,6 +113,11 @@ PR_EXTERN(void *) PL_ArenaGrow(
     PLArenaPool *pool, void *p, PRUint32 size, PRUint32 incr);
 
 PR_EXTERN(void) PL_ArenaRelease(PLArenaPool *pool, char *mark);
+
+/*
+ ** memset contents of all arenas in pool to pattern
+ */
+PR_EXTERN(void) PL_ClearArenaPool(PLArenaPool *pool, PRInt32 pattern);
 
 PR_END_EXTERN_C
 

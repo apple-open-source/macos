@@ -529,6 +529,13 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
 	storage = cinfo->content.data;
 
 	offset = storage->Length;
+
+	/* check for potential overflow */
+	if (len >= (size_t)(INT_MAX - storage->Length)) {
+	  p7dcx->error = SEC_ERROR_NO_MEMORY;
+	  goto loser;
+	}
+
 	if (storage->Length == 0) {
 	    dest = (unsigned char *)PORT_ArenaAlloc(p7dcx->cmsg->poolp, len);
 	} else {

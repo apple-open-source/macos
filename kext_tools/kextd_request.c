@@ -898,7 +898,7 @@ static CFURLRef createAbsOrRealURLForURL(
         */
         inSLE = (0 == strncmp(realpathCString, _kSystemExtensionsDirSlash,
                               strlen(_kSystemExtensionsDirSlash)));
-        inLE = (0 == strncmp(urlPathCString, _kLibraryExtensionsDirSlash,
+        inLE = (0 == strncmp(realpathCString, _kLibraryExtensionsDirSlash,
                              strlen(_kLibraryExtensionsDirSlash)));
         inSLF = (0 == strncmp(realpathCString, _kSystemFilesystemsDirSlash,
                               strlen(_kSystemFilesystemsDirSlash)));

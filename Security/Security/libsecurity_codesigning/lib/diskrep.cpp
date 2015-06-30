@@ -218,7 +218,7 @@ size_t DiskRep::pageSize(const SigningContext &)
 }
 
 
-void DiskRep::strictValidate(const ToleratedErrors&)
+void DiskRep::strictValidate(const CodeDirectory*, const ToleratedErrors&)
 {
 	// do nothing
 }

@@ -26,10 +26,7 @@
  *  Created by Andy on 02/06/07.
  *  Copyright (c) 2007 Apple Computer, Inc. All rights reserved.
  *
- *	$Log: IOFireWireLibIRMAllocation.h,v $
- *	Revision 1.3  2007/02/16 17:41:01  ayanowit
- *	More Leopard changes.
- *
+ *	$Log: not supported by cvs2svn $
  *	Revision 1.2  2007/02/15 22:02:38  ayanowit
  *	More fixes for new IRMAllocation stuff.
  *	

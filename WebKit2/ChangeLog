@@ -1,3 +1,268 @@
+2015-06-08  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r183682.
+
+    2015-05-01  Brady Eidson  <beidson@apple.com>
+
+            Add API to disable meta refreshes.
+            <rdar://problem/20333198> and https://bugs.webkit.org/show_bug.cgi?id=144269
+
+            Reviewed by Alexey Proskuryakov.
+
+            Add a preference to enable/disable meta refreshes, enabled by default.
+
+            * Shared/WebPreferencesDefinitions.h:
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetMetaRefreshEnabled):
+            (WKPreferencesGetMetaRefreshEnabled):
+            (WKPreferencesGetIgnoreViewportScalingConstraints): Deleted.
+            * UIProcess/API/C/WKPreferencesRefPrivate.h:
+            * WebProcess/InjectedBundle/InjectedBundle.cpp:
+            (WebKit::InjectedBundle::overrideBoolPreferenceForTestRunner):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updatePreferences):
+
+2015-04-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r181656 & r182985.
+
+    2015-04-18  Simon Fraser  <simon.fraser@apple.com>
+
+            REGRESSION (r181656): Animated tiled layers are missing content
+            https://bugs.webkit.org/show_bug.cgi?id=143911
+            rdar://problem/20596328
+
+            Reviewed by Darin Adler.
+    
+            After r181656, all requestAnimationFrame was falling back to timers, and not
+            using the platform's DisplayRefreshMonitor, because of a Nullopt vs nullptr
+            fumble.
+    
+            Replace this confusing Optional<> code with simpler code that just forces the
+            clients to make a DisplayRefreshMonitor if they can, first asking
+            ChromeClient, and then falling back to createDefaultDisplayRefreshMonitor().
+    
+            Make lots of things into references, and use C++11 initialization in some places.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::createDisplayRefreshMonitor):
+            * WebProcess/WebCoreSupport/WebChromeClient.h:
+
+    2015-03-17  Timothy Horton  <timothy_horton@apple.com>
+
+            Reproducible null deref under ScriptedAnimationController::createDisplayRefreshMonitor
+            https://bugs.webkit.org/show_bug.cgi?id=142776
+            <rdar://problem/18921338>
+
+            Reviewed by Alexey Proskuryakov.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::createDisplayRefreshMonitor):
+            * WebProcess/WebCoreSupport/WebChromeClient.h:
+            Adjust to the new signature.
+
+2015-04-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r181656. rdar://problem/20545362
+
+2015-04-22  Dana Burkart  <matthew_hanson@apple.com>
+
+        Merge r181580 for rdar://problem/20545393.
+
+    2015-03-13  Enrica Casucci  <enrica@apple.com>
+
+            Webkit crash in WebKit::nextFocusableElement() when typing TAB on external keyboard
+            rdar://problem/20155503
+
+            Reviewed by David Kilzer.
+
+            Adding null check!
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::nextFocusableElement):
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r182746. rdar://problem/20645260
+
+    2015-04-13  Timothy Horton  <timothy_horton@apple.com>
+
+            javascript: links in inline PDFs shouldn't execute JavaScript in the context of the host website
+            https://bugs.webkit.org/show_bug.cgi?id=143642
+            <rdar://problem/18259355>
+
+            Reviewed by Darin Adler.
+
+            * WebProcess/Plugins/PDF/PDFPlugin.mm:
+            (WebKit::PDFPlugin::clickedLink):
+            Don't follow javascript: URLs.
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r182084. rdar://problem/20557359
+
+    2015-03-27  Andreas Kling  <akling@apple.com>
+
+            WebProcessProxy should not retain WebBackForwardListItems forever.
+            <https://webkit.org/b/143152>
+            <rdar://problem/19925709>
+
+            Reviewed by Anders Carlsson.
+
+            Have WebProcessProxy actually forget about a WebBackForwardListItem after it's removed from
+            the WebBackForwardList.
+
+            This ensures that we don't accumulate too many of these objects, which can get quite large
+            due to the session state encoded in them.
+
+            We already have graceful handling of the case where an incoming IPC message references
+            a removed back/forward list item.
+
+            * UIProcess/WebBackForwardList.cpp:
+            (WebKit::WebBackForwardList::didRemoveItem):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::backForwardRemovedItem):
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::removeBackForwardItem):
+            * UIProcess/WebProcessProxy.h:
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r181991. rdar://problem/20545332
+
+    2015-03-25  Chris Dumez  <cdumez@apple.com>
+
+            [WK2] WebFrameLoaderClient::dispatchDecidePolicyForResponse() should always call the FramePolicyFunction
+            https://bugs.webkit.org/show_bug.cgi?id=143036
+            <rdar://problem/20252438>
+            <rdar://problem/13811738>
+
+            Reviewed by Alexey Proskuryakov.
+
+            WebFrameLoaderClient::dispatchDecidePolicyForResponse() should always
+            call the FramePolicyFunction. Previously, it would fail to do in 2
+            cases:
+            - m_frame->page() returns null
+            or
+            - webPage->sendSync() returns false
+
+            If the FramePolicyFunction is not called, we will fail to clear the
+            callback in the PolicyChecker and
+            DocumentLoader::continueAfterContentPolicy() will not be called.
+
+            DocumentLoader::continueAfterContentPolicy() is in charge of resetting
+            m_waitingForContentPolicy flag to false. This could therefore explain
+            the following assertion being hit in DocumentLoader::detachFromFrame()
+            (see <rdar://problem/20252438>):
+            RELEASE_ASSERT(!m_waitingForContentPolicy)
+
+            Also, as the PolicyChecker callback is not cleared, it could make it
+            possible for DocumentLoader::continueAfterContentPolicy() to be called
+            *after* the load is finished, when later canceling the PolicyCallback:
+            FrameLoader::stopAllLoaders()
+             -> PolicyChecker::stopCheck()
+              -> PolicyCallback::cancel()
+               -> DocumentLoader::continueAfterContentPolicy(PolicyIgnore)
+
+            Calling continueAfterContentPolicy(PolicyIgnore) after the load is
+            finished would be bad and could explain some of the crashes we've seen
+            in DocumentLoader::continueAfterContentPolicy() ->
+            DocumentLoader:: stopLoadingForPolicyChange() (see
+            <rdar://problem/13811738>).
+
+            This patch also applies the same fix to
+            dispatchDecidePolicyForNewWindowAction() and
+            dispatchDecidePolicyForNavigationAction() as they use the same pattern.
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+            (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction):
+            (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r181812. rdar://problem/20557289
+
+    2015-03-20  Beth Dakin  <bdakin@apple.com>
+
+            [Immediate Actions] Should re-enable immediate actions for iBooks
+            https://bugs.webkit.org/show_bug.cgi?id=142915
+            -and corresponding-
+            rdar://problem/19585689
+
+            Reviewed by Tim Horton.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView initWithFrame:processPool:configuration:webView:]):
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r181656. rdar://problem/20545362
+
+    2015-03-17  Timothy Horton  <timothy_horton@apple.com>
+
+            Reproducible null deref under ScriptedAnimationController::createDisplayRefreshMonitor
+            https://bugs.webkit.org/show_bug.cgi?id=142776
+            <rdar://problem/18921338>
+
+            Reviewed by Alexey Proskuryakov.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::createDisplayRefreshMonitor):
+            * WebProcess/WebCoreSupport/WebChromeClient.h:
+            Adjust to the new signature.
+
+2015-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r174288. rdar://problem/20368461
+
+    2014-10-03  Jer Noble  <jer.noble@apple.com>
+
+            Revert an accidental change introduced by r173318.
+
+            Rubber-stamped by Tim Horton.
+
+            * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+            (WebKit::TiledCoreAnimationDrawingArea::suspendPainting):
+            (WebKit::TiledCoreAnimationDrawingArea::resumePainting):
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r182285
+
+    2015-04-02  Alexey Proskuryakov  <ap@apple.com>
+
+            Make checkURLReceivedFromWebProcess not rely on details of platform URL implementation.
+            https://bugs.webkit.org/show_bug.cgi?id=143222
+            rdar://problem/19978997
+
+            Reviewed by Sam Weinig.
+
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::checkURLReceivedFromWebProcess):
+
+2015-04-17  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r181864
+
+    2015-03-23  Anders Carlsson  <andersca@apple.com>
+
+            Make platform/mac-wk2/plugins/destroy-during-async-npp-new.html work again.
+            https://bugs.webkit.org/show_bug.cgi?id=133692
+            rdar://problem/17255947
+
+            Reviewed by Alexey Proskuryakov.
+
+            Add plug-in destruction protectors around message receiver code that can call out to NPObjects or JavaScript
+            where we need the plug-in to stay around after the call.
+
+            * Shared/Plugins/NPObjectMessageReceiver.cpp:
+            (WebKit::NPObjectMessageReceiver::invoke):
+            (WebKit::NPObjectMessageReceiver::invokeDefault):
+            (WebKit::NPObjectMessageReceiver::getProperty):
+            (WebKit::NPObjectMessageReceiver::setProperty):
+            (WebKit::NPObjectMessageReceiver::construct):
+
 2015-03-07  Babak Shafiei  <bshafiei@apple.com>
 
         Merge r181176.

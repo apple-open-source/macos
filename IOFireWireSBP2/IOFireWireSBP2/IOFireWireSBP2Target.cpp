@@ -918,30 +918,36 @@ void IOFireWireSBP2Target::configurePhysicalFilter( void )
         UInt32 deviceCount = 0;
 		
         // get self id property
-        OSData * data = (OSData*)controller->getProperty( "FireWire Self IDs" );
+        OSData * data = OSDynamicCast( OSData, controller->copyProperty( "FireWire Self IDs" ) );
         
-        // get self id data
-        UInt32 	numIDs = data->getLength() / sizeof(UInt32);
-        UInt32 	*IDs = (UInt32*)data->getBytesNoCopy();
-        
-        // count nodes on bus
-        UInt32 	i;
-        for( i = 0; i < numIDs; i++ )
+        if( data )
         {
-            UInt32 current_id = IDs[i];
-            // count all type zero selfid with the linkon bit set
-            if( (current_id & kFWSelfIDPacketType) == 0 &&
-                (current_id & kFWSelfID0L) )
+            // get self id data
+            UInt32 	numIDs = data->getLength() / sizeof(UInt32);
+            UInt32 	*IDs = (UInt32*)data->getBytesNoCopy();
+            
+            // count nodes on bus
+            UInt32 	i;
+            for( i = 0; i < numIDs; i++ )
             {
-                deviceCount++;
+                UInt32 current_id = IDs[i];
+                // count all type zero selfid with the linkon bit set
+                if( (current_id & kFWSelfIDPacketType) == 0 &&
+                    (current_id & kFWSelfID0L) )
+                {
+                    deviceCount++;
+                }
             }
-        }
-        
-		// if PhysicalUnitBlocksOnReads and more than one device on the bus, 
-        // then turn off the physical unit for this node
-        if( (deviceCount > 2) && (fwim->getProperty( "PhysicalUnitBlocksOnReads" ) != NULL) )
-        {
-            disablePhysicalAccess = true;
+            
+            // if PhysicalUnitBlocksOnReads and more than one device on the bus, 
+            // then turn off the physical unit for this node
+            if( (deviceCount > 2) && (fwim->getProperty( "PhysicalUnitBlocksOnReads" ) != NULL) )
+            {
+                disablePhysicalAccess = true;
+            }
+            
+            data->release();
+            data = NULL;
         }
 	}
     

@@ -15,6 +15,8 @@
 		0544C53A06A8718D00F54E48 /* tpOcspCertVfy.h in Headers */ = {isa = PBXBuildFile; fileRef = 0544C53206A8718D00F54E48 /* tpOcspCertVfy.h */; };
 		0544C53B06A8718D00F54E48 /* tpOcspVerify.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0544C53306A8718D00F54E48 /* tpOcspVerify.cpp */; };
 		0544C53C06A8718D00F54E48 /* tpOcspVerify.h in Headers */ = {isa = PBXBuildFile; fileRef = 0544C53406A8718D00F54E48 /* tpOcspVerify.h */; };
+		859345901B0A575D00DBAFCE /* tpCertAllowList.c in Sources */ = {isa = PBXBuildFile; fileRef = 8593458E1B0A575D00DBAFCE /* tpCertAllowList.c */; };
+		859345911B0A575D00DBAFCE /* tpCertAllowList.h in Headers */ = {isa = PBXBuildFile; fileRef = 8593458F1B0A575D00DBAFCE /* tpCertAllowList.h */; };
 		BE4866E211A21E3C00361B64 /* cuEnc64.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4866E011A21E3C00361B64 /* cuEnc64.c */; };
 		BE4866E311A21E3C00361B64 /* cuEnc64.h in Headers */ = {isa = PBXBuildFile; fileRef = BE4866E111A21E3C00361B64 /* cuEnc64.h */; };
 		C2196B77053B5A2B005808D4 /* AppleX509TPBuiltin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196B76053B5A2B005808D4 /* AppleX509TPBuiltin.cpp */; };
@@ -78,6 +80,8 @@
 		4094B06A057EA5B000B44BCC /* tp_policyOids.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = tp_policyOids.mdsinfo; sourceTree = "<group>"; };
 		4094B06B057EA5B000B44BCC /* tp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = tp_primary.mdsinfo; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_apple_x509_tp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_apple_x509_tp.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		8593458E1B0A575D00DBAFCE /* tpCertAllowList.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 30; indentWidth = 8; path = tpCertAllowList.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
+		8593458F1B0A575D00DBAFCE /* tpCertAllowList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tpCertAllowList.h; sourceTree = "<group>"; };
 		BE4866E011A21E3C00361B64 /* cuEnc64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cuEnc64.c; sourceTree = "<group>"; };
 		BE4866E111A21E3C00361B64 /* cuEnc64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuEnc64.h; sourceTree = "<group>"; };
 		C2196B76053B5A2B005808D4 /* AppleX509TPBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleX509TPBuiltin.cpp; path = lib/AppleX509TPBuiltin.cpp; sourceTree = "<group>"; };
@@ -88,7 +92,7 @@
 		C2B5C4D80534C6AA00AF53F5 /* AppleX509TPPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleX509TPPlugin.cpp; sourceTree = "<group>"; };
 		C2B5C4D90534C6AA00AF53F5 /* certGroupUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = certGroupUtils.cpp; sourceTree = "<group>"; };
 		C2B5C4DA0534C6AA00AF53F5 /* certGroupUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = certGroupUtils.h; sourceTree = "<group>"; };
-		C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpCertGroup.cpp; sourceTree = "<group>"; };
+		C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 8; lastKnownFileType = sourcecode.cpp.cpp; path = tpCertGroup.cpp; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPCertInfo.cpp; sourceTree = "<group>"; };
 		C2B5C4E10534C6AA00AF53F5 /* TPCertInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPCertInfo.h; sourceTree = "<group>"; };
 		C2B5C4E20534C6AA00AF53F5 /* tpCredRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpCredRequest.cpp; sourceTree = "<group>"; };
@@ -182,6 +186,8 @@
 				BE4866E111A21E3C00361B64 /* cuEnc64.h */,
 				C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */,
 				C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */,
+				8593458E1B0A575D00DBAFCE /* tpCertAllowList.c */,
+				8593458F1B0A575D00DBAFCE /* tpCertAllowList.h */,
 				C2B5C4E10534C6AA00AF53F5 /* TPCertInfo.h */,
 				C2B5C4E20534C6AA00AF53F5 /* tpCredRequest.cpp */,
 				C2B5C4E30534C6AA00AF53F5 /* TPCrlInfo.cpp */,
@@ -219,6 +225,7 @@
 				C2B5C4F10534C6AA00AF53F5 /* AppleTP.h in Headers */,
 				C2B5C4F30534C6AA00AF53F5 /* AppleTPSession.h in Headers */,
 				C2B5C4F60534C6AA00AF53F5 /* certGroupUtils.h in Headers */,
+				859345911B0A575D00DBAFCE /* tpCertAllowList.h in Headers */,
 				C2B5C4FD0534C6AA00AF53F5 /* TPCertInfo.h in Headers */,
 				C2B5C5000534C6AA00AF53F5 /* TPCrlInfo.h in Headers */,
 				C2B5C5020534C6AA00AF53F5 /* tpCrlVerify.h in Headers */,
@@ -324,6 +331,7 @@
 				0544C53906A8718D00F54E48 /* tpOcspCertVfy.cpp in Sources */,
 				0544C53B06A8718D00F54E48 /* tpOcspVerify.cpp in Sources */,
 				BE4866E211A21E3C00361B64 /* cuEnc64.c in Sources */,
+				859345901B0A575D00DBAFCE /* tpCertAllowList.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

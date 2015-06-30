@@ -80,7 +80,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.5.20
+AEP_Version	= 5.5.24
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  \
 			MacOSX_build.patch \

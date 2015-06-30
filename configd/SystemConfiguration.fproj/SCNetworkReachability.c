@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -2990,9 +2990,9 @@ _SC_checkResolverReachabilityByAddress(SCDynamicStoreRef		*storeP,
  *
  * Notes :
  *
- * 1. We have a "contract" with discoveryd that for EVERY network
+ * 1. We have a "contract" with mDNSResponder that for EVERY network
  *    or DNS configuration change that should warrant our [re-]starting
- *    a query, discoveryd will acknowledge the latest DNS configuration.
+ *    a query, mDNSResponder will acknowledge the latest DNS configuration.
  *
  * 2. IPMonitor also posts a notification AFTER every network or DNS
  *    configuration change.
@@ -3342,7 +3342,7 @@ _dns_callback(DNSServiceRef		sdRef,
 				targetPrivate->dnsAddresses = CFRetain(kCFNull);
 				targetPrivate->dnsError     = EAI_NONAME;
 			} else if (targetPrivate->dnsGeneration == dnsGeneration) {
-				// if not, then "discoveryd" crashed or some
+				// if not, then "mDNSResponder" crashed or some
 				// other/unexpected error occurred.  In this
 				// case, we'll try again with a clean slate and
 				// restart all requests.
@@ -3364,7 +3364,7 @@ _dns_callback(DNSServiceRef		sdRef,
 
 	if (restart) {
 		SCLog(TRUE, LOG_DEBUG,
-		      CFSTR("%sreconnecting SCNetworkReachability w/\"discoveryd\" (%d)"),
+		      CFSTR("%sreconnecting SCNetworkReachability w/\"mDNSResponder\" (%d)"),
 		      targetPrivate->log_prefix,
 		      dnsGeneration);
 
@@ -3571,7 +3571,7 @@ enqueueDNSQuery(SCNetworkReachabilityRef target)
 			return;
 		}
 
-		// if needed, start interacting with "discoveryd"
+		// if needed, start interacting with "mDNSResponder"
 		if (dnsMain == NULL) {
 			err = DNSServiceCreateConnection(&dnsMain);
 			if (err != kDNSServiceErr_NoError) {
@@ -4382,9 +4382,9 @@ __SCNetworkReachabilityOnDemandCheck(ReachabilityStoreInfoRef	store_info,
  *
  * Notes :
  *
- * 1. We have a "contract" with discoveryd that for EVERY network
+ * 1. We have a "contract" with mDNSResponder that for EVERY network
  *    or DNS configuration change that should warrant our [re-]starting
- *    a query, discoveryd will acknowledge the latest DNS configuration.
+ *    a query, mDNSResponder will acknowledge the latest DNS configuration.
  *
  * 2. IPMonitor also posts a notification AFTER every network or DNS
  *    configuration change.

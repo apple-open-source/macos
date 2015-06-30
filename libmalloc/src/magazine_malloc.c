@@ -2829,6 +2829,12 @@ tiny_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 																 REGION_TRAILER_FOR_TINY_REGION(TINY_REGION_FOR_PTR(ptr)),
 																 MAGAZINE_INDEX_FOR_TINY_REGION(TINY_REGION_FOR_PTR(ptr)));
 
+	if (DEPOT_MAGAZINE_INDEX == MAGAZINE_INDEX_FOR_TINY_REGION(TINY_REGION_FOR_PTR(ptr)))
+	{
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+	    return 0;
+	}
+
 	/*
 	 * Look for a free block immediately afterwards.  If it's large enough, we can consume (part of)
 	 * it.
@@ -4627,6 +4633,12 @@ small_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t ne
 	magazine_t	*small_mag_ptr = mag_lock_zine_for_region_trailer(szone, szone->small_magazines,
 																  REGION_TRAILER_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr)),
 																  MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr)));
+	if (DEPOT_MAGAZINE_INDEX == MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr)))
+	{
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+	    return 0;
+	}
+
 
 	/*
 	 * Look for a free block immediately afterwards.  If it's large enough, we can consume (part of)

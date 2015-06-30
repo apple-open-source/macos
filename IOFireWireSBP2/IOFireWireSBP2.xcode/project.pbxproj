@@ -341,9 +341,15 @@
 /* Begin PBXProject section */
 		00F0F431FFCA255711CE233C /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 30E4466608394D3A00BE2CD4 /* Build configuration list for PBXProject "IOFireWireSBP2" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 00F0F432FFCA255711CE233C /* IOFireWireSBP2 */;
 			productRefGroup = 00F0F450FFCA255711CE233C /* Products */;
 			projectDirPath = "";
@@ -594,10 +600,7 @@
 		30E4465D08394D3A00BE2CD4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				BUILD_STYLE = Development;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -609,11 +612,12 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.5;
+				MODULE_VERSION = 4.2.7;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
@@ -632,10 +636,7 @@
 		30E4465E08394D3A00BE2CD4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				BUILD_STYLE = Deployment;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
@@ -644,11 +645,12 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.5;
+				MODULE_VERSION = 4.2.7;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
@@ -667,10 +669,7 @@
 		30E4465F08394D3A00BE2CD4 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				BUILD_STYLE = FireLog;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = "Info-IOFireWireSBP2-FireLog.plist";
@@ -679,11 +678,12 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.5;
+				MODULE_VERSION = 4.2.7;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
@@ -701,10 +701,7 @@
 		30E4466008394D3A00BE2CD4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				BUILD_STYLE = Default;
 				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -712,11 +709,12 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.5;
+				MODULE_VERSION = 4.2.7;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
@@ -811,6 +809,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Development;
+				SDKROOT = macosx.internal;
 			};
 			name = Development;
 		};
@@ -818,6 +817,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Deployment;
+				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
 		};
@@ -825,6 +825,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = FireLog;
+				SDKROOT = macosx.internal;
 			};
 			name = FireLog;
 		};
@@ -832,6 +833,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Default;
+				SDKROOT = macosx.internal;
 			};
 			name = Default;
 		};

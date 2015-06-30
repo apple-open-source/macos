@@ -1570,6 +1570,9 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 
 	/* and the case of an issuer without a matching subject key id */
 	TPCertInfo *unmatchedKeyIDIssuer = NULL;
+    
+    /* and the case of a root that isn't trusted or an anchor */
+    TPCertInfo *untrustedRoot = NULL;
 
 	verifiedToRoot = CSSM_FALSE;
 	verifiedToAnchor = CSSM_FALSE;
@@ -1678,10 +1681,58 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 			}	/* CSSM_TP_ACTION_TRUST_SETTING */
 
 post_trust_setting:
+            /*
+             * If this cert is in the provided anchors list,
+             * we can stop building the chain at this point.
+             *
+             * If this cert is a leaf, the chain ends in an anchor, but if it's
+             * also temporally invalid, we can't do anything further. However,
+             * if it's not a leaf, then we need to roll back the chain to a
+             * point just before this cert, so Case 1 will subsequently find
+             * the anchor (and handle the anchor correctly if it's expired.)
+             */
+            if(numAnchorCerts && anchorCerts) {
+                bool foundAnchor = false;
+                for(certDex=0; certDex<numAnchorCerts; certDex++) {
+                    if(tp_CompareCerts(subjCert->itemData(), &anchorCerts[certDex])) {
+                        foundAnchor = true;
+                        /* if it's not the leaf, remove it from the outgoing cert group. */
+                        if(!firstSubjectIsInGroup || (mNumCerts > 1)) {
+                            if(mNumCerts) {
+                                /* roll back to previous cert */
+                                mNumCerts--;
+                            }
+                            if(mNumCerts == 0) {
+                                /* roll back to caller's initial condition */
+                                thisSubject = &subjectItem;
+                            }
+                            else {
+                                thisSubject = lastCert();
+                            }
+                            tpAnchorDebug("buildCertGroup: CA cert in input AND anchors");
+                        } /* not leaf */
+                        else {
+                            if(subjCert->isExpired() || subjCert->isNotValidYet()) {
+                                crtn = CSSM_CERT_STATUS_EXPIRED;
+                            } else {
+                                crtn = CSSM_OK;
+                            }
+                            subjCert->isAnchor(true);
+                            verifiedToAnchor = CSSM_TRUE;
+                            tpAnchorDebug("buildCertGroup: leaf cert in input AND anchors");
+                        } /* leaf */
+                        if(subjCert->isSelfSigned()) {
+                            verifiedToRoot = CSSM_TRUE;
+                        }
+                        break;	/* out of anchor-checking loop */
+                    }
+                }
+                if(foundAnchor) {
+                    break; /* out of main loop */
+                }
+            }
+            
 			if(subjCert->isSelfSigned()) {
-				/* We're at the end of the chain. */
-				verifiedToRoot = CSSM_TRUE;
-
 				/*
 				 * Special case if this root is temporally invalid (and it's not
 				 * the leaf): remove it from the outgoing cert group, save it,
@@ -1690,6 +1741,7 @@ post_trust_setting:
 				 */
 				if((subjCert->isExpired() || subjCert->isNotValidYet()) &&
 				   (!firstSubjectIsInGroup || (mNumCerts > 1))) {
+                    verifiedToRoot = CSSM_TRUE;
 					tpDebug("buildCertGroup: EXPIRED ROOT %p, looking for good one", subjCert);
 					expiredRoot = subjCert;
 					if(mNumCerts) {
@@ -1703,58 +1755,40 @@ post_trust_setting:
 					else {
 						thisSubject = lastCert();
 					}
+                    break;		/* out of main loop */
 				}
-				break;		/* out of main loop */
+                /* 
+                 * If any root is considered an anchor, we don't need to look 
+                 * for a better chain that ends in an anchor or trusted root.
+                 */
+                if(actionFlags & CSSM_TP_ACTION_IMPLICIT_ANCHORS) {
+                    verifiedToRoot = CSSM_TRUE;
+                    break;      /*out of main loop */
+                }
+                /*
+                 * The root we have is neither trusted nor an anchor. Continue in
+                 * the loop to look for a better chain if this is not a leaf.
+                 */
+                if(!firstSubjectIsInGroup || (mNumCerts > 1)) {
+                    tpDebug("buildCertGroup: UNTRUSTED ROOT %p, looking for better chain", subjCert);
+                    untrustedRoot = subjCert;
+                    if(mNumCerts) {
+                        /* roll back to previous cert */
+                        mNumCerts--;
+                    }
+                    if(mNumCerts == 0) {
+                        /* roll back to caller's initial condition */
+                        thisSubject = &subjectItem;
+                    }
+                    else {
+                        thisSubject = lastCert();
+                    }
+                }
+                else {
+                    /* the leaf is a root */
+                    break;      /* out of main loop */
+                }
 			}	/* root */
-
-			/*
-			 * If this non-root cert is in the provided anchors list,
-			 * we can stop building the chain at this point.
-			 *
-			 * If this cert is a leaf, the chain ends in an anchor, but if it's
-			 * also temporally invalid, we can't do anything further. However,
-			 * if it's not a leaf, then we need to roll back the chain to a
-			 * point just before this cert, so Case 1 will subsequently find
-			 * the anchor (and handle the anchor correctly if it's expired.)
-			 */
-			if(numAnchorCerts && anchorCerts) {
-				bool foundNonRootAnchor = false;
-				for(certDex=0; certDex<numAnchorCerts; certDex++) {
-					if(tp_CompareCerts(subjCert->itemData(), &anchorCerts[certDex])) {
-						foundNonRootAnchor = true;
-						/* if it's not the leaf, remove it from the outgoing cert group. */
-						if(!firstSubjectIsInGroup || (mNumCerts > 1)) {
-							if(mNumCerts) {
-								/* roll back to previous cert */
-								mNumCerts--;
-							}
-							if(mNumCerts == 0) {
-								/* roll back to caller's initial condition */
-								thisSubject = &subjectItem;
-							}
-							else {
-								thisSubject = lastCert();
-							}
-							tpAnchorDebug("buildCertGroup: CA cert in input AND anchors");
-						} /* not leaf */
-						else {
-							if(subjCert->isExpired() || subjCert->isNotValidYet()) {
-								crtn = CSSM_CERT_STATUS_EXPIRED;
-							} else {
-								crtn = CSSM_OK;
-							}
-							subjCert->isAnchor(true);
-							verifiedToAnchor = CSSM_TRUE;
-							tpAnchorDebug("buildCertGroup: leaf cert in input AND anchors");
-						} /* leaf */
-						break;	/* out of anchor-checking loop */
-					}
-				}
-				if(foundNonRootAnchor) {
-					break; /* out of main loop */
-				}
-			} /* non-root */
-
 		}	/* subjectIsInGroup */
 
 		/*
@@ -1786,6 +1820,11 @@ post_trust_setting:
 
 		if(issuerCert != NULL) {
 			bool stashedIssuer = false;
+            /* Check whether candidate issuer is the same as unstrustedRoot */
+            if((untrustedRoot != NULL) && tp_CompareCerts(issuerCert->itemData(), untrustedRoot->itemData())) {
+                /* already stashed */
+                stashedIssuer = true;
+            }
 			/* Check whether candidate issuer is expired or not yet valid */
 			if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 				if(expiredIssuer == NULL) {
@@ -1845,6 +1884,11 @@ post_trust_setting:
 
 		if(issuerCert != NULL) {
 			bool stashedIssuer = false;
+            /* Check whether candidate issuer is the same as untrustedRoot */
+            if((untrustedRoot != NULL) && tp_CompareCerts(issuerCert->itemData(), untrustedRoot->itemData())) {
+                /* already stashed */
+                stashedIssuer = true;
+            }
 			/* Check whether candidate issuer is expired or not yet valid */
 			if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 				if(expiredIssuer == NULL) {
@@ -1890,7 +1934,7 @@ post_trust_setting:
 		 * If we found a candidate issuer in input or gathered certs, check whether it
 		 * might be a cross-signed intermediate that can be replaced with an anchor.
 		 */
-		if(issuerCert != NULL && !issuerCert->isSelfSigned()) {
+		if(issuerCert != NULL && !issuerCert->isSelfSigned() && (untrustedRoot == NULL)) {
 			bool partial = false;
 			TPCertInfo *possibleAnchorCert = NULL;
 			try {
@@ -1900,7 +1944,8 @@ post_trust_setting:
 					thisSubject,
 					dbList,
 					verifyTime,
-					partial);
+					partial,
+                    untrustedRoot);
 			}
 			catch (...) {}
 
@@ -1913,6 +1958,8 @@ post_trust_setting:
 					 * However, code from this point on cannot assume the same thing.
 					 */
 					tpDebug("buildCertGroup: replacement anchor for issuer FOUND in dbList");
+                    /* mark non-root candidate as unused since we won't use it */
+                    issuerCert->used(false);
 					issuerCert = possibleAnchorCert;
 
 					/* Caller must free, since this cert came from a DLDB */
@@ -1955,7 +2002,8 @@ post_trust_setting:
 					thisSubject,
 					dbList,
 					verifyTime,
-					partial);
+					partial,
+                    untrustedRoot);
 			}
 			catch (...) {}
 
@@ -2020,6 +2068,16 @@ post_trust_setting:
 		 * point, the expiredRoot mechanism is used to roll back and search for
 		 * an anchor that verifies the last good cert.
 		 */
+        if((issuerCert == NULL) &&			/* tpDbFindIssuerCert() hasn't found one and
+                                             * we don't have a good one */
+           (untrustedRoot != NULL)) {		/* but we have an untrusted root available*/
+            /*
+             * We couldn't find a better issuer, so end loop. In Case 1, we'll look for
+             * an alternate anchor issuer. If we can't find an anchor, we'll end up using
+             * the untrusted root.
+             */
+            break;          /* from main loop */
+        }
 
 		if((issuerCert == NULL) &&			/* tpDbFindIssuerCert() hasn't found one and
 											 * we don't have a good one */
@@ -2061,6 +2119,13 @@ post_trust_setting:
 		thisSubject = issuerCert;
 		subjectIsInGroup = CSSM_TRUE;
 		issuerCert = NULL;
+        /* 
+         * We've found a (potentially) better chain, so discard the untrusted root.
+         * Note we don't have to free untrustedRoot because it either:
+         *    -came from inCertGroup or gatherCerts; or
+         *    -came from the dbList and was already added to certToBeFreed.
+         */
+        untrustedRoot = NULL;
 	}	/* main loop */
 
 	/*
@@ -2279,10 +2344,25 @@ post_trust_setting:
 		if(expiredIssuer->isSelfSigned()) {
 			verifiedToRoot = CSSM_TRUE;
 		}
-		/* no matter what, we don't want this one */
+		/* no matter what, we don't want these */
 		expiredRoot = NULL;
+        untrustedRoot = NULL;
 	}
 post_anchor:
+    if(untrustedRoot) {
+        /*
+         * Special case: untrustedRoot found, but no luck resolving the problem with
+         * anchors.  Go ahead and (re-)append the untrusted root and return
+         */
+        tpDebug("buildCertGroup: accepted UNTRUSTED root");
+        appendCert(untrustedRoot);
+        if(foundPartialIssuer) {
+            return verifyWithPartialKeys(subjectItem);
+        }
+        else {
+            return CSSM_OK;
+        }
+    }
 	if(expiredRoot) {
 		/*
 		 * One remaining special case: expiredRoot found in input certs, but

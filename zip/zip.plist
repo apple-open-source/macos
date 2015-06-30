@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
@@ -9,14 +9,14 @@
 		<string>Info-ZIP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>zip.txt</string>
-		<key>OpenSourceSHA1</key>
-		<string>4f244128ee8fa3fc07eedfee3d4ac634dcabd492</string>
 		<key>OpenSourceModifications</key>
 		<array>
-		  <string>Porting fixes for Mac OS X</string>
+			<string>Porting fixes for Mac OS X</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>4f244128ee8fa3fc07eedfee3d4ac634dcabd492</string>
 		<key>OpenSourceURL</key>
 		<string>http://superb-east.dl.sourceforge.net/sourceforge/infozip/zip30.zip</string>
 		<key>OpenSourceVersion</key>
@@ -31,16 +31,17 @@
 		<string>Info-ZIP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>unzip.txt</string>
-		<key>OpenSourceSHA1</key>
-		<string>1831bd59b9e607a69052f83b263384895e2d4a19</string>
 		<key>OpenSourceModifications</key>
 		<array>
-		  <string>CVE-2005-2475, obtained from FreeBSD ports/85920</string>
-		  <string>Support for quarantine</string>
-		  <string>CVE-2008-8880, obtained from FedoraProject</string>
+			<string>CVE-2005-2475, obtained from FreeBSD ports/85920</string>
+			<string>Support for quarantine</string>
+			<string>CVE-2008-8880, obtained from FedoraProject</string>
+			<string>Fix memory corruption in test_compr_eb and overflow in list_files()</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>
+		<key>OpenSourceSHA1</key>
+		<string>1831bd59b9e607a69052f83b263384895e2d4a19</string>
 		<key>OpenSourceURL</key>
 		<string>http://ftp.info-zip.org/pub/infozip/src/unzip552.tar.gz</string>
 		<key>OpenSourceVersion</key>

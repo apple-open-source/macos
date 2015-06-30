@@ -281,6 +281,11 @@ void WebProcessProxy::registerNewWebBackForwardListItem(WebBackForwardListItem* 
     m_backForwardListItemMap.set(item->itemID(), item);
 }
 
+void WebProcessProxy::removeBackForwardItem(uint64_t itemID)
+{
+    m_backForwardListItemMap.remove(itemID);
+}
+
 void WebProcessProxy::assumeReadAccessToBaseURL(const String& urlString)
 {
     URL url(URL(), urlString);
@@ -336,9 +341,11 @@ bool WebProcessProxy::checkURLReceivedFromWebProcess(const URL& url)
     // One case where we don't have sandbox extensions for file URLs in b/f list is if the list has been reinstated after a crash or a browser restart.
     String path = url.fileSystemPath();
     for (WebBackForwardListItemMap::iterator iter = m_backForwardListItemMap.begin(), end = m_backForwardListItemMap.end(); iter != end; ++iter) {
-        if (URL(URL(), iter->value->url()).fileSystemPath() == path)
+        URL itemURL(URL(), iter->value->url());
+        if (itemURL.isLocalFile() && itemURL.fileSystemPath() == path)
             return true;
-        if (URL(URL(), iter->value->originalURL()).fileSystemPath() == path)
+        URL itemOriginalURL(URL(), iter->value->originalURL());
+        if (itemOriginalURL.isLocalFile() && itemOriginalURL.fileSystemPath() == path)
             return true;
     }
 

@@ -37,6 +37,7 @@ _SSLGetDatagramWriteSize
 _SSLGetEnabledCiphers
 _SSLGetEncryptionCertificate
 _SSLGetMaxDatagramRecordSize
+_SSLGetMinimumDHGroupSize
 _SSLGetNegotiatedCipher
 _SSLGetNegotiatedCurve
 _SSLGetNegotiatedProtocolVersion
@@ -75,6 +76,7 @@ _SSLSetEnabledCiphers
 _SSLSetEncryptionCertificate
 _SSLSetIOFuncs
 _SSLSetMaxDatagramRecordSize
+_SSLSetMinimumDHGroupSize
 _SSLSetProtocolVersionMax
 _SSLSetProtocolVersionMin
 _SSLSetPSKIdentity

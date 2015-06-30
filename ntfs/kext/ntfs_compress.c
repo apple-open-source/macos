@@ -2,7 +2,7 @@
  * ntfs_compress.c - NTFS kernel compressed attribute operations.
  *
  * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008,2015 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -379,6 +379,13 @@ next_sb:
 	 * first two checks do not detect it.
 	 */
 	if (cb == cb_end || !le16_to_cpup((le16*)cb) || dst == dst_end) {
+        /*
+         * Zero fill any remaining portion of the destination buffer.
+         * I'm unsure whether this should be considered an I/O error;
+         * If not, we at least need to avoid returning uninitialized data.
+         */
+        if (dst < dst_end)
+            bzero(dst, dst_end - dst);
 		ntfs_debug("Done.");
 		return 0;
 	}

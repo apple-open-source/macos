@@ -820,10 +820,7 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 				(char*)this->mainExecutablePath().c_str(), 0);
 		
 			// scan through the resources on disk, checking each against the resourceDirectory
-			if (mValidationFlags & kSecCSFullReport)
-				mResourcesValidContext = new CollectingContext(*this);		// collect all failures in here
-			else
-				mResourcesValidContext = new ValidationContext(*this);		// simple bug-out on first error
+			mResourcesValidContext = new CollectingContext(*this);		// collect all failures in here
 
 			// use V2 resource seal if available, otherwise fall back to V1
 			CFDictionaryRef rules;
@@ -1119,6 +1116,8 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool is
 			if (cfString(seal.link()) != target)
 				ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath);
 		} else if (seal.hash()) {	// genuine file
+			if (isSymlink)
+				return ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // changed type
 			AutoFileDesc fd(cfString(fullpath), O_RDONLY, FileDesc::modeMissingOk);	// open optional file
 			if (fd) {
 				MakeHash<CodeDirectory> hasher(this->codeDirectory());
@@ -1562,6 +1561,7 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 	setValidationFlags(flags);
 	
 	// initialize progress/cancellation state
+	if (flags & kSecCSReportProgress)
 	prepareProgress(estimateResourceWorkload() + 2);	// +1 head, +1 tail
 
 	// core components: once per architecture (if any)
@@ -1589,7 +1589,7 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 
 	// perform strict validation if desired
 	if (flags & kSecCSStrictValidate)
-		mRep->strictValidate(mTolerateErrors);
+		mRep->strictValidate(codeDirectory(), mTolerateErrors);
 	reportProgress();
 
 	// allow monitor intervention

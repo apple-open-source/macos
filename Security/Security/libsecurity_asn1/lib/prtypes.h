@@ -57,6 +57,10 @@
 
 #include <stddef.h>
 
+#ifdef __APPLE__
+#include <stdint.h>  // for uintptr_t
+#endif
+
 /***********************************************************************
 ** MACROS:      PR_EXTERN
 **              PR_IMPLEMENT
@@ -506,8 +510,14 @@ typedef PRUint16 PRUnichar;
 ** Specification, Addison-Wesley, September 1996.
 ** http://java.sun.com/docs/books/vmspec/index.html.)
 */
+
+#ifdef __APPLE__
+typedef intptr_t PRWord;
+typedef uintptr_t PRUword;
+#else
 typedef long PRWord;
-typedef size_t PRUword;
+typedef unsigned long PRUword;
+#endif
 
 #if defined(NO_NSPR_10_SUPPORT)
 #else

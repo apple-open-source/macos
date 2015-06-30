@@ -79,6 +79,7 @@ struct __OpaqueSecDb {
     dispatch_semaphore_t read_semaphore;
     bool didFirstOpen;
     bool (^opened)(SecDbConnectionRef dbconn, bool did_create, CFErrorRef *error);
+    dispatch_queue_t notifyQueue;
     SecDBNotifyBlock notifyPhase;
 };
 
@@ -207,10 +208,22 @@ SecDbIdleConnectionCount(SecDbRef db) {
     return count;
 }
 
-void SecDbSetNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase) {
+void SecDbSetNotifyPhaseBlock(SecDbRef db, dispatch_queue_t queue, SecDBNotifyBlock notifyPhase) {
+    if (db->notifyQueue)
+        dispatch_release(db->notifyQueue);
     if (db->notifyPhase)
         Block_release(db->notifyPhase);
-    db->notifyPhase = Block_copy(notifyPhase);
+
+    if (queue) {
+        db->notifyQueue = queue;
+        dispatch_retain(db->notifyQueue);
+    } else {
+        db->notifyQueue = NULL;
+    }
+    if (notifyPhase)
+        db->notifyPhase = Block_copy(notifyPhase);
+    else
+        db->notifyPhase = NULL;
 }
 
 static void SecDbNotifyPhase(SecDbConnectionRef dbconn, SecDbTransactionPhase phase) {
@@ -220,6 +233,20 @@ static void SecDbNotifyPhase(SecDbConnectionRef dbconn, SecDbTransactionPhase ph
         SOSDigestVectorFree(&dbconn->todel);
         SOSDigestVectorFree(&dbconn->toadd);
     }
+}
+
+static bool SecDbOnNotifyQueue(SecDbConnectionRef dbconn, bool (^perform)()) {
+    __block bool result = false;
+
+    if (dbconn->db->notifyPhase) {
+        dispatch_sync(dbconn->db->notifyQueue, ^{
+            result = perform();
+        });
+    } else {
+        result = perform();
+    }
+
+    return result;
 }
 
 CFStringRef SecDbGetPath(SecDbRef db) {
@@ -530,18 +557,20 @@ static bool SecDbBeginTransaction(SecDbConnectionRef dbconn, SecDbTransactionTyp
 
 static bool SecDbEndTransaction(SecDbConnectionRef dbconn, bool commit, CFErrorRef *error)
 {
-    bool ok = true, commited = false;
-    if (commit) {
-        SecDbNotifyPhase(dbconn, kSecDbTransactionWillCommit);
-        commited = ok = SecDbExec(dbconn, CFSTR("END"), error);
-    } else {
-        ok = SecDbExec(dbconn, CFSTR("ROLLBACK"), error);
-        commited = false;
-    }
-    dbconn->inTransaction = false;
-    SecDbNotifyPhase(dbconn, commited ? kSecDbTransactionDidCommit : kSecDbTransactionDidRollback);
-    dbconn->source = kSecDbAPITransaction;
-    return ok;
+    return SecDbOnNotifyQueue(dbconn, ^{
+        bool ok = true, commited = false;
+        if (commit) {
+            SecDbNotifyPhase(dbconn, kSecDbTransactionWillCommit);
+            commited = ok = SecDbExec(dbconn, CFSTR("END"), error);
+        } else {
+            ok = SecDbExec(dbconn, CFSTR("ROLLBACK"), error);
+            commited = false;
+        }
+        dbconn->inTransaction = false;
+        SecDbNotifyPhase(dbconn, commited ? kSecDbTransactionDidCommit : kSecDbTransactionDidRollback);
+        dbconn->source = kSecDbAPITransaction;
+        return ok;
+    });
 }
 
 bool SecDbTransaction(SecDbConnectionRef dbconn, SecDbTransactionType type,

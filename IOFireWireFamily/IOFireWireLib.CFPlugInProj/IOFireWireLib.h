@@ -58,10 +58,7 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 
 */
 /*
-	$Log: IOFireWireLib.h,v $
-	Revision 1.78  2010/05/20 22:49:43  calderon
-	Fixes issues with offset argument of pseudo address space read handler being wrong.
-
+	$Log: not supported by cvs2svn $
 	Revision 1.77  2009/10/29 22:28:28  calderon
 	<rdar://7308574> IOFireWireLib.h and IOFireWireLibIsoch.h headerdoc markup patch
 

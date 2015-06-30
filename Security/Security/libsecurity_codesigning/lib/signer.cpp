@@ -121,7 +121,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 {
 	// make sure the rep passes strict validation
 	if (strict)
-		rep->strictValidate(MacOSErrorSet());
+		rep->strictValidate(NULL, MacOSErrorSet());
 	
 	// initialize progress/cancellation state
 	code->prepareProgress(0);			// totally fake workload - we don't know how many files we'll encounter
@@ -288,7 +288,10 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 
 	if (this->state.mLimitedAsync == NULL) {
 		this->state.mLimitedAsync =
-            new LimitedAsync(rep->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
+			/* rdar://problem/20299541: Async workers (i.e. parallelization) are currently
+			 * turned off, because the paths for signing code are not ready for it yet. */
+			// new LimitedAsync(rep->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
+			new LimitedAsync(false);
 	}
 
 	CFDictionaryRef files2 = NULL;

@@ -24,10 +24,7 @@
  *
  * HISTORY
  *
- *	$Log: IOFWDCLProgram.cpp,v $
- *	Revision 1.33  2012/06/06 01:51:16  collin
- *	DCL program changes for vt-d
- *
+ *	$Log: not supported by cvs2svn $
  *	Revision 1.32  2008/05/06 03:26:57  collin
  *	more K64
  *
