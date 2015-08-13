@@ -211,6 +211,7 @@ static const char *initial_checkenv_table[] = {
     "LC_*",
     "LINGUAS",
     "TERM",
+    "TZ",
     NULL
 };
 
@@ -220,15 +221,12 @@ static const char *initial_checkenv_table[] = {
 static const char *initial_keepenv_table[] = {
     "COLORS",
     "DISPLAY",
-    "HOME",
     "HOSTNAME",
     "KRB5CCNAME",
     "LS_COLORS",
-    "MAIL",
     "PATH",
     "PS1",
     "PS2",
-    "TZ",
     "XAUTHORITY",
     "XAUTHORIZATION",
     NULL
@@ -566,6 +564,54 @@ matches_env_delete(var)
 }
 
 /*
+ * Sanity-check the TZ environment variable.
+ * On many systems it is possible to set this to a pathname.
+ */
+static int
+tz_is_sane(tzval)
+    const char *tzval;
+{
+    const char *cp;
+    char lastch;
+
+    /* tzcode treats a value beginning with a ':' as a path. */
+    if (tzval[0] == ':')
+	tzval++;
+
+    /* Reject fully-qualified TZ that doesn't being with the zoneinfo dir. */
+    if (tzval[0] == '/') {
+#ifdef _PATH_ZONEINFO
+	if (strncmp(tzval, _PATH_ZONEINFO, sizeof(_PATH_ZONEINFO) - 1) != 0 ||
+	    tzval[sizeof(_PATH_ZONEINFO) - 1] != '/')
+	    return FALSE;
+#else
+	/* Assume the worst. */
+	return FALSE;
+#endif
+    }
+
+    /*
+     * Make sure TZ only contains printable non-space characters
+     * and does not contain a '..' path element.
+     */
+    lastch = '/';
+    for (cp = tzval; *cp != '\0'; cp++) {
+	if (isspace((unsigned char)*cp) || !isprint((unsigned char)*cp))
+	    return FALSE;
+	if (lastch == '/' && cp[0] == '.' && cp[1] == '.' &&
+	    (cp[2] == '/' || cp[2] == '\0'))
+	    return FALSE;
+	lastch = *cp;
+    }
+
+    /* Reject extra long TZ values (even if not a path). */
+    if ((size_t)(cp - tzval) >= PATH_MAX)
+	return FALSE;
+
+    return TRUE;
+}
+
+/*
  * Apply the env_check list.
  * Returns TRUE if the variable is allowed, FALSE if denied
  * or -1 if no match.
@@ -588,7 +634,12 @@ matches_env_check(var)
 	    iswild = FALSE;
 	if (strncmp(cur->value, var, len) == 0 &&
 	    (iswild || var[len] == '=')) {
-	    keepit = !strpbrk(var, "/%");
+	    if (strncmp(var, "TZ=", 3) == 0) {
+		/* Special case for TZ */
+		keepit = tz_is_sane(var + 3);
+	    } else {
+		keepit = !strpbrk(var, "/%");
+	    }
 	    break;
 	}
     }
@@ -698,38 +749,38 @@ rebuild_env(noexec)
 
     /* Reset HOME based on target user if configured to. */
     if (ISSET(sudo_mode, MODE_RUN)) {
-    if (def_always_set_home ||
-        ISSET(sudo_mode, MODE_RESET_HOME | MODE_LOGIN_SHELL) || 
-        (ISSET(sudo_mode, MODE_SHELL) && def_set_home))
-        reset_home = TRUE;
+	if (def_always_set_home ||
+	    ISSET(sudo_mode, MODE_RESET_HOME | MODE_LOGIN_SHELL) || 
+	    (ISSET(sudo_mode, MODE_SHELL) && def_set_home))
+	    reset_home = TRUE;
     }
 
     if (def_env_reset || ISSET(sudo_mode, MODE_LOGIN_SHELL)) {
-    /*
-     * If starting with a fresh environment, initialize it based on
-     * /etc/environment or login.conf.  For "sudo -i" we want those
-     * variables to override the invoking user's environment, so we
-     * defer reading them until later.
-     */
-     if (!ISSET(sudo_mode, MODE_LOGIN_SHELL)) {
+	/*
+	 * If starting with a fresh environment, initialize it based on
+	 * /etc/environment or login.conf.  For "sudo -i" we want those
+	 * variables to override the invoking user's environment, so we
+	 * defer reading them until later.
+	 */
+	if (!ISSET(sudo_mode, MODE_LOGIN_SHELL)) {
 #ifdef HAVE_LOGIN_CAP_H
-        /* Insert login class environment variables. */
-        if (login_class) {
-        login_cap_t *lc = login_getclass(login_class);
-        if (lc != NULL) {
-            setusercontext(lc, runas_pw, runas_pw->pw_uid,
-            LOGIN_SETPATH|LOGIN_SETENV);
-            login_close(lc);
-        }
-        }
+	    /* Insert login class environment variables. */
+	    if (login_class) {
+		login_cap_t *lc = login_getclass(login_class);
+		if (lc != NULL) {
+		    setusercontext(lc, runas_pw, runas_pw->pw_uid,
+			LOGIN_SETPATH|LOGIN_SETENV);
+		    login_close(lc);
+		}
+	    }
 #endif /* HAVE_LOGIN_CAP_H */
 #if defined(_AIX) || (defined(__linux__) && !defined(HAVE_PAM))
-        /* Insert system-wide environment variables. */
-        read_env_file(_PATH_ENVIRONMENT, TRUE);
+	    /* Insert system-wide environment variables. */
+	    read_env_file(_PATH_ENVIRONMENT, TRUE);
 #endif
-        for (ep = env.envp; *ep; ep++)
-        env_update_didvar(*ep, &didvar);
-    }
+	    for (ep = env.envp; *ep; ep++)
+		env_update_didvar(*ep, &didvar);
+	}
 
 	/* Pull in vars we want to keep from the old environment. */
 	for (ep = old_envp; *ep; ep++) {
@@ -756,38 +807,7 @@ rebuild_env(noexec)
 
 	    if (keepit) {
 		/* Preserve variable. */
-		switch (**ep) {
-		    case 'H':
-			if (strncmp(*ep, "HOME=", 5) == 0 && !ISSET(sudo_mode, MODE_RESET_HOME))
-			    SET(didvar, DID_HOME);
-			break;
-		    case 'L':
-			if (strncmp(*ep, "LOGNAME=", 8) == 0)
-			    SET(didvar, DID_LOGNAME);
-			break;
-		    case 'M':
-			if (strncmp(*ep, "MAIL=", 5) == 0)
-			    SET(didvar, DID_MAIL);
-			break;
-		    case 'P':
-			if (strncmp(*ep, "PATH=", 5) == 0)
-			    SET(didvar, DID_PATH);
-			break;
-		    case 'S':
-			if (strncmp(*ep, "SHELL=", 6) == 0)
-			    SET(didvar, DID_SHELL);
-			break;
-		    case 'T':
-			if (strncmp(*ep, "TERM=", 5) == 0)
-			    SET(didvar, DID_TERM);
-			break;
-		    case 'U':
-			if (strncmp(*ep, "USER=", 5) == 0)
-			    SET(didvar, DID_USER);
-			if (strncmp(*ep, "USERNAME=", 5) == 0)
-			    SET(didvar, DID_USERNAME);
-			break;
-		}
+		env_update_didvar(*ep, &didvar);
 		sudo_putenv(*ep, FALSE, FALSE);
 	    }
 	}
@@ -983,7 +1003,7 @@ validate_env_vars(env_vars)
 		okvar = matches_env_keep(var->value);
 	} else {
 	    okvar = matches_env_delete(var->value) == FALSE;
-	    if (okvar == FALSE)
+	    if (okvar == TRUE)
 		okvar = matches_env_check(var->value) != FALSE;
 	}
 	if (okvar == FALSE) {

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -52,15 +54,15 @@
       <code>check_forensic</code> betiği adli günlük dosyalarının
       değerlendirilmesinde yardımcı olabilir.</p>
 </div>
-<div id="quickview"><h3 class="directives">Yönergeler</h3>
-<ul id="toc">
-<li><img alt="" src="../images/down.gif" /> <a href="#forensiclog">ForensicLog</a></li>
-</ul>
-<h3>Konular</h3>
+<div id="quickview"><h3>Konular</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#formats">Adli Günlük Biçemi</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#security">Güvenlik Kaygıları</a></li>
-</ul><h3>Ayrıca bakınız:</h3>
+</ul><h3 class="directives">Yönergeler</h3>
+<ul id="toc">
+<li><img alt="" src="../images/down.gif" /> <a href="#forensiclog">ForensicLog</a></li>
+</ul>
+<h3>Ayrıca bakınız:</h3>
 <ul class="seealso">
 <li><a href="../logs.html">Apache Günlük Dosyaları</a></li>
 <li><code class="module"><a href="../mod/mod_log_config.html">mod_log_config</a></code></li>
@@ -184,7 +186,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_log_forensic
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

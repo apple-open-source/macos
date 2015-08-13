@@ -141,6 +141,9 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_SRV(Compression, FLAG,
                 "Enable SSL level compression "
                 "(`on', `off')")
+    SSL_CMD_SRV(SessionTickets, FLAG,
+                "Enable or disable TLS session tickets"
+                "(`on', `off')")
     SSL_CMD_SRV(InsecureRenegotiation, FLAG,
                 "Enable support for insecure renegotiation")
     SSL_CMD_ALL(UserName, TAKE1,
@@ -270,7 +273,7 @@ static const command_rec ssl_config_cmds[] = {
 
 #ifdef HAVE_SSL_CONF_CMD
     SSL_CMD_SRV(OpenSSLConfCmd, TAKE2,
-		"OpenSSL configuration command")
+                "OpenSSL configuration command")
 #endif
 
     /* Deprecated directives. */
@@ -302,9 +305,12 @@ static apr_status_t ssl_cleanup_pre_config(void *data)
 #endif
     ERR_remove_state(0);
 
-    /* Don't call ERR_free_strings here; ERR_load_*_strings only
-     * actually load the error strings once per process due to static
+    /* Don't call ERR_free_strings in earlier versions, ERR_load_*_strings only
+     * actually loaded the error strings once per process due to static
      * variable abuse in OpenSSL. */
+#if (OPENSSL_VERSION_NUMBER >= 0x00090805f)
+    ERR_free_strings();
+#endif
 
     /* Also don't call CRYPTO_cleanup_all_ex_data here; any registered
      * ex_data indices may have been cached in static variables in
@@ -352,7 +358,10 @@ static int ssl_hook_pre_config(apr_pool_t *pconf,
     /* Register mutex type names so they can be configured with Mutex */
     ap_mutex_register(pconf, SSL_CACHE_MUTEX_TYPE, NULL, APR_LOCK_DEFAULT, 0);
 #ifdef HAVE_OCSP_STAPLING
-    ap_mutex_register(pconf, SSL_STAPLING_MUTEX_TYPE, NULL, APR_LOCK_DEFAULT, 0);
+    ap_mutex_register(pconf, SSL_STAPLING_CACHE_MUTEX_TYPE, NULL,
+                      APR_LOCK_DEFAULT, 0);
+    ap_mutex_register(pconf, SSL_STAPLING_REFRESH_MUTEX_TYPE, NULL,
+                      APR_LOCK_DEFAULT, 0);
 #endif
 
     return OK;

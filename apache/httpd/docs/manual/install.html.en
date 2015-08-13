@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -42,7 +44,7 @@
     projects.</p>
 
     <p>If you are upgrading from one minor version to the next (for
-    example, 2.2.50 to 2.2.51), please skip down to the <a href="#upgrading">upgrading</a> section.</p>
+    example, 2.4.9 to 2.4.10), please skip down to the <a href="#upgrading">upgrading</a> section.</p>
 
 </div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Overview for the
@@ -134,9 +136,9 @@
       your system. If you don't, or prefer to not use the system-provided
       versions, download the latest versions of both APR and APR-Util
       from <a href="http://apr.apache.org/">Apache APR</a>, unpack
-      them into <code>./srclib/apr</code> and <code>./srclib/apr-util</code>
+      them into <code>/httpd_source_tree_root/srclib/apr</code> and <code>/httpd_source_tree_root/srclib/apr-util</code>
       (be sure the directory names do not have version numbers; for example,
-      the APR distribution must be under ./srclib/apr/) and use
+      the APR distribution must be under /httpd_source_tree_root/srclib/apr/) and use
       <code>./configure</code>'s <code>--with-included-apr</code>
       option.  On some platforms, you may have to install the 
       corresponding <code>-dev</code> packages to allow httpd to build 
@@ -182,12 +184,7 @@
       [OPTIONAL]</dt>
       <dd>For some of the support scripts like <code class="program"><a href="./programs/apxs.html">apxs</a></code> or <code class="program"><a href="./programs/dbmmanage.html">dbmmanage</a></code> (which are
       written in Perl) the Perl 5 interpreter is required (versions
-      5.003 or newer are sufficient). If you have multiple Perl
-      interpreters (for example, a systemwide install of Perl 4, and
-      your own install of Perl 5), you are advised to use the
-      <code>--with-perl</code> option (see below) to make sure the
-      correct one is used by <code class="program"><a href="./programs/configure.html">configure</a></code>.
-      If no Perl 5 interpreter is found by the
+      5.003 or newer are sufficient).  If no Perl 5 interpreter is found by the
       <code class="program"><a href="./programs/configure.html">configure</a></code> script, you will not be able to use
       the affected support scripts. Of course, you will still be able to
       build and use Apache httpd.</dd>
@@ -463,7 +460,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/install.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

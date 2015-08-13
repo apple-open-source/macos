@@ -151,6 +151,13 @@
 /* OCSP stapling */
 #if !defined(OPENSSL_NO_OCSP) && defined(SSL_CTX_set_tlsext_status_cb)
 #define HAVE_OCSP_STAPLING
+/* backward compatibility with OpenSSL < 1.0 */
+#ifndef sk_OPENSSL_STRING_num
+#define sk_OPENSSL_STRING_num sk_num
+#endif
+#ifndef sk_OPENSSL_STRING_value
+#define sk_OPENSSL_STRING_value sk_value
+#endif
 #ifndef sk_OPENSSL_STRING_pop
 #define sk_OPENSSL_STRING_pop sk_pop
 #endif
@@ -497,7 +504,8 @@ typedef struct {
 #ifdef HAVE_OCSP_STAPLING
     const ap_socache_provider_t *stapling_cache;
     ap_socache_instance_t *stapling_cache_context;
-    apr_global_mutex_t   *stapling_mutex;
+    apr_global_mutex_t   *stapling_cache_mutex;
+    apr_global_mutex_t   *stapling_refresh_mutex;
 #endif
 } SSLModConfigRec;
 
@@ -569,6 +577,7 @@ typedef struct {
 #endif
 
     ssl_proto_t  protocol;
+    int protocol_set;
 
     /** config for handling encrypted keys */
     ssl_pphrase_t pphrase_dialog_type;
@@ -640,6 +649,7 @@ struct SSLSrvConfigRec {
 #ifndef OPENSSL_NO_COMP
     BOOL             compression;
 #endif
+    BOOL             session_tickets;
 };
 
 /**
@@ -694,6 +704,7 @@ const char  *ssl_cmd_SSLCARevocationFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLCARevocationCheck(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLHonorCipherOrder(cmd_parms *cmd, void *dcfg, int flag);
 const char  *ssl_cmd_SSLCompression(cmd_parms *, void *, int flag);
+const char  *ssl_cmd_SSLSessionTickets(cmd_parms *, void *, int flag);
 const char  *ssl_cmd_SSLVerifyClient(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLVerifyDepth(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLSessionCache(cmd_parms *, void *, const char *);
@@ -812,10 +823,11 @@ const char *ssl_cmd_SSLStaplingErrorCacheTimeout(cmd_parms *, void *, const char
 const char *ssl_cmd_SSLStaplingReturnResponderErrors(cmd_parms *, void *, int);
 const char *ssl_cmd_SSLStaplingFakeTryLater(cmd_parms *, void *, int);
 const char *ssl_cmd_SSLStaplingResponderTimeout(cmd_parms *, void *, const char *);
-const char  *ssl_cmd_SSLStaplingForceURL(cmd_parms *, void *, const char *);
+const char *ssl_cmd_SSLStaplingForceURL(cmd_parms *, void *, const char *);
 apr_status_t modssl_init_stapling(server_rec *, apr_pool_t *, apr_pool_t *, modssl_ctx_t *);
-void         ssl_stapling_ex_init(void);
-int          ssl_stapling_init_cert(server_rec *s, modssl_ctx_t *mctx, X509 *x);
+void         ssl_stapling_certinfo_hash_init(apr_pool_t *);
+int          ssl_stapling_init_cert(server_rec *, apr_pool_t *, apr_pool_t *,
+                                    modssl_ctx_t *, X509 *);
 #endif
 #ifdef HAVE_SRP
 int          ssl_callback_SRPServerParams(SSL *, int *, void *);
@@ -874,7 +886,8 @@ int          ssl_stapling_mutex_reinit(server_rec *, apr_pool_t *);
 
 /* mutex type names for Mutex directive */
 #define SSL_CACHE_MUTEX_TYPE    "ssl-cache"
-#define SSL_STAPLING_MUTEX_TYPE "ssl-stapling"
+#define SSL_STAPLING_CACHE_MUTEX_TYPE "ssl-stapling"
+#define SSL_STAPLING_REFRESH_MUTEX_TYPE "ssl-stapling-refresh"
 
 apr_status_t ssl_die(server_rec *);
 
@@ -915,6 +928,10 @@ void         ssl_var_log_config_register(apr_pool_t *p);
 /* Extract SSL_*_DN_* variables into table 't' from SSL object 'ssl',
  * allocating from 'p': */
 void modssl_var_extract_dns(apr_table_t *t, SSL *ssl, apr_pool_t *p);
+
+/* Extract SSL_*_SAN_* variables (subjectAltName entries) into table 't'
+ * from SSL object 'ssl', allocating from 'p'. */
+void modssl_var_extract_san_entries(apr_table_t *t, SSL *ssl, apr_pool_t *p);
 
 #ifndef OPENSSL_NO_OCSP
 /* Perform OCSP validation of the current cert in the given context.

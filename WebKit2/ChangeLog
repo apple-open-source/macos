@@ -1,3 +1,420 @@
+2015-07-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r187248.
+
+    2015-07-23  Brady Eidson  <beidson@apple.com>
+
+            Crash in WebPlatformStrategies::createPingHandle - Deref a null NetworkingContext.
+            <rdar://problem/21949735> and https://bugs.webkit.org/show_bug.cgi?id=147227
+
+            Reviewed by Alexey Proskuryakov.
+
+            * WebProcess/WebCoreSupport/WebPlatformStrategies.cpp:
+            (WebKit::WebPlatformStrategies::createPingHandle): Skip it if there's a null NetworkingContext.
+
+2015-07-21  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r185915. rdar://problem/21716368
+
+    2015-06-24  Brady Eidson  <beidson@apple.com>
+
+            Update JavaScript dialog delegates to include a WKSecurityOriginRef argument.
+            <rdar://problem/21269187> and https://bugs.webkit.org/show_bug.cgi?id=146249
+
+            Reviewed by Alex Christensen.
+
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageSetPageUIClient): Call the new signature if the client has it set.
+              Otherwise fall back to the old signature.
+            * UIProcess/API/C/WKPageUIClient.h: Deprecate the old method signature, and add the new
+              one to the newest V5 client structure.
+
+2015-07-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r186812
+
+    2015-07-14  Sam Weinig  <sam@webkit.org>
+
+            WebKit needs to serialize numeric values in NSError userInfo
+            <rdar://problem/21818117>
+            https://bugs.webkit.org/show_bug.cgi?id=146936
+
+            Reviewed by Anders Carlsson.
+
+            * Shared/mac/WebCoreArgumentCodersMac.mm:
+            (IPC::ArgumentCoder<ResourceError>::encodePlatformData):
+            Encode userInfo values that are NSNumbers in addition to NSStrings and NSURLs. Decoding 
+            is already handled.
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186838. rdar://problem/21716363
+
+    2015-07-15  David Kilzer  <ddkilzer@apple.com>
+
+            REGRESSION (r186559): Follow-up fix to merge r183861 for <rdar://problem/21716677>
+
+            * NetworkProcess/NetworkResourceLoader.cpp:
+            (WebKit::NetworkResourceLoader::cleanup): Restore call to
+            deref() so we don't leak the NetworkResourceLoader.
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186559. rdar://problem/21716363
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r183861. rdar://problem/21716677
+
+        2015-05-05  Alexey Proskuryakov  <ap@apple.com>
+
+                NetworkResourceLoader::cleanup() should clear ResourceHandle client pointer.
+                https://bugs.webkit.org/show_bug.cgi?id=144641
+                rdar://problem/20250960
+
+                Reviewed by David Kilzer.
+
+                * NetworkProcess/NetworkResourceLoader.cpp: (WebKit::NetworkResourceLoader::cleanup):
+                Clear the client pointer.
+
+                * Shared/Authentication/AuthenticationManager.cpp:
+                (WebKit::AuthenticationManager::useCredentialForChallenge):
+                (WebKit::AuthenticationManager::continueWithoutCredentialForChallenge):
+                (WebKit::AuthenticationManager::cancelChallenge):
+                (WebKit::AuthenticationManager::performDefaultHandling):
+                (WebKit::AuthenticationManager::rejectProtectionSpaceAndContinue):
+                Updated comments, which were not accurate, at least on Mac.
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186781. rdar://problem/21708063
+
+    2015-07-13  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r186530. rdar://problem/21708151
+
+        2015-07-08  Brady Eidson  <beidson@apple.com>
+
+            Move PingLoaders to the NetworkingProcess.
+            <rdar://problem/18860263> and https://bugs.webkit.org/show_bug.cgi?id=146710
+
+            Reviewed by Tim Horton.
+
+            * NetworkProcess/NetworkConnectionToWebProcess.cpp:
+            (WebKit::NetworkConnectionToWebProcess::loadPing): Create a PingHandle and then return.
+            * NetworkProcess/NetworkConnectionToWebProcess.h:
+            * NetworkProcess/NetworkConnectionToWebProcess.messages.in:
+
+            * WebProcess/WebCoreSupport/WebPlatformStrategies.cpp:
+            (WebKit::WebPlatformStrategies::createPingHandle): If the Network process is enabled,
+              compile the appropriate load parameters and then message to it.
+              Otherwise, use the default in-process PingHandle.
+            * WebProcess/WebCoreSupport/WebPlatformStrategies.h:
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186763. rdar://problem/21707917
+
+    2015-07-13  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r186476. rdar://problem/21708269
+
+        2015-07-07  Brady Eidson  <beidson@apple.com>
+
+            HTTP Auth cached after disabling private browsing/reset.
+            <rdar://problem/8293055> and https://bugs.webkit.org/show_bug.cgi?id=146654
+
+            Reviewed by Tim Horton.
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::getAuthenticationInfo):
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186804. rdar://problem/21716368
+
+    2015-07-14  Lucas Forschler  <lforschler@apple.com>
+
+            Merge r185877. <rdar://problem/21709291>
+
+        2015-06-23  Brady Eidson  <beidson@apple.com>
+
+                WKFrameInfo should have an accessor for the Frame's current security origin.
+                https://bugs.webkit.org/show_bug.cgi?id=146162
+
+                Reviewed by Dan Bernstein.
+
+                This patch:
+                - Promotes _WKSecurityOrigin to API.
+                - Makes the WKSecurityOrigin Cocoa API object work with API::SecurityOrigin.
+                - Adds a WKSecurityOrigin accessor to WKFrameInfo.
+                - Changes IPC messaging so every handler that calls out with a WKFrameInfo object
+                  gets a relevant SecurityOrigin to wrap.
+
+                * Shared/API/APISecurityOrigin.h:
+                (API::SecurityOrigin::create):
+                (API::SecurityOrigin::SecurityOrigin):
+
+                * Shared/API/Cocoa/WebKit.h:
+
+                * Shared/API/c/WKSharedAPICast.h:
+                (WebKit::toCopiedAPI):
+
+                * Shared/Cocoa/APIObject.mm:
+                (API::Object::newObject):
+
+                * Shared/SecurityOriginData.cpp:
+                (WebKit::SecurityOriginData::fromFrame):
+                * Shared/SecurityOriginData.h:
+
+                * UIProcess/API/APIFrameInfo.cpp:
+                (API::FrameInfo::FrameInfo):
+                * UIProcess/API/APIFrameInfo.h:
+
+                * UIProcess/API/APINavigationClient.h:
+                (API::NavigationClient::didFailProvisionalLoadInSubframeWithError):
+
+                * UIProcess/API/APIUIClient.h:
+                (API::UIClient::createNewPage):
+                (API::UIClient::runJavaScriptAlert):
+                (API::UIClient::runJavaScriptConfirm):
+                (API::UIClient::runJavaScriptPrompt):
+
+                * UIProcess/API/C/WKApplicationCacheManager.cpp:
+                (WKApplicationCacheManagerGetApplicationCacheOrigins):
+
+                * UIProcess/API/C/WKKeyValueStorageManager.cpp:
+                (WKKeyValueStorageManagerGetKeyValueStorageOrigins):
+
+                * UIProcess/API/C/WKOriginDataManager.cpp:
+                (WKOriginDataManagerGetOrigins):
+
+                * UIProcess/API/C/WKPage.cpp:
+                (WKPageSetPageUIClient):
+                (WKPageSetPageNavigationClient):
+
+                * UIProcess/API/C/WKResourceCacheManager.cpp:
+                (WKResourceCacheManagerGetCacheOrigins):
+
+                * UIProcess/API/Cocoa/WKFrameInfo.h:
+                * UIProcess/API/Cocoa/WKFrameInfo.mm:
+                (-[WKFrameInfo securityOrigin]):
+
+                * UIProcess/API/Cocoa/WKSecurityOrigin.h: Copied from Source/WebKit2/UIProcess/API/Cocoa/_WKSecurityOrigin.h.
+                * UIProcess/API/Cocoa/WKSecurityOrigin.mm: Copied from Source/WebKit2/UIProcess/API/Cocoa/_WKSecurityOrigin.mm.
+                (-[WKSecurityOrigin dealloc]):
+                (-[WKSecurityOrigin description]):
+                (-[WKSecurityOrigin protocol]):
+                (-[WKSecurityOrigin host]):
+                (-[WKSecurityOrigin port]):
+                (-[WKSecurityOrigin _apiObject]):
+                * UIProcess/API/Cocoa/WKSecurityOriginInternal.h: Renamed from Source/WebKit2/UIProcess/API/Cocoa/_WKSecurityOriginInternal.h.
+                (API::wrapper):
+
+                * UIProcess/API/Cocoa/WKUIDelegatePrivate.h:
+
+                * UIProcess/API/Cocoa/WKUserContentController.mm:
+
+                * UIProcess/API/Cocoa/_WKSecurityOrigin.h:
+                * UIProcess/API/Cocoa/_WKSecurityOrigin.mm:
+                (-[_WKSecurityOrigin _initWithSecurityOrigin:]): Deleted.
+                (-[_WKSecurityOrigin protocol]): Deleted.
+                (-[_WKSecurityOrigin host]): Deleted.
+                (-[_WKSecurityOrigin port]): Deleted.
+
+                * UIProcess/Cocoa/NavigationState.h:
+                * UIProcess/Cocoa/NavigationState.mm:
+                (WebKit::NavigationState::NavigationClient::didFailProvisionalLoadInSubframeWithError):
+
+                * UIProcess/Cocoa/UIDelegate.h:
+                * UIProcess/Cocoa/UIDelegate.mm:
+                (WebKit::UIDelegate::UIClient::createNewPage):
+                (WebKit::UIDelegate::UIClient::runJavaScriptAlert):
+                (WebKit::UIDelegate::UIClient::runJavaScriptConfirm):
+                (WebKit::UIDelegate::UIClient::runJavaScriptPrompt):
+                (WebKit::UIDelegate::UIClient::exceededDatabaseQuota):
+                (WebKit::UIDelegate::UIClient::reachedApplicationCacheOriginQuota):
+
+                * UIProcess/UserContent/WebScriptMessageHandler.h:
+
+                * UIProcess/UserContent/WebUserContentControllerProxy.cpp:
+                (WebKit::WebUserContentControllerProxy::didPostMessage):
+                * UIProcess/UserContent/WebUserContentControllerProxy.h:
+                * UIProcess/UserContent/WebUserContentControllerProxy.messages.in:
+
+                * UIProcess/WebPageProxy.cpp:
+                (WebKit::WebPageProxy::didFailProvisionalLoadForFrame):
+                (WebKit::WebPageProxy::decidePolicyForNavigationAction):
+                (WebKit::WebPageProxy::decidePolicyForNewWindowAction):
+                (WebKit::WebPageProxy::decidePolicyForResponse):
+                (WebKit::WebPageProxy::decidePolicyForResponseSync):
+                (WebKit::WebPageProxy::createNewPage):
+                (WebKit::WebPageProxy::runJavaScriptAlert):
+                (WebKit::WebPageProxy::runJavaScriptConfirm):
+                (WebKit::WebPageProxy::runJavaScriptPrompt):
+                * UIProcess/WebPageProxy.h:
+                * UIProcess/WebPageProxy.messages.in:
+
+                * WebKit2.xcodeproj/project.pbxproj:
+
+                * WebProcess/UserContent/WebUserContentController.cpp:
+                (WebKit::WebUserMessageHandlerDescriptorProxy::didPostMessage):
+
+                * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+                (WebKit::WebChromeClient::createWindow):
+                (WebKit::WebChromeClient::runJavaScriptAlert):
+                (WebKit::WebChromeClient::runJavaScriptConfirm):
+                (WebKit::WebChromeClient::runJavaScriptPrompt):
+
+                * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+                (WebKit::WebFrameLoaderClient::dispatchDidFailProvisionalLoad):
+                (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+                (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction):
+                (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+
+2015-07-09  David Kilzer  <ddkilzer@apple.com>
+
+        Merge r184991. rdar://problem/21716403
+
+    2015-05-28  Alexey Proskuryakov  <ap@apple.com>
+
+        Clean up VisitedLinkProvider teardown
+        https://bugs.webkit.org/show_bug.cgi?id=145450
+        rdar://problem/20244726
+
+        Reviewed by Brady Eidson.
+
+        * UIProcess/VisitedLinkProvider.cpp:
+        (WebKit::VisitedLinkProvider::~VisitedLinkProvider):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Roll out r186559. rdar://problem/21716363
+
+    2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r186559. rdar://problem/21716363
+
+        2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+                Merge r183861. rdar://problem/21716677
+
+            2015-05-05  Alexey Proskuryakov  <ap@apple.com>
+
+                    NetworkResourceLoader::cleanup() should clear ResourceHandle client pointer.
+                    https://bugs.webkit.org/show_bug.cgi?id=144641
+                    rdar://problem/20250960
+
+                    Reviewed by David Kilzer.
+
+                    * NetworkProcess/NetworkResourceLoader.cpp: (WebKit::NetworkResourceLoader::cleanup):
+                    Clear the client pointer.
+
+                    * Shared/Authentication/AuthenticationManager.cpp:
+                    (WebKit::AuthenticationManager::useCredentialForChallenge):
+                    (WebKit::AuthenticationManager::continueWithoutCredentialForChallenge):
+                    (WebKit::AuthenticationManager::cancelChallenge):
+                    (WebKit::AuthenticationManager::performDefaultHandling):
+                    (WebKit::AuthenticationManager::rejectProtectionSpaceAndContinue):
+                    Updated comments, which were not accurate, at least on Mac.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186591. rdar://problem/21716407
+
+    2015-07-09  David Kilzer  <ddkilzer@apple.com>
+
+            <rdar://problem/21716549> Donner: Safari URL And Javascript Prompt Origin Spoof Vulnerability
+
+            Merge r184151.
+
+            * UIProcess/FrameLoadState.h:
+            (WebKit::FrameLoadState::state):
+            (WebKit::FrameLoadState::url):
+            (WebKit::FrameLoadState::provisionalURL):
+            (WebKit::FrameLoadState::unreachableURL):
+            - Merge FrameLoadState getter methods from r183813.  Only
+              FrameLoadState::state() is used in this patch, but there may
+              be later patches that depend on these methods.
+
+        2015-05-11  Dan Bernstein  <mitz@apple.com>
+
+            WebKit2 part of <rdar://problem/20878075> Trying to navigate to an invalid URL loads about:blank, but -[WKWebView URL] returns the invalid URL
+
+            Reviewed by Alexey Proskuryakov.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::didChangeProvisionalURLForFrame): Added. Update internal state the
+            same way we update it for server redirects, but don’t make client callbacks. Clients
+            observing the URL property will see it change.
+            * UIProcess/WebPageProxy.h:
+
+            * UIProcess/WebPageProxy.messages.in: Added DidChangeProvisionalURLForFrame.
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::dispatchDidChangeProvisionalURL): Override this new
+            FrameLoaderClient function to send a DidChangeProvisionalURLForFrame message to the UI
+            process.
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186559. rdar://problem/21716363
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r183861. rdar://problem/21716677
+
+        2015-05-05  Alexey Proskuryakov  <ap@apple.com>
+
+                NetworkResourceLoader::cleanup() should clear ResourceHandle client pointer.
+                https://bugs.webkit.org/show_bug.cgi?id=144641
+                rdar://problem/20250960
+
+                Reviewed by David Kilzer.
+
+                * NetworkProcess/NetworkResourceLoader.cpp: (WebKit::NetworkResourceLoader::cleanup):
+                Clear the client pointer.
+
+                * Shared/Authentication/AuthenticationManager.cpp:
+                (WebKit::AuthenticationManager::useCredentialForChallenge):
+                (WebKit::AuthenticationManager::continueWithoutCredentialForChallenge):
+                (WebKit::AuthenticationManager::cancelChallenge):
+                (WebKit::AuthenticationManager::performDefaultHandling):
+                (WebKit::AuthenticationManager::rejectProtectionSpaceAndContinue):
+                Updated comments, which were not accurate, at least on Mac.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186539. rdar://problem/21707873
+
+    2015-07-08  Lucas Forschler  <lforschler@apple.com>
+
+            Merge r186232 rdar://problem/9091261
+
+        2015-07-02  Brady Eidson  <beidson@apple.com>
+
+                Add preference to disable all http-equiv.
+                <rdar://problem/9091261> and https://bugs.webkit.org/show_bug.cgi?id=146553
+
+                Reviewed by Sam Weinig.
+
+                * Shared/WebPreferencesDefinitions.h:
+
+                * UIProcess/API/C/WKPreferences.cpp:
+                (WKPreferencesSetMetaRefreshEnabled): Still expose this SPI, but have it affect
+                  the "httpEquivEnabled" setting.
+                (WKPreferencesGetMetaRefreshEnabled): Ditto
+                (WKPreferencesSetHTTPEquivEnabled):
+                (WKPreferencesGetHTTPEquivEnabled):
+                * UIProcess/API/C/WKPreferencesRefPrivate.h:
+
+                * WebProcess/InjectedBundle/InjectedBundle.cpp:
+                (WebKit::InjectedBundle::overrideBoolPreferenceForTestRunner):
+
+                * WebProcess/WebPage/WebPage.cpp:
+                (WebKit::WebPage::updatePreferences):
+
 2015-06-08  Babak Shafiei  <bshafiei@apple.com>
 
         Merge r183682.

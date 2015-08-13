@@ -101,6 +101,9 @@
  * %...{format}t:  The time, in the form given by format, which should
  *                 be in strftime(3) format.
  * %...T:  the time taken to serve the request, in seconds.
+ * %...{s}T:  the time taken to serve the request, in seconds, same as %T.
+ * %...{us}T:  the time taken to serve the request, in micro seconds, same as %D.
+ * %...{ms}T:  the time taken to serve the request, in milliseconds.
  * %...D:  the time taken to serve the request, in micro seconds.
  * %...u:  remote user (from auth; may be bogus if return status (%s) is 401)
  * %...U:  the URL path requested.
@@ -431,6 +434,12 @@ static const char *log_header_in(request_rec *r, char *a)
     return ap_escape_logitem(r->pool, apr_table_get(r->headers_in, a));
 }
 
+static const char *log_trailer_in(request_rec *r, char *a)
+{
+    return ap_escape_logitem(r->pool, apr_table_get(r->trailers_in, a));
+}
+
+
 static APR_INLINE char *find_multiple_headers(apr_pool_t *pool,
                                               const apr_table_t *table,
                                               const char *key)
@@ -512,6 +521,11 @@ static const char *log_header_out(request_rec *r, char *a)
     }
 
     return ap_escape_logitem(r->pool, cp);
+}
+
+static const char *log_trailer_out(request_rec *r, char *a)
+{
+    return ap_escape_logitem(r->pool, apr_table_get(r->trailers_out, a));
 }
 
 static const char *log_note(request_rec *r, char *a)
@@ -754,16 +768,28 @@ static const char *log_request_time(request_rec *r, char *a)
     }
 }
 
-static const char *log_request_duration(request_rec *r, char *a)
-{
-    apr_time_t duration = get_request_end_time(r) - r->request_time;
-    return apr_psprintf(r->pool, "%" APR_TIME_T_FMT, apr_time_sec(duration));
-}
-
 static const char *log_request_duration_microseconds(request_rec *r, char *a)
-{
+{    
     return apr_psprintf(r->pool, "%" APR_TIME_T_FMT,
                         (get_request_end_time(r) - r->request_time));
+}
+
+static const char *log_request_duration_scaled(request_rec *r, char *a)
+{
+    apr_time_t duration = get_request_end_time(r) - r->request_time;
+    if (*a == '\0' || !strcasecmp(a, "s")) {
+        duration = apr_time_sec(duration);
+    }
+    else if (!strcasecmp(a, "ms")) {
+        duration = apr_time_as_msec(duration);
+    }
+    else if (!strcasecmp(a, "us")) {
+    }
+    else {
+        /* bogus format */
+        return a;
+    }
+    return apr_psprintf(r->pool, "%" APR_TIME_T_FMT, duration);
 }
 
 /* These next two routines use the canonical name:port so that log
@@ -916,7 +942,7 @@ static char *parse_log_misc_string(apr_pool_t *p, log_format_item *it,
 static char *parse_log_item(apr_pool_t *p, log_format_item *it, const char **sa)
 {
     const char *s = *sa;
-    ap_log_handler *handler;
+    ap_log_handler *handler = NULL;
 
     if (*s != '%') {
         return parse_log_misc_string(p, it, sa);
@@ -986,7 +1012,16 @@ static char *parse_log_item(apr_pool_t *p, log_format_item *it, const char **sa)
             break;
 
         default:
-            handler = (ap_log_handler *)apr_hash_get(log_hash, s++, 1);
+            /* check for '^' + two character format first */
+            if (*s == '^' && *(s+1) && *(s+2)) { 
+                handler = (ap_log_handler *)apr_hash_get(log_hash, s, 3); 
+                if (handler) { 
+                   s += 3;
+                }
+            }
+            if (!handler) {  
+                handler = (ap_log_handler *)apr_hash_get(log_hash, s++, 1);  
+            }
             if (!handler) {
                 char dummy[2];
 
@@ -1516,7 +1551,7 @@ static void ap_register_log_handler(apr_pool_t *p, char *tag,
     log_struct->func = handler;
     log_struct->want_orig_default = def;
 
-    apr_hash_set(log_hash, tag, 1, (const void *)log_struct);
+    apr_hash_set(log_hash, tag, strlen(tag), (const void *)log_struct);
 }
 static ap_log_writer_init *ap_log_set_writer_init(ap_log_writer_init *handle)
 {
@@ -1690,10 +1725,13 @@ static int log_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp)
         log_pfn_register(p, "k", log_requests_on_connection, 0);
         log_pfn_register(p, "r", log_request_line, 1);
         log_pfn_register(p, "D", log_request_duration_microseconds, 1);
-        log_pfn_register(p, "T", log_request_duration, 1);
+        log_pfn_register(p, "T", log_request_duration_scaled, 1);
         log_pfn_register(p, "U", log_request_uri, 1);
         log_pfn_register(p, "s", log_status, 1);
         log_pfn_register(p, "R", log_handler, 1);
+
+        log_pfn_register(p, "^ti", log_trailer_in, 0);
+        log_pfn_register(p, "^to", log_trailer_out, 0);
     }
 
     /* reset to default conditions */

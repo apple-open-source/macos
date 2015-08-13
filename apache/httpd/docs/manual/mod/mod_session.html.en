@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -61,16 +63,7 @@
     environment variables and HTTP headers, as appropriate.</p>
 
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
-<ul id="toc">
-<li><img alt="" src="../images/down.gif" /> <a href="#session">Session</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#sessionenv">SessionEnv</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#sessionexclude">SessionExclude</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#sessionheader">SessionHeader</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#sessioninclude">SessionInclude</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#sessionmaxage">SessionMaxAge</a></li>
-</ul>
-<h3>Topics</h3>
+<div id="quickview"><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#whatisasession">What is a session?</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#whocanuseasession">Who can use a session?</a></li>
@@ -81,7 +74,16 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#cookieprivacy">Cookie Privacy</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authentication">Session Support for Authentication</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#integration">Integrating Sessions with External Applications</a></li>
-</ul><h3>See also</h3>
+</ul><h3 class="directives">Directives</h3>
+<ul id="toc">
+<li><img alt="" src="../images/down.gif" /> <a href="#session">Session</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sessionenv">SessionEnv</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sessionexclude">SessionExclude</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sessionheader">SessionHeader</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sessioninclude">SessionInclude</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sessionmaxage">SessionMaxAge</a></li>
+</ul>
+<h3>See also</h3>
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_session_cookie.html">mod_session_cookie</a></code></li>
 <li><code class="module"><a href="../mod/mod_session_crypto.html">mod_session_crypto</a></code></li>
@@ -274,7 +276,7 @@ SessionCookieName session path=/private;domain=example.com;httponly;secure;</pre
 SessionCryptoPassphrase secret
 SessionCookieName session path=/
 AuthFormProvider file
-AuthUserFile conf/passwd
+AuthUserFile "conf/passwd"
 AuthType form
 AuthName realm
 #...</pre>
@@ -503,7 +505,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_session.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

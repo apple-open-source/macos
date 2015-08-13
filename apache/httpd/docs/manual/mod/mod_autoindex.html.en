@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -80,7 +82,10 @@
     before a 1011-byte file (if in ascending order) even though
     they both are shown as "1K".</p>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#query">Autoindex Request Query Arguments</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#addalt">AddAlt</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#addaltbyencoding">AddAltByEncoding</a></li>
@@ -99,10 +104,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#indexstylesheet">IndexStyleSheet</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#readmename">ReadmeName</a></li>
 </ul>
-<h3>Topics</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#query">Autoindex Request Query Arguments</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="query" id="query">Autoindex Request Query Arguments</a></h2>
@@ -565,10 +567,10 @@ a directory</td></tr>
     any files ignored by <code class="directive">IndexIgnore</code> otherwise
     inherited from other configuration sections. </p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /var/www&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/var/www"&gt;
     IndexIgnore *.bak .??* *~ *# HEADER* README* RCS CVS *,v *,t
 &lt;/Directory&gt;
-&lt;Directory /var/www/backups&gt;
+&lt;Directory "/var/www/backups"&gt;
     IndexIgnoreReset ON
     IndexIgnore .??* *# HEADER* README* RCS CVS *,v *,t
 &lt;/Directory&gt;</pre>
@@ -630,17 +632,17 @@ indexing</td></tr>
       specify the width of the description column in
       characters.</dd>
 
-      <dd><code>-DescriptionWidth</code> (or unset) allows
-      <code class="module"><a href="../mod/mod_autoindex.html">mod_autoindex</a></code> to calculate the best width.</dd>
+      <dt><code>-DescriptionWidth</code> (or unset) allows
+      <code class="module"><a href="../mod/mod_autoindex.html">mod_autoindex</a></code> to calculate the best width.</dt>
 
       <dd><code>DescriptionWidth=<var>n</var></code> fixes the column width to
       <var>n</var> bytes wide.</dd>
 
       <dd><code>DescriptionWidth=*</code> grows the column to the
       width necessary to accommodate the longest description
-      string.</dd>
+      string.
 
-      <dd><strong>See the section on <code class="directive"><a href="#adddescription">AddDescription</a></code> for dangers
+      <strong>See the section on <code class="directive"><a href="#adddescription">AddDescription</a></code> for dangers
       inherent in truncating descriptions.</strong></dd>
 
       <dt><a name="indexoptions.fancyindexing" id="indexoptions.fancyindexing">FancyIndexing</a></dt>
@@ -658,8 +660,10 @@ indexing</td></tr>
       <code>FoldersFirst</code> is enabled, subdirectory
       <code>Zed</code> will be listed before subdirectory
       <code>Beta</code>, which will be listed before normal files
-      <code>Gamma</code> and <code>Alpha</code>. <strong>This option
-      only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a> is also enabled.</strong></dd>
+      <code>Gamma</code> and <code>Alpha</code>. 
+      <strong>This option only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a>
+      is also enabled.</strong>
+      </dd>
 
       <dt><a name="indexoptions.htmltable" id="indexoptions.htmltable">HTMLTable</a></dt>
 
@@ -682,7 +686,12 @@ indexing</td></tr>
       icon. This allows browser to precalculate the page layout without having
       to wait until all the images have been loaded. If no value is given for
       the option, it defaults to the standard height of the icons supplied
-      with the Apache httpd software.</dd>
+      with the Apache httpd software.
+     
+      <strong>This option
+      only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a> is also enabled.</strong>
+
+      </dd>
 
       <dt><a name="indexoptions.iconwidth" id="indexoptions.iconwidth">IconWidth[=<var>pixels</var>]</a></dt>
 
@@ -755,7 +764,11 @@ indexing</td></tr>
       so the use of this option will regain 23 characters of screen
       space to use for something else. See <code class="directive"><a href="#adddescription">AddDescription</a></code> for information about setting the file
       description. See also the <code><a href="#indexoptions.descriptionwidth">DescriptionWidth</a></code>
-      index option to limit the size of the description column.</dd>
+      index option to limit the size of the description column.
+      
+      <strong>This option
+      only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a> is also enabled.</strong>
+      </dd>
 
       <dt><a name="indexoptions.suppresshtmlpreamble" id="indexoptions.suppresshtmlpreamble">SuppressHTMLPreamble</a></dt>
 
@@ -785,7 +798,11 @@ indexing</td></tr>
       <dt><a name="indexoptions.suppresslastmodified" id="indexoptions.suppresslastmodified">SuppressLastModified</a></dt>
 
       <dd>This will suppress the display of the last modification date,
-      in fancy indexing listings.</dd>
+      in fancy indexing listings.
+      
+      <strong>This option
+      only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a> is also enabled.</strong>
+      </dd>
 
       <dt><a name="indexoptions.suppressrules" id="indexoptions.suppressrules">SuppressRules</a>
       </dt>
@@ -795,11 +812,20 @@ indexing</td></tr>
       <code>SuppressRules</code> yields proper HTML 3.2 output, which
       by the final specification prohibits <code>img</code> and
       <code>hr</code> elements from the <code>pre</code> block (used to
-      format FancyIndexed listings.)</dd>
+      format FancyIndexed listings.)
+      
+      <strong>This option
+      only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a> is also enabled.</strong>
+
+      </dd>
 
       <dt><a name="indexoptions.suppresssize" id="indexoptions.suppresssize">SuppressSize</a></dt>
 
-      <dd>This will suppress the file size in fancy indexing listings.</dd>
+      <dd>This will suppress the file size in fancy indexing listings.
+      
+      <strong>This option
+      only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a> is also enabled.</strong>
+      </dd>
 
       <dt><a name="indexoptions.trackmodified" id="indexoptions.trackmodified">TrackModified</a></dt>
 
@@ -860,9 +886,13 @@ indexing</td></tr>
       (<em>Apache HTTP Server 2.0.49 and later</em>)</dt>
 
       <dd>The <code>XHTML</code> keyword forces <code class="module"><a href="../mod/mod_autoindex.html">mod_autoindex</a></code>
-      to emit XHTML 1.0 code instead of HTML 3.2.</dd>
+      to emit XHTML 1.0 code instead of HTML 3.2.
+      <strong>This option
+      only has an effect if <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a> is also enabled.</strong>
+      </dd>
 
     </dl>
+
 
    
    <dl><dt>Incremental IndexOptions</dt>
@@ -874,7 +904,7 @@ indexing</td></tr>
      <li>Multiple <code class="directive">IndexOptions</code> directives for a
      single directory are now merged together. The result of:
 
-     <pre class="prettyprint lang-config">&lt;Directory /foo&gt;
+     <pre class="prettyprint lang-config">&lt;Directory "/foo"&gt;
     IndexOptions HTMLTable
     IndexOptions SuppressColumnsorting
 &lt;/Directory&gt;</pre>
@@ -1038,7 +1068,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_autoindex.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

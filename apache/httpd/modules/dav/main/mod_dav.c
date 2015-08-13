@@ -315,6 +315,7 @@ static const char *dav_cmd_davmintimeout(cmd_parms *cmd, void *config,
 static int dav_error_response(request_rec *r, int status, const char *body)
 {
     r->status = status;
+    r->status_line = ap_get_status_line(status);
 
     ap_set_content_type(r, "text/html; charset=ISO-8859-1");
 
@@ -581,6 +582,11 @@ static int dav_handle_err(request_rec *r, dav_error *err,
     /* log the errors */
     dav_log_err(r, err, APLOG_ERR);
 
+    if (!ap_is_HTTP_VALID_RESPONSE(err->status)) {
+        /* we have responded already */
+        return AP_FILTER_ERROR;
+    }
+
     if (response == NULL) {
         dav_error *stackerr = err;
 
@@ -711,8 +717,8 @@ static dav_error *dav_get_resource(request_rec *r, int label_allowed,
     if (conf->provider == NULL) {
         return dav_new_error(r->pool, HTTP_METHOD_NOT_ALLOWED, 0, 0,
                              apr_psprintf(r->pool,
-				          "DAV not enabled for %s",
-					  ap_escape_html(r->pool, r->uri)));
+                             "DAV not enabled for %s",
+                             ap_escape_html(r->pool, r->uri)));
     }
 
     /* resolve the resource */
@@ -1000,10 +1006,10 @@ static int dav_method_put(request_rec *r)
                                        "(URI: %s)", msg);
                 }
                 else {
-                    /* XXX: should this actually be HTTP_BAD_REQUEST? */
-                    http_err = HTTP_INTERNAL_SERVER_ERROR;
-                    msg = apr_psprintf(r->pool, "An error occurred while reading"
-                                       " the request body (URI: %s)", msg);
+                    http_err = ap_map_http_request_error(rc, HTTP_BAD_REQUEST);
+                    msg = apr_psprintf(r->pool,
+                            "An error occurred while reading"
+                                    " the request body (URI: %s)", msg);
                 }
                 err = dav_new_error(r->pool, http_err, 0, rc, msg);
                 break;

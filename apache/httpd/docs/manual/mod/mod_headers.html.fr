@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -40,18 +42,18 @@ HTTP</td></tr>
     modifier les en-têtes de requêtes et de réponses HTTP. Les en-têtes
     peuvent être fusionnés, remplacés ou supprimés.</p>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
-<ul id="toc">
-<li><img alt="" src="../images/down.gif" /> <a href="#header">Header</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#requestheader">RequestHeader</a></li>
-</ul>
-<h3>Sujets</h3>
+<div id="quickview"><h3>Sujets</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#order">Chronologie du traitement</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#early">Traitement précoce et traitement
 tardif</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#examples">Exemples</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+</ul><h3 class="directives">Directives</h3>
+<ul id="toc">
+<li><img alt="" src="../images/down.gif" /> <a href="#header">Header</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#requestheader">RequestHeader</a></li>
+</ul>
+<ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="order" id="order">Chronologie du traitement</a></h2>
@@ -220,7 +222,7 @@ Header merge Cache-Control no-store env=NO_STORE</pre>
     </ol>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="Header" id="Header">Header</a> <a name="header" id="header">Directive</a></h2>
+<div class="directive-section"><h2><a name="header" id="header">Directive</a> <a name="Header" id="Header">Header</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Configure les en-têtes d'une réponse HTTP</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>Header [<var>condition</var>] add|append|echo|edit|edit*|merge|set|setifempty|unset|note
@@ -429,6 +431,26 @@ version 2.4.10</td></tr>
       efficace que <code>%s</code>.</p>
     </div>
 
+    <div class="note"><h3>Note à propos des valeurs des expressions</h3>
+    <p>Lorsque le paramètre valeur utilise l'interpréteur <a href="../expr.html">ap_expr</a>, certaines syntaxes d'expressions
+    seront différentes des exemples qui évaluent des expressions
+    <em>booléennes</em> telles que &lt;If&gt; :</p>
+    <ul>
+      <li>Le point de départ de la syntaxe est 'string' au lieu de
+      'expr'.</li>
+      <li>Les appels de fonction utilisent la syntaxe %{funcname:arg} au
+      lieu de funcname(arg).</li>
+      <li>Les fonctions multi-arguments ne sont pas encore disponibles
+      depuis le point de départ 'string'.</li>
+      <li>Il faut mettre entre guillemets l'ensemble du paramètre, comme
+      dans l'exemple suivant : 
+          <pre class="prettyprint lang-config">Header set foo-checksum "expr=%{md5:foo}"</pre>
+
+       </li>
+                   
+    </ul>
+    </div>
+
     <p><code>edit</code>nécessite les deux arguments
     <var>valeur</var>, qui est une <a class="glossarylink" href="../glossary.html#regex" title="voir glossaire">expression
     rationnelle</a>, et une chaîne additionnelle
@@ -463,7 +485,7 @@ version 2.4.10</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="RequestHeader" id="RequestHeader">RequestHeader</a> <a name="requestheader" id="requestheader">Directive</a></h2>
+<div class="directive-section"><h2><a name="requestheader" id="requestheader">Directive</a> <a name="RequestHeader" id="RequestHeader">RequestHeader</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Configure les en-têtes d'une requête HTTP</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>RequestHeader add|append|edit|edit*|merge|set|setifempty|unset
@@ -609,7 +631,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_headers.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

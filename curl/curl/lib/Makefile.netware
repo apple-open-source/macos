@@ -19,12 +19,12 @@ endif
 
 # Edit the path below to point to the base of your OpenSSL package.
 ifndef OPENSSL_PATH
-OPENSSL_PATH = ../../openssl-0.9.8y
+OPENSSL_PATH = ../../openssl-1.0.2a
 endif
 
 # Edit the path below to point to the base of your LibSSH2 package.
 ifndef LIBSSH2_PATH
-LIBSSH2_PATH = ../../libssh2-1.4.3
+LIBSSH2_PATH = ../../libssh2-1.5.0
 endif
 
 # Edit the path below to point to the base of your axTLS package.
@@ -40,6 +40,11 @@ endif
 # Edit the path below to point to the base of your librtmp package.
 ifndef LIBRTMP_PATH
 LIBRTMP_PATH = ../../librtmp-2.3
+endif
+
+# Edit the path below to point to the base of your nghttp2 package.
+ifndef NGHTTP2_PATH
+NGHTTP2_PATH = ../../nghttp2-0.6.7
 endif
 
 # Edit the path below to point to the base of your fbopenssl package.
@@ -209,6 +214,11 @@ WITH_SSL =
 else
 ifeq ($(findstring -ssl,$(CFG)),-ssl)
 WITH_SSL = 1
+ifeq ($(findstring -srp,$(CFG)),-srp)
+ifeq "$(wildcard $(OPENSSL_PATH)/outinc_nw_$(LIBARCH_L)/openssl/srp.h)" "$(OPENSSL_PATH)/outinc_nw_$(LIBARCH_L)/openssl/srp.h"
+WITH_SRP = 1
+endif
+endif
 endif
 endif
 ifeq ($(findstring -zlib,$(CFG)),-zlib)
@@ -217,8 +227,8 @@ endif
 ifeq ($(findstring -idn,$(CFG)),-idn)
 WITH_IDN = 1
 endif
-ifeq ($(findstring -spnego,$(CFG)),-spnego)
-WITH_SPNEGO = 1
+ifeq ($(findstring -nghttp2,$(CFG)),-nghttp2)
+WITH_NGHTTP2 = 1
 endif
 ifeq ($(findstring -ipv6,$(CFG)),-ipv6)
 ENABLE_IPV6 = 1
@@ -247,10 +257,6 @@ ifdef WITH_SSL
 	LDLIBS += $(OPENSSL_PATH)/out_nw_$(LIBARCH_L)/crypto.$(LIBEXT)
 	IMPORTS += GetProcessSwitchCount RunningProcess
 	INSTDEP += ca-bundle.crt
-ifdef WITH_SPNEGO
-	INCLUDES += -I$(FBOPENSSL_PATH)/include
-	LDLIBS += $(FBOPENSSL_PATH)/nw/fbopenssl.$(LIBEXT)
-endif
 else
 ifdef WITH_AXTLS
 	INCLUDES += -I$(AXTLS_PATH)/inc
@@ -275,6 +281,10 @@ endif
 ifdef WITH_IDN
 	INCLUDES += -I$(LIBIDN_PATH)/include
 	LDLIBS += $(LIBIDN_PATH)/lib/libidn.$(LIBEXT)
+endif
+ifdef WITH_NGHTTP2
+	INCLUDES += -I$(NGHTTP2_PATH)/include
+	LDLIBS += $(NGHTTP2_PATH)/lib/libnghttp2.$(LIBEXT)
 endif
 
 ifeq ($(LIBARCH),LIBC)
@@ -633,6 +643,10 @@ ifdef WITH_SSL
 	@echo $(DL)#define HAVE_LIBSSL 1$(DL) >> $@
 	@echo $(DL)#define HAVE_LIBCRYPTO 1$(DL) >> $@
 	@echo $(DL)#define OPENSSL_NO_KRB5 1$(DL) >> $@
+ifdef WITH_SRP
+	@echo $(DL)#define HAVE_SSLEAY_SRP 1$(DL) >> $@
+	@echo $(DL)#define USE_TLS_SRP 1$(DL) >> $@
+endif
 ifdef WITH_SPNEGO
 	@echo $(DL)#define HAVE_SPNEGO 1$(DL) >> $@
 endif
@@ -651,6 +665,9 @@ ifdef WITH_IDN
 endif
 ifdef WITH_RTMP
 	@echo $(DL)#define USE_LIBRTMP 1$(DL) >> $@
+endif
+ifdef WITH_NGHTTP2
+	@echo $(DL)#define USE_NGHTTP2 1$(DL) >> $@
 endif
 	@echo $(DL)#ifdef __GNUC__$(DL) >> $@
 	@echo $(DL)#define HAVE_VARIADIC_MACROS_GCC 1$(DL) >> $@
@@ -682,6 +699,11 @@ ifdef WITH_SSL
 else
 	@echo SSL support:     no
 endif
+ifdef WITH_SRP
+	@echo SRP support:     enabled
+else
+	@echo SRP support:     no
+endif
 ifdef WITH_SSH2
 	@echo SSH2 support:    enabled (libssh2)
 else
@@ -692,15 +714,20 @@ ifdef WITH_ZLIB
 else
 	@echo zlib support:    no
 endif
+ifdef WITH_NGHTTP2
+	@echo http2 support:   enabled
+else
+	@echo http2 support:   no
+endif
 ifdef WITH_ARES
 	@echo c-ares support:  enabled
 else
 	@echo c-ares support:  no
 endif
 ifdef ENABLE_IPV6
-	@echo ipv6 support:    enabled
+	@echo IPv6 support:    enabled
 else
-	@echo ipv6 support:    no
+	@echo IPv6 support:    no
 endif
 
 $(CURL_INC)/curl/curlbuild.h: Makefile.netware FORCE

@@ -275,7 +275,7 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 #ifdef HAVE_OCSP_STAPLING
-    ssl_stapling_ex_init();
+    ssl_stapling_certinfo_hash_init(p);
 #endif
 
     /*
@@ -356,9 +356,11 @@ apr_status_t ssl_init_Engine(server_rec *s, apr_pool_t *p)
             return ssl_die(s);
         }
 
+#ifdef ENGINE_CTRL_CHIL_SET_FORKCHECK
         if (strEQ(mc->szCryptoDevice, "chil")) {
             ENGINE_ctrl(e, ENGINE_CTRL_CHIL_SET_FORKCHECK, 1, 0, 0);
         }
+#endif
 
         if (!ENGINE_set_default(e, ENGINE_METHOD_ALL)) {
             ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(01889)
@@ -560,6 +562,16 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
     }
 #endif
 
+#ifdef SSL_OP_NO_TICKET
+    /*
+     * Configure using RFC 5077 TLS session tickets
+     * for session resumption.
+     */
+    if (sc->session_tickets == FALSE) {
+        SSL_CTX_set_options(ctx, SSL_OP_NO_TICKET);
+    }
+#endif
+
 #ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
     if (sc->insecure_reneg == TRUE) {
         SSL_CTX_set_options(ctx, SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION);
@@ -720,11 +732,13 @@ static apr_status_t ssl_init_ctx_cipher_suite(server_rec *s,
     /*
      *  Configure SSL Cipher Suite. Always disable NULL and export ciphers,
      *  see also ssl_engine_config.c:ssl_cmd_SSLCipherSuite().
-     *  OpenSSL's SSL_DEFAULT_CIPHER_LIST already includes !aNULL:!eNULL,
-     *  so only prepend !EXP in this case.
+     *  OpenSSL's SSL_DEFAULT_CIPHER_LIST includes !aNULL:!eNULL from 0.9.8f,
+     *  and !EXP from 0.9.8zf/1.0.1m/1.0.2a, so prepend them while we support
+     *  earlier versions.
      */
     suite = mctx->auth.cipher_suite ? mctx->auth.cipher_suite :
-            apr_pstrcat(ptemp, "!EXP:", SSL_DEFAULT_CIPHER_LIST, NULL);
+            apr_pstrcat(ptemp, "!aNULL:!eNULL:!EXP:", SSL_DEFAULT_CIPHER_LIST,
+                        NULL);
 
     ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,
                  "Configuring permitted SSL ciphers [%s]",
@@ -953,7 +967,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
 #ifdef HAVE_ECC
     EC_GROUP *ecparams;
     int nid;
-    EC_KEY *eckey;
+    EC_KEY *eckey = NULL;
 #endif
 #ifndef HAVE_SSL_CONF_CMD
     SSL *ssl;
@@ -1046,7 +1060,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
         if (!(cert = SSL_CTX_get0_certificate(mctx->ssl_ctx))) {
 #else
         ssl = SSL_new(mctx->ssl_ctx);
-	if (ssl) {
+        if (ssl) {
             /* Workaround bug in SSL_get_certificate in OpenSSL 0.9.8y */
             SSL_set_connect_state(ssl);
             cert = SSL_get_certificate(ssl);
@@ -1074,7 +1088,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
          * later, we defer to the code in ssl_init_server_ctx.
          */
         if ((mctx->stapling_enabled == TRUE) &&
-            !ssl_stapling_init_cert(s, mctx, cert)) {
+            !ssl_stapling_init_cert(s, p, ptemp, mctx, cert)) {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(02567)
                          "Unable to configure certificate %s for stapling",
                          key_id);
@@ -1126,6 +1140,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
                              EC_KEY_new_by_curve_name(NID_X9_62_prime256v1));
 #endif
     }
+    EC_KEY_free(eckey);
 #endif
 
     return APR_SUCCESS;
@@ -1432,7 +1447,8 @@ static apr_status_t ssl_init_server_ctx(server_rec *s,
                                            SSL_CERT_SET_FIRST);
         while (ret) {
             cert = SSL_CTX_get0_certificate(sc->server->ssl_ctx);
-            if (!cert || !ssl_stapling_init_cert(s, sc->server, cert)) {
+            if (!cert || !ssl_stapling_init_cert(s, p, ptemp, sc->server,
+                                                 cert)) {
                 ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(02604)
                              "Unable to configure certificate %s:%d "
                              "for stapling", sc->vhost_id, i);
@@ -1549,7 +1565,7 @@ apr_status_t ssl_init_CheckServers(server_rec *base_server, apr_pool_t *p)
         klen = strlen(key);
 
         if ((ps = (server_rec *)apr_hash_get(table, key, klen))) {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server,
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(02662)
                          "Init: SSL server IP/port conflict: "
                          "%s (%s:%d) vs. %s (%s:%d)",
                          ssl_util_vhostid(p, s),

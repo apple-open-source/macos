@@ -76,7 +76,7 @@ ${CC} -o "$DEST_DIR"/lib552 "$LIBTEST_DIR"/lib552.c "$SUPPORTFILES" "$WARNLESS"
 ${CC} -o "$DEST_DIR"/lib553 "$LIBTEST_DIR"/lib553.c "$SUPPORTFILES"
 ${CC} -o "$DEST_DIR"/lib554 "$LIBTEST_DIR"/lib554.c "$SUPPORTFILES"
 ${CC} -o "$DEST_DIR"/lib555 "$LIBTEST_DIR"/lib555.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS"
-${CC} -o "$DEST_DIR"/lib556 "$LIBTEST_DIR"/lib556.c "$SUPPORTFILES"
+${CC} -o "$DEST_DIR"/lib556 "$LIBTEST_DIR"/lib556.c "$SUPPORTFILES" "$WARNLESS"
 ${CC} -o "$DEST_DIR"/lib557 "$LIBTEST_DIR"/lib557.c "$SUPPORTFILES"
 ${CC} -o "$DEST_DIR"/lib558 "$LIBTEST_DIR"/lib558.c "$SUPPORTFILES"
 ${CC} -o "$DEST_DIR"/lib560 "$LIBTEST_DIR"/lib560.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS"
@@ -122,10 +122,13 @@ ${CC} -o "$DEST_DIR"/lib1512 "$LIBTEST_DIR"/lib1512.c "$SUPPORTFILES" "$TESTUTIL
 ${CC} -o "$DEST_DIR"/lib1513 "$LIBTEST_DIR"/lib1513.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1513
 ${CC} -o "$DEST_DIR"/lib1514 "$LIBTEST_DIR"/lib1514.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1514
 ${CC} -o "$DEST_DIR"/lib1515 "$LIBTEST_DIR"/lib1515.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1515
+${CC} -o "$DEST_DIR"/lib1520 "$LIBTEST_DIR"/lib1520.c "$SUPPORTFILES" -DLIB1520
 ${CC} -o "$DEST_DIR"/lib1525 "$LIBTEST_DIR"/lib1525.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1525
 ${CC} -o "$DEST_DIR"/lib1526 "$LIBTEST_DIR"/lib1526.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1526
 ${CC} -o "$DEST_DIR"/lib1527 "$LIBTEST_DIR"/lib1527.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1527
 ${CC} -o "$DEST_DIR"/lib1528 "$LIBTEST_DIR"/lib1528.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1528
+${CC} -o "$DEST_DIR"/lib1529 "$LIBTEST_DIR"/lib1529.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1529
+${CC} -o "$DEST_DIR"/lib1530 "$LIBTEST_DIR"/lib1530.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DLIB1530
 ${CC} -o "$DEST_DIR"/lib1900 "$LIBTEST_DIR"/lib1900.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS"
 ${CC} -o "$DEST_DIR"/lib2033 "$LIBTEST_DIR"/libntlmconnect.c "$SUPPORTFILES" "$TESTUTIL" "$WARNLESS" -DUSE_PIPELINING
 
@@ -145,6 +148,7 @@ install -m 0755 "$PROJECT_DIR"/curl/tests/libtest/*.pl "$INSTALL_DIR"/usr/local/
 # Makefile.am is enough to run `cd data && make show` as runtests.pl expects
 install -d -m 0755 "$INSTALL_DIR"/usr/local/share/bsdtests/curl/tests/data
 install -m 0644 "$PROJECT_DIR"/curl/tests/data/Makefile.am "$INSTALL_DIR"/usr/local/share/bsdtests/curl/tests/data/Makefile
+install -m 0644 "$PROJECT_DIR"/curl/tests/data/Makefile.inc "$INSTALL_DIR"/usr/local/share/bsdtests/curl/tests/data
 install -m 0644 "$PROJECT_DIR"/curl/tests/data/test* "$INSTALL_DIR"/usr/local/share/bsdtests/curl/tests/data
 install -m 0644 "$PROJECT_DIR"/curl/tests/data/DISABLED "$INSTALL_DIR"/usr/local/share/bsdtests/curl/tests/data
 
@@ -155,3 +159,5 @@ install -d -m 0755 "$INSTALL_DIR"/usr/local/share/bsdtests/curl/include
 ln -s /usr/include/curl "$INSTALL_DIR"/usr/local/share/bsdtests/curl/include
 
 install -d -m 0755 "$INSTALL_DIR"/usr/local/share/bsdtests/curl/lib
+install -m 0755 "$LIB_DIR"/objnames-test*.sh "$INSTALL_DIR"/usr/local/share/bsdtests/curl/lib
+install -m 0644 "$LIB_DIR"/objnames.inc "$INSTALL_DIR"/usr/local/share/bsdtests/curl/lib

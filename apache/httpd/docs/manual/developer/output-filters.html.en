@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -152,7 +154,7 @@
     behaviour (i.e. will crash the process).</p>
 
     <p>There are a variety of functions and macros for traversing and
-    manipulating bucket brigades; see the <a href="http://apr.apache.org/docs/apr-util/trunk/group___a_p_r___util___bucket___brigades.html">apr_bucket.h</a>
+    manipulating bucket brigades; see the <a href="http://apr.apache.org/docs/apr-util/trunk/group___a_p_r___util___bucket___brigades.html">apr_buckets.h</a>
     header for complete coverage.  Commonly used macros include:</p>
 
     <dl>
@@ -254,12 +256,11 @@
 
     <div class="example"><h3>Bad output filter -- do not imitate!</h3><pre class="prettyprint lang-c">apr_bucket *e = APR_BRIGADE_FIRST(bb);
 const char *data;
-apr_size_t len;
+apr_size_t length;
 
 while (e != APR_BRIGADE_SENTINEL(bb)) {
     apr_bucket_read(e, &amp;data, &amp;length, APR_BLOCK_READ);
     e = APR_BUCKET_NEXT(e);
-
 }
 
 return ap_pass_brigade(bb);</pre>
@@ -277,7 +278,7 @@ return ap_pass_brigade(bb);</pre>
 
     <div class="example"><h3>Better output filter</h3><pre class="prettyprint lang-c">apr_bucket *e;
 const char *data;
-apr_size_t len;
+apr_size_t length;
 
 while ((e = APR_BRIGADE_FIRST(bb)) != APR_BRIGADE_SENTINEL(bb)) {
    rv = apr_bucket_read(e, &amp;data, &amp;length, APR_BLOCK_READ);
@@ -305,10 +306,10 @@ while ((e = APR_BRIGADE_FIRST(bb)) != APR_BRIGADE_SENTINEL(bb)) {
     temporary brigade in such a structure, to avoid having to allocate
     a new brigade per invocation as described in the <a href="#brigade">Brigade structure</a> section.</p>
 
-  <div class="example"><h3>Example code to maintain filter state</h3><pre class="prettyprint lang-c">struct dummy_state {
+    <div class="example"><h3>Example code to maintain filter state</h3><pre class="prettyprint lang-c">struct dummy_state {
    apr_bucket_brigade *tmpbb;
    int filter_state;
-   ....
+   ...
 };
 
 apr_status_t dummy_filter(ap_filter_t *f, apr_bucket_brigade *bb)
@@ -321,7 +322,7 @@ apr_status_t dummy_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     
        /* First invocation for this response: initialise state structure.
         */
-       f-&gt;ctx = state = apr_palloc(sizeof *state, f-&gt;r-&gt;pool);
+       f-&gt;ctx = state = apr_palloc(f-&gt;r-&gt;pool, sizeof *state);
 
        state-&gt;tmpbb = apr_brigade_create(f-&gt;r-&gt;pool, f-&gt;c-&gt;bucket_alloc);
        state-&gt;filter_state = ...;
@@ -503,7 +504,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/developer/output-fil
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

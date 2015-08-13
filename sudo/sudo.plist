@@ -4,15 +4,15 @@
         <key>OpenSourceProject</key>
         <string>sudo</string>
         <key>OpenSourceVersion</key>
-        <string>1.7.10p7</string>
+        <string>1.7.10p9</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.sudo.ws/</string>
         <key>OpenSourceURL</key>
-        <string>http://www.sudo.ws/sudo/dist/sudo-1.7.10p7.tar.gz</string>
+        <string>http://www.sudo.ws/dist/sudo-1.7.10p9.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>b5beb1a470d1f03b3940aff612f5089244dd773a</string>
+        <string>80f98dd20e5b2d3a6e40bcb19764d5a03a8e55fa</string>
         <key>OpenSourceImportDate</key>
-        <string>2013-03-04</string>
+        <string>2015-07-02</string>
         <key>OpenSourceModifications</key>
         <array>
         	<string>Add BSM auditing support.</string>

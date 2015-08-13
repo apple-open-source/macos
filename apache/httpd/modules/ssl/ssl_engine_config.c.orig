@@ -71,7 +71,8 @@ SSLModConfigRec *ssl_config_global_create(server_rec *s)
 #endif
 #ifdef HAVE_OCSP_STAPLING
     mc->stapling_cache         = NULL;
-    mc->stapling_mutex         = NULL;
+    mc->stapling_cache_mutex   = NULL;
+    mc->stapling_refresh_mutex = NULL;
 #endif
 
     apr_pool_userdata_set(mc, SSL_MOD_CONFIG_KEY,
@@ -111,6 +112,7 @@ static void modssl_ctx_init(modssl_ctx_t *mctx, apr_pool_t *p)
 #endif
 
     mctx->protocol            = SSL_PROTOCOL_ALL;
+    mctx->protocol_set        = 0;
 
     mctx->pphrase_dialog_type = SSL_PPTYPE_UNSET;
     mctx->pphrase_dialog_path = NULL;
@@ -222,6 +224,7 @@ static SSLSrvConfigRec *ssl_config_server_new(apr_pool_t *p)
 #ifndef OPENSSL_NO_COMP
     sc->compression            = UNSET;
 #endif
+    sc->session_tickets        = UNSET;
 
     modssl_ctx_init_proxy(sc, p);
 
@@ -253,7 +256,12 @@ static void modssl_ctx_cfg_merge(apr_pool_t *p,
                                  modssl_ctx_t *add,
                                  modssl_ctx_t *mrg)
 {
-    cfgMerge(protocol, SSL_PROTOCOL_ALL);
+    if (add->protocol_set) {
+        mrg->protocol = add->protocol;
+    }
+    else {
+        mrg->protocol = base->protocol;
+    }
 
     cfgMerge(pphrase_dialog_type, SSL_PPTYPE_UNSET);
     cfgMergeString(pphrase_dialog_path);
@@ -394,6 +402,7 @@ void *ssl_config_server_merge(apr_pool_t *p, void *basev, void *addv)
 #ifndef OPENSSL_NO_COMP
     cfgMergeBool(compression);
 #endif
+    cfgMergeBool(session_tickets);
 
     modssl_ctx_cfg_merge_proxy(p, base->proxy, add->proxy, mrg->proxy);
 
@@ -598,8 +607,15 @@ const char *ssl_cmd_SSLRandomSeed(cmd_parms *cmd,
         seed->cpPath = ap_server_root_relative(mc->pPool, arg2+5);
     }
     else if ((arg2len > 4) && strEQn(arg2, "egd:", 4)) {
+#ifdef HAVE_RAND_EGD
         seed->nSrc   = SSL_RSSRC_EGD;
         seed->cpPath = ap_server_root_relative(mc->pPool, arg2+4);
+#else
+        return apr_pstrcat(cmd->pool, "Invalid SSLRandomSeed entropy source `",
+                           arg2, "': This version of " SSL_LIBRARY_NAME
+                           " does not support the Entropy Gathering Daemon "
+                           "(EGD).", NULL);
+#endif
     }
     else if (strcEQ(arg2, "builtin")) {
         seed->nSrc   = SSL_RSSRC_BUILTIN;
@@ -760,6 +776,17 @@ const char *ssl_cmd_SSLHonorCipherOrder(cmd_parms *cmd, void *dcfg, int flag)
 #endif
 }
 
+const char *ssl_cmd_SSLSessionTickets(cmd_parms *cmd, void *dcfg, int flag)
+{
+    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
+#ifndef SSL_OP_NO_TICKET
+    return "This version of OpenSSL does not support using "
+           "SSLSessionTickets.";
+#endif
+    sc->session_tickets = flag ? TRUE : FALSE;
+    return NULL;
+}
+
 const char *ssl_cmd_SSLInsecureRenegotiation(cmd_parms *cmd, void *dcfg, int flag)
 {
 #ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
@@ -834,12 +861,6 @@ const char *ssl_cmd_SSLCertificateChainFile(cmd_parms *cmd,
 {
     SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
     const char *err;
-
-    ap_log_error(APLOG_MARK, APLOG_WARNING|APLOG_STARTUP, 0, cmd->server,
-                 APLOGNO(02559)
-                 "The SSLCertificateChainFile directive (%s:%d) is deprecated, "
-                 "SSLCertificateFile should be used instead",
-                 cmd->directive->filename, cmd->directive->line_num);
 
     if ((err = ssl_cmd_check_file(cmd, &arg))) {
         return err;
@@ -1341,8 +1362,7 @@ static const char *ssl_cmd_protocol_parse(cmd_parms *parms,
         else {
             return apr_pstrcat(parms->temp_pool,
                                parms->cmd->name,
-                               ": Illegal protocol '",
-                               w, "'", NULL);
+                               ": Illegal protocol '", w, "'", NULL);
         }
 
         if (action == '-') {
@@ -1352,6 +1372,12 @@ static const char *ssl_cmd_protocol_parse(cmd_parms *parms,
             *options |= thisopt;
         }
         else {
+            if (*options != SSL_PROTOCOL_NONE) {
+                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, parms->server, APLOGNO(02532)
+                             "%s: Protocol '%s' overrides already set parameter(s). "
+                             "Check if a +/- prefix is missing.",
+                             parms->cmd->name, w);
+            }
             *options = thisopt;
         }
     }
@@ -1365,6 +1391,7 @@ const char *ssl_cmd_SSLProtocol(cmd_parms *cmd,
 {
     SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
 
+    sc->server->protocol_set = 1;
     return ssl_cmd_protocol_parse(cmd, arg, &sc->server->protocol);
 }
 
@@ -1383,6 +1410,7 @@ const char *ssl_cmd_SSLProxyProtocol(cmd_parms *cmd,
 {
     SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
 
+    sc->proxy->protocol_set = 1;
     return ssl_cmd_protocol_parse(cmd, arg, &sc->proxy->protocol);
 }
 

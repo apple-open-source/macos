@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -45,7 +47,15 @@
     プログラムの出力の取り込み、環境変数の設定や表示を行なうことが
     できます。</p>
 </div>
-<div id="quickview"><h3 class="directives">ディレクティブ</h3>
+<div id="quickview"><h3>トピック</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#enabling">Server-Side Includes を有効にする</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#pathinfo">サーバサイドインクルード (SSI) での PATH_INFO</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#elements">基本要素</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#includevars">Include 変数</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#substitution">変数置換</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#flowctrl">フロー制御要素</a></li>
+</ul><h3 class="directives">ディレクティブ</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#ssiendtag">SSIEndTag</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#ssierrormsg">SSIErrorMsg</a></li>
@@ -57,15 +67,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#ssiundefinedecho">SSIUndefinedEcho</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#xbithack">XBitHack</a></li>
 </ul>
-<h3>トピック</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#enabling">Server-Side Includes を有効にする</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#pathinfo">サーバサイドインクルード (SSI) での PATH_INFO</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#elements">基本要素</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#includevars">Include 変数</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#substitution">変数置換</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#flowctrl">フロー制御要素</a></li>
-</ul><h3>参照</h3>
+<h3>参照</h3>
 <ul class="seealso">
 <li><code class="directive"><a href="../mod/core.html#options">Options</a></code></li>
 <li><code class="directive"><a href="../mod/core.html#acceptpathinfo">AcceptPathInfo</a></code></li>
@@ -890,7 +892,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_include.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

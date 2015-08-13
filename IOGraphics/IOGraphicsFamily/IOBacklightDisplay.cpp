@@ -409,9 +409,12 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 			{
 				 if ((2 == powerState) && (3 == fromPowerState))
 				 {
-					 // idle initiated -> dim
-					 fadeTime = gIODisplayFadeTime1*1000;
-			         max      = dimFade;
+					  if (fDisplayDims)
+					  {
+						 // idle initiated -> dim
+						 fadeTime = gIODisplayFadeTime1*1000;
+						 max      = dimFade;
+					  }
 				 }
 				 if ((1 == powerState) && (2 == fromPowerState))
 				 {

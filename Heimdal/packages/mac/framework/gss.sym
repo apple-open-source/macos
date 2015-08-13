@@ -185,3 +185,5 @@ gss_set_log_function
 gss_inquire_saslname_for_mech
 gss_inquire_mech_for_saslname
 gss_indicate_mechs_by_attrs
+#
+GSSCheckNTLMReflection

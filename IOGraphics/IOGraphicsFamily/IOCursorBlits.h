@@ -67,9 +67,13 @@ void IOFramebuffer::StdFBDisplayCursor555(
     unsigned short s, d, f;
     unsigned char *_bm34To35SampleTable;
     unsigned char *_bm35To34SampleTable;
+    int frame;
+
+	frame = shmem->frame;
+	if (frame >= inst->__private->numCursorFrames) return;
 
     savePtr = (volatile unsigned short *) inst->cursorSave;
-    cursPtr = (volatile unsigned short *) inst->__private->cursorImages[ shmem->frame ];
+    cursPtr = (volatile unsigned short *) inst->__private->cursorImages[ frame ];
     cursPtr += cursStart;
 
     _bm34To35SampleTable = inst->colorConvert.t._bm34To35SampleTable;
@@ -151,10 +155,14 @@ void IOFramebuffer::StdFBDisplayCursor8P(
         = inst->colorConvert.t._bm256To38SampleTable;
     unsigned char *_bm38To256SampleTable
         = inst->colorConvert.t._bm38To256SampleTable;
+    int frame;
+
+	frame = shmem->frame;
+	if (frame >= inst->__private->numCursorFrames) return;
 
     savePtr = (volatile unsigned char *) inst->cursorSave;
-    cursPtr = (volatile unsigned char *) inst->__private->cursorImages[ shmem->frame ];
-    maskPtr = (volatile unsigned char *) inst->__private->cursorMasks[ shmem->frame ];
+    cursPtr = (volatile unsigned char *) inst->__private->cursorImages[ frame ];
+    maskPtr = (volatile unsigned char *) inst->__private->cursorMasks[ frame ];
     cursPtr += cursStart;
     maskPtr += cursStart;
     
@@ -196,10 +204,14 @@ void IOFramebuffer::StdFBDisplayCursor8G(
     unsigned short s, d, a;
     volatile unsigned char *cursPtr;
     volatile unsigned char *maskPtr;            /* cursor mask pointer */
+    int frame;
+
+	frame = shmem->frame;
+	if (frame >= inst->__private->numCursorFrames) return;
 
     savePtr = (volatile unsigned char *) inst->cursorSave;
-    cursPtr = (volatile unsigned char *) inst->__private->cursorImages[ shmem->frame ];
-    maskPtr = (volatile unsigned char *) inst->__private->cursorMasks[ shmem->frame ];
+    cursPtr = (volatile unsigned char *) inst->__private->cursorImages[ frame ];
+    maskPtr = (volatile unsigned char *) inst->__private->cursorMasks[ frame ];
     cursPtr += cursStart;
     maskPtr += cursStart;
 
@@ -237,9 +249,13 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
     unsigned long long s, d;
     unsigned int f;
     volatile unsigned int *cursPtr;
+    int frame;
+
+	frame = shmem->frame;
+	if (frame >= inst->__private->numCursorFrames) return;
 
     savePtr = (volatile unsigned int *) inst->cursorSave;
-    cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ shmem->frame ];
+    cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ frame ];
     cursPtr += cursStart;
 
     /* Pixel format is Axxx */
@@ -285,9 +301,13 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
     volatile unsigned int *savePtr;     /* saved screen data pointer */
     unsigned int s, d, f;
     volatile unsigned int *cursPtr;
+    int frame;
+
+	frame = shmem->frame;
+	if (frame >= inst->__private->numCursorFrames) return;
 
     savePtr = (volatile unsigned int *) inst->cursorSave;
-    cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ shmem->frame ];
+    cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ frame ];
     cursPtr += cursStart;
 
     /* Pixel format is Axxx */

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -45,7 +47,13 @@ d'Apache HTTPD</td></tr></table>
     permet aussi l'application d'une logique élaborée au déroulement du
     processus d'autorisation.</p>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Sujets</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#authzalias">Création des alias du fournisseur
+d'autorisation</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#logic">Conteneurs d'autorisation</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#requiredirectives">Les directives Require</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#authmerging">AuthMerging</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authzprovideralias">&lt;AuthzProviderAlias&gt;</a></li>
@@ -55,13 +63,7 @@ d'Apache HTTPD</td></tr></table>
 <li><img alt="" src="../images/down.gif" /> <a href="#requireany">&lt;RequireAny&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#requirenone">&lt;RequireNone&gt;</a></li>
 </ul>
-<h3>Sujets</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#authzalias">Création des alias du fournisseur
-d'autorisation</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#logic">Conteneurs d'autorisation</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#requiredirectives">Les directives Require</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+<ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="authzalias" id="authzalias">Création des alias du fournisseur
@@ -97,8 +99,8 @@ d'autorisation</a></h2>
     AuthLDAPURL ldap://other.ldap.host/o=dev?cn
 &lt;/AuthzProviderAlias&gt;
 
-Alias /secure /webpages/secure
-&lt;Directory /webpages/secure&gt;
+Alias "/secure" "/webpages/secure"
+&lt;Directory "/webpages/secure"&gt;
     Require all granted
     
     AuthBasicProvider file
@@ -132,7 +134,7 @@ Alias /secure /webpages/secure
     l'utilisateur ne doit appartenir ni au groupe <code>temps</code>, ni
     au groupe LDAP <code>Employés temporaires</code>.</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /www/mydocs&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/www/mydocs"&gt;
     &lt;RequireAll&gt;
         &lt;RequireAny&gt;
             Require user superadmin
@@ -176,7 +178,7 @@ Alias /secure /webpages/secure
     entre autres.</p>
 
     <pre class="prettyprint lang-config">SetEnvIf User-Agent ^KnockKnock/2\.0 let_me_in
-&lt;Directory /docroot&gt;
+&lt;Directory "/docroot"&gt;
     Require env let_me_in
 &lt;/Directory&gt;</pre>
 
@@ -240,9 +242,18 @@ Alias /secure /webpages/secure
   <h3><a name="reqexpr" id="reqexpr">Require expr</a></h3>
 
   <p>Le fournisseur <code>expr</code> permet d'accorder l'autorisation
-  d'accès en fonction d'expressions arbitraires.</p>
+  d'accès de base en fonction d'expressions arbitraires.</p>
 
     <pre class="prettyprint lang-config">Require expr "%{TIME_HOUR} -ge 9 &amp;&amp; %{TIME_HOUR} -le 17"</pre>
+
+
+    <pre class="prettyprint lang-config">&lt;RequireAll&gt;
+    Require expr "!(%{QUERY_STRING} =~ /secret/)"
+    Require expr "%{REQUEST_URI} in { '/example.cgi', '/other.cgi' }" 
+&lt;/RequireAll&gt;</pre>
+
+
+    <pre class="prettyprint lang-config">Require expr "!(%{QUERY_STRING} =~ /secret/) &amp;&amp; %{REQUEST_URI} in { '/example.cgi', '/other.cgi' }"</pre>
 
 
     <p>La syntaxe de l'expression est décrite dans la documentation de <a href="../expr.html">ap_expr</a>.</p>
@@ -256,7 +267,7 @@ Alias /secure /webpages/secure
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthMerging" id="AuthMerging">AuthMerging</a> <a name="authmerging" id="authmerging">Directive</a></h2>
+<div class="directive-section"><h2><a name="authmerging" id="authmerging">Directive</a> <a name="AuthMerging" id="AuthMerging">AuthMerging</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit la manière dont chaque logique d'autorisation des
 sections de configuration se combine avec celles des sections de
@@ -305,27 +316,27 @@ configuration précédentes.</td></tr>
     appartenant au groupe <code>gamma</code> sont autorisés à accéder à
     <code>/www/docs/ab/gamma</code>.</div>
 
-    <pre class="prettyprint lang-config">&lt;Directory /www/docs&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/www/docs"&gt;
     AuthType Basic
     AuthName Documents
     AuthBasicProvider file
-    AuthUserFile /usr/local/apache/passwd/passwords
+    AuthUserFile "/usr/local/apache/passwd/passwords"
     Require group alpha
 &lt;/Directory&gt;
 
-&lt;Directory /www/docs/ab&gt;
+&lt;Directory "/www/docs/ab"&gt;
     AuthMerging Or
     Require group beta
 &lt;/Directory&gt;
 
-&lt;Directory /www/docs/ab/gamma&gt;
+&lt;Directory "/www/docs/ab/gamma"&gt;
     Require group gamma
 &lt;/Directory&gt;</pre>
 
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthzProviderAlias" id="AuthzProviderAlias">&lt;AuthzProviderAlias&gt;</a> <a name="authzprovideralias" id="authzprovideralias">Directive</a></h2>
+<div class="directive-section"><h2><a name="authzprovideralias" id="authzprovideralias">Directive</a> <a name="AuthzProviderAlias" id="AuthzProviderAlias">&lt;AuthzProviderAlias&gt;</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Regroupe des directives représentant une extension d'un
 fournisseur d'autorisation de base qui pourra être référencée à l'aide
@@ -346,7 +357,7 @@ Paramètres-Require</var>&gt;
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthzSendForbiddenOnFailure" id="AuthzSendForbiddenOnFailure">AuthzSendForbiddenOnFailure</a> <a name="authzsendforbiddenonfailure" id="authzsendforbiddenonfailure">Directive</a></h2>
+<div class="directive-section"><h2><a name="authzsendforbiddenonfailure" id="authzsendforbiddenonfailure">Directive</a> <a name="AuthzSendForbiddenOnFailure" id="AuthzSendForbiddenOnFailure">AuthzSendForbiddenOnFailure</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Envoie '403 FORBIDDEN' au lieu de '401 UNAUTHORIZED' si
 l'authentification réussit et si l'autorisation a été refusée.
@@ -374,7 +385,7 @@ l'authentification réussit et si l'autorisation a été refusée.
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="Require" id="Require">Require</a> <a name="require" id="require">Directive</a></h2>
+<div class="directive-section"><h2><a name="require" id="require">Directive</a> <a name="Require" id="Require">Require</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Vérifie si un utilisateur authentifié a une
 autorisation d'accès accordée par un fournisseur
@@ -454,8 +465,8 @@ d'autorisation.</td></tr>
     <pre class="prettyprint lang-config">AuthType Basic
 AuthName "Restricted Resource"
 AuthBasicProvider file
-AuthUserFile /web/users
-AuthGroupFile /web/groups
+AuthUserFile "/web/users"
+AuthGroupFile "/web/groups"
 Require group admin</pre>
 
 
@@ -478,7 +489,7 @@ Require group admin</pre>
     d'accès, à l'exception de ceux appartenant au groupe
     <code>reject</code>.</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /www/docs&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/www/docs"&gt;
     &lt;RequireAll&gt;
         Require group alpha beta
         Require not group reject
@@ -517,7 +528,7 @@ Require group admin</pre>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="RequireAll" id="RequireAll">&lt;RequireAll&gt;</a> <a name="requireall" id="requireall">Directive</a></h2>
+<div class="directive-section"><h2><a name="requireall" id="requireall">Directive</a> <a name="RequireAll" id="RequireAll">&lt;RequireAll&gt;</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Regroupe plusieurs directives d'autorisation dont aucune ne
 doit échouer et dont au moins une doit retourner un résultat positif
@@ -550,7 +561,7 @@ contrôle d'accès</a></li>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="RequireAny" id="RequireAny">&lt;RequireAny&gt;</a> <a name="requireany" id="requireany">Directive</a></h2>
+<div class="directive-section"><h2><a name="requireany" id="requireany">Directive</a> <a name="RequireAny" id="RequireAny">&lt;RequireAny&gt;</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Regroupe des directives d'autorisation dont au moins une
 doit retourner un résultat positif pour que la directive globale
@@ -591,7 +602,7 @@ contrôle d'accès</a></li>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="RequireNone" id="RequireNone">&lt;RequireNone&gt;</a> <a name="requirenone" id="requirenone">Directive</a></h2>
+<div class="directive-section"><h2><a name="requirenone" id="requirenone">Directive</a> <a name="RequireNone" id="RequireNone">&lt;RequireNone&gt;</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Regroupe des directives d'autorisation dont aucune ne doit
 retourner un résultat positif pour que la directive globale n'échoue
@@ -652,7 +663,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authz_core.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

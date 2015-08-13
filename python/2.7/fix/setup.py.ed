@@ -34,7 +34,7 @@
 .
 /Disabled on 64-bit platforms/a
 .
-/if sys\.maxint != 9223372036854775807L:/s//if True:/
+/if sys\.maxsize != 9223372036854775807L:/s//if True:/
 /\['imageop.c'\]/s//&, extra_compile_args = ['-no64'], extra_link_args = ['-no64']/
 /# readline$/a
 .

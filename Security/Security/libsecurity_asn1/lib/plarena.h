@@ -119,12 +119,11 @@ struct PLArenaPool {
 #define PL_ARENA_GROW(p, pool, size, incr) \
     PR_BEGIN_MACRO \
         PLArena *_a = (pool)->current; \
-        typeof((incr)) _incr = PL_ARENA_ALIGN(pool, incr); /* __APPLE__ more to be generic */ \
         PRUword _p = _a->avail; \
-        PRUword _q = _p + _incr; \
+        PRUword _q = (PRUword)p + size + incr;  /*__APPLE__ */ \
         if (_p == (PRUword)(p) + PL_ARENA_ALIGN(pool, size) && \
-             _incr <= _a->limit - _a->avail) { /* __APPLE__ */\
-            _a->avail = _q; \
+            _a->limit >= PL_ARENA_ALIGN(pool,_q)) { /* __APPLE__ */ \
+            _a->avail = PL_ARENA_ALIGN(pool, _q); /*__APPLE__ */ \
             PL_ArenaCountInplaceGrowth(pool, size, incr); \
         } else { \
             p = PL_ArenaGrow(pool, p, size, incr); \

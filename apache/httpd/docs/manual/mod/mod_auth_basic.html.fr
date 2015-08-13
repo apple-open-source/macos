@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -62,7 +64,7 @@ l'authentification</a></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthBasicAuthoritative" id="AuthBasicAuthoritative">AuthBasicAuthoritative</a> <a name="authbasicauthoritative" id="authbasicauthoritative">Directive</a></h2>
+<div class="directive-section"><h2><a name="authbasicauthoritative" id="authbasicauthoritative">Directive</a> <a name="AuthBasicAuthoritative" id="AuthBasicAuthoritative">AuthBasicAuthoritative</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit si les processus d'autorisation et
 d'authentification peuvent être confiés à des modules de plus bas
@@ -92,7 +94,7 @@ niveau</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthBasicFake" id="AuthBasicFake">AuthBasicFake</a> <a name="authbasicfake" id="authbasicfake">Directive</a></h2>
+<div class="directive-section"><h2><a name="authbasicfake" id="authbasicfake">Directive</a> <a name="AuthBasicFake" id="AuthBasicFake">AuthBasicFake</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Authentification de base simulée à l'aide des nom
 d'utilisateur et mot de passe fournis</td></tr>
@@ -120,7 +122,7 @@ Apache</td></tr>
     prédéfinis sont transmis à un serveur d'arrière-plan :</p>
 
     <div class="example"><h3>Exemple de transmission d'un nom d'utilisateur et
-    d'un mot de passe prédéfinis</h3><pre class="prettyprint lang-config">&lt;Location /demo&gt;
+    d'un mot de passe prédéfinis</h3><pre class="prettyprint lang-config">&lt;Location "/demo"&gt;
     AuthBasicFake demo demopass
 &lt;/Location&gt;</pre>
 </div>
@@ -131,8 +133,8 @@ Apache</td></tr>
     FakeBasicAuth, le mot de passe se voit attribué le contenu fixe de
     la chaîne "password".</p>
 
-    <div class="example"><h3>Exemple d'utilisation avec un certificat</h3><pre class="prettyprint lang-config">&lt;Location /secure&gt;
-    AuthBasicFake %{SSL_CLIENT_S_DN_Email}
+    <div class="example"><h3>Exemple d'utilisation avec un certificat</h3><pre class="prettyprint lang-config">&lt;Location "/secure"&gt;
+    AuthBasicFake "%{SSL_CLIENT_S_DN_Email}"
 &lt;/Location&gt;</pre>
 </div>
 
@@ -144,12 +146,12 @@ Apache</td></tr>
     certificats clients.</p>
 
     <div class="example"><h3>Exemple de génération de mot de passe par hashage de
-    l'adresse email</h3><pre class="prettyprint lang-config">&lt;Location /secure&gt;
-    AuthBasicFake %{SSL_CLIENT_S_DN_Email} %{sha1:passphrase-%{SSL_CLIENT_S_DN_Email}}
+    l'adresse email</h3><pre class="prettyprint lang-config">&lt;Location "/secure"&gt;
+    AuthBasicFake "%{SSL_CLIENT_S_DN_Email}" "%{sha1:passphrase-%{SSL_CLIENT_S_DN_Email}}"
 &lt;/Location&gt;</pre>
 </div>
 
-    <div class="example"><h3>Désactivation de l'authentification simulée</h3><pre class="prettyprint lang-config">&lt;Location /public&gt;
+    <div class="example"><h3>Désactivation de l'authentification simulée</h3><pre class="prettyprint lang-config">&lt;Location "/public"&gt;
     AuthBasicFake off
 &lt;/Location&gt;</pre>
 </div>
@@ -157,7 +159,7 @@ Apache</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthBasicProvider" id="AuthBasicProvider">AuthBasicProvider</a> <a name="authbasicprovider" id="authbasicprovider">Directive</a></h2>
+<div class="directive-section"><h2><a name="authbasicprovider" id="authbasicprovider">Directive</a> <a name="AuthBasicProvider" id="AuthBasicProvider">AuthBasicProvider</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit le(les) fournisseur(s) d'authentification pour
 cette zone du site web</td></tr>
@@ -177,12 +179,12 @@ cette zone du site web</td></tr>
     implémentant le fournisseur choisi soit bien présent dans le
     serveur.</p>
 
-    <div class="example"><h3>Exemple</h3><pre class="prettyprint lang-config">&lt;Location /secure&gt;
+    <div class="example"><h3>Exemple</h3><pre class="prettyprint lang-config">&lt;Location "/secure"&gt;
     AuthType basic
     AuthName "private area"
     AuthBasicProvider  dbm
     AuthDBMType        SDBM
-    AuthDBMUserFile    /www/etc/dbmpasswd
+    AuthDBMUserFile    "/www/etc/dbmpasswd"
     Require            valid-user
 &lt;/Location&gt;</pre>
 </div>
@@ -199,7 +201,7 @@ cette zone du site web</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthBasicUseDigestAlgorithm" id="AuthBasicUseDigestAlgorithm">AuthBasicUseDigestAlgorithm</a> <a name="authbasicusedigestalgorithm" id="authbasicusedigestalgorithm">Directive</a></h2>
+<div class="directive-section"><h2><a name="authbasicusedigestalgorithm" id="authbasicusedigestalgorithm">Directive</a> <a name="AuthBasicUseDigestAlgorithm" id="AuthBasicUseDigestAlgorithm">AuthBasicUseDigestAlgorithm</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Vérifie les mots de passe auprès des fournisseurs
 d'authentification à la manière de l'authentification de type Digest.
@@ -304,7 +306,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_auth_basic.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -49,6 +49,7 @@ static const char rcsid[] =
 #include <unistd.h>
 #include <paths.h>
 #include <errno.h>
+#include <glob.h>
 #include "extern.h"
 
 /*
@@ -349,12 +350,11 @@ char *
 expand(name)
 	char *name;
 {
+	const int flags = GLOB_BRACE|GLOB_TILDE|GLOB_NOSORT;
 	char xname[PATHSIZE];
 	char cmdbuf[PATHSIZE];		/* also used for file names */
-	int pid, l;
-	char *cp, *sh;
-	int pivec[2];
-	struct stat sbuf;
+	char *match = NULL;
+	glob_t names;
 
 	/*
 	 * The order of evaluation is "%" and "#" expand into constants.
@@ -389,50 +389,29 @@ expand(name)
 		(void)snprintf(xname, sizeof(xname), "%s%s", homedir, name + 1);
 		name = savestr(xname);
 	}
-	if (!strpbrk(name, "~{[*?$`'\"\\"))
-		return (name);
-	if (pipe(pivec) < 0) {
-		warn("pipe");
-		return (name);
-	}
-	(void)snprintf(cmdbuf, sizeof(cmdbuf), "echo %s", name);
-	if ((sh = value("SHELL")) == NULL)
-		sh = _PATH_BSHELL;
-	pid = start_command(sh, 0, -1, pivec[1], "-c", cmdbuf, NULL);
-	if (pid < 0) {
-		(void)close(pivec[0]);
-		(void)close(pivec[1]);
-		return (NULL);
-	}
-	(void)close(pivec[1]);
-	l = read(pivec[0], xname, BUFSIZ);
-	(void)close(pivec[0]);
-	if (wait_child(pid) < 0 && WIFSIGNALED(wait_status) &&
-	    WTERMSIG(wait_status) != SIGPIPE) {
-		fprintf(stderr, "\"%s\": Expansion failed.\n", name);
-		return (NULL);
-	}
-	if (l < 0) {
-		warn("read");
-		return (NULL);
-	}
-	if (l == 0) {
+	if (strpbrk(name, "~{[*?\\") == NULL)
+		return(savestr(name));
+
+	/* XXX - does not expand enviroment variables. */
+	switch (glob(name, flags, NULL, &names)) {
+	case 0:
+		if (names.gl_pathc == 1)
+			match = savestr(names.gl_pathv[0]);
+		else
+			fprintf(stderr, "\"%s\": Ambiguous.\n", name);
+		break;
+	case GLOB_NOSPACE:
+		fprintf(stderr, "\"%s\": Out of memory.\n", name);
+		break;
+	case GLOB_NOMATCH:
 		fprintf(stderr, "\"%s\": No match.\n", name);
-		return (NULL);
+		break;
+	default:
+		fprintf(stderr, "\"%s\": Expansion failed.\n", name);
+		break;
 	}
-	if (l == BUFSIZ) {
-		fprintf(stderr, "\"%s\": Expansion buffer overflow.\n", name);
-		return (NULL);
-	}
-	xname[l] = '\0';
-	for (cp = &xname[l-1]; *cp == '\n' && cp > xname; cp--)
-		;
-	cp[1] = '\0';
-	if (strchr(xname, ' ') && stat(xname, &sbuf) < 0) {
-		fprintf(stderr, "\"%s\": Ambiguous.\n", name);
-		return (NULL);
-	}
-	return (savestr(xname));
+	globfree(&names);
+	return(match);
 }
 
 /*

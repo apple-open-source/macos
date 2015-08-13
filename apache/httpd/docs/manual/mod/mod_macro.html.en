@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -41,18 +43,18 @@
     rest of the configuration file.</p>
 
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#usage">Usage</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#tips">Tips</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#examples">Examples</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#macro">&lt;Macro&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#undefmacro">UndefMacro</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#use">Use</a></li>
 </ul>
-<h3>Topics</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#usage">Usage</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#tips">Tips</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#examples">Examples</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="usage" id="usage">Usage</a></h2>
@@ -69,9 +71,9 @@ multiple similar virtual hosts:</p>
     ServerName $domain
     ServerAlias www.$domain
 
-    DocumentRoot /var/www/vhosts/$name
-    ErrorLog /var/log/httpd/$name.error_log
-    CustomLog /var/log/httpd/$name.access_log combined
+    DocumentRoot "/var/www/vhosts/$name"
+    ErrorLog "/var/log/httpd/$name.error_log"
+    CustomLog "/var/log/httpd/$name.access_log" combined
 &lt;/VirtualHost&gt;
 &lt;/Macro&gt;</pre>
 
@@ -125,7 +127,7 @@ confusion, the longest possible parameter name is used.</p>
 surround the parameter in braces, to avoid confusion:</p>
 
 <pre class="prettyprint lang-config">&lt;Macro DocRoot ${docroot}&gt;
-    DocumentRoot /var/www/${docroot}/htdocs
+    DocumentRoot "/var/www/${docroot}/htdocs"
 &lt;/Macro&gt;</pre>
 
 
@@ -147,15 +149,15 @@ dynamically-generated virtual hosts.</p>
   &lt;VirtualHost *:$port&gt;
 
     ServerName $host
-    DocumentRoot $dir
+    DocumentRoot "$dir"
 
     # Public document root
-    &lt;Directory $dir&gt;
+    &lt;Directory "$dir"&gt;
         Require all granted
     &lt;/Directory&gt;
 
     # limit access to intranet subdir.
-    &lt;Directory $dir/intranet&gt;
+    &lt;Directory "$dir/intranet"&gt;
       Require ip 10.0.0.0/8
     &lt;/Directory&gt;
   &lt;/VirtualHost&gt;
@@ -177,7 +179,7 @@ avoids confusion in a complex configuration file where there may be
 conflicts in variable names.</p>
 
 <pre class="prettyprint lang-config">&lt;Macro DirGroup $dir $group&gt;
-  &lt;Directory $dir&gt;
+  &lt;Directory "$dir"&gt;
     Require group $group
   &lt;/Directory&gt;
 &lt;/Macro&gt;
@@ -288,7 +290,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_macro.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

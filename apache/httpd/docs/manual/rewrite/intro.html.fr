@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -157,10 +159,18 @@ arrières dans les expressions rationnelles</a></h3>
       un des <em>modèles de conditions</em>, des références arrières
       sont créées en interne et peuvent être rappelées via les chaînes
       <code>$N</code> et <code>%N</code> (voir ci-dessous). Ces
-      références sont disponibles lors de la création des chaînes de
-      <em>Substitution</em> et des <em>Chaînes de test</em> comme
-      précisé dans les chapitres suivants. La figure 1
-      montre à quels endroits les références arrières sont suceptibles
+      références sont disponibles lors de la création
+      de la chaîne de substitution d'une directive
+      <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> ou de la
+      chaîne de test d'une directive <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code>.</p>
+      <p>Les captures dans les modèles de directives <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> sont paradoxalement
+      disponibles dans toutes les directives <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code> qui précèdent, car
+      les expressions des directives <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> sont évaluées avant
+      les conditions individuelles.</p>
+       
+      
+      <p>La figure 1 montre à quels endroits les
+      références arrières sont suceptibles
       d'être développées, et illustre le flux des comparaisons
       effectuées par les règles RewriteRule et
       RewriteCond. Dans les chapitres suivants, nous examinerons comment
@@ -213,7 +223,7 @@ trois types :</p>
 <dl>
 <dt>Un chemin complet du système de fichiers vers une ressource</dt>
 <dd>
-<pre class="prettyprint lang-config">RewriteRule ^/jeux /usr/local/jeux/web</pre>
+<pre class="prettyprint lang-config">RewriteRule "^/jeux" "/usr/local/jeux/web"</pre>
 
 <p>Ceci peut faire correspondre une requête à toute localisation voulue de
 votre système de fichiers, un peu comme la directive <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>.</p>
@@ -221,7 +231,7 @@ votre système de fichiers, un peu comme la directive <code class="directive"><a 
 
 <dt>Un chemin web vers une ressource</dt>
 <dd>
-<pre class="prettyprint lang-config">RewriteRule ^/foo$ /bar</pre>
+<pre class="prettyprint lang-config">RewriteRule "^/foo$" "/bar"</pre>
 
 <p>Si la directive <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> a
 pour valeur <code>/usr/local/apache2/htdocs</code>, cette règle va faire
@@ -231,7 +241,7 @@ chemin <code>/usr/local/apache2/htdocs/bar</code>.</p>
 
 <dt>Une URL absolue</dt>
 <dd>
-<pre class="prettyprint lang-config">RewriteRule ^/produits/vues$ http://site2.example.com/voirproduits.html [R]</pre>
+<pre class="prettyprint lang-config">RewriteRule "^/produits/vues$" "http://site2.example.com/voirproduits.html" [R]</pre>
 
 <p>Ceci informe le client qu'il doit effectuer une nouvelle requête vers
 l'URL spécifiée.</p>
@@ -241,7 +251,7 @@ l'URL spécifiée.</p>
 <p>La chaîne de <var>Substitution</var> peut aussi contenir des
 <em>références arrières</em> vers des parties du chemin d'URL entrant
 correspondant au <var>Modèle</var>. Considérons ce qui suit :</p>
-<pre class="prettyprint lang-config">RewriteRule ^/produits/(.*)/view$ /var/web/produitsdb/$1</pre>
+<pre class="prettyprint lang-config">RewriteRule "^/produits/(.*)/view$" "/var/web/produitsdb/$1"</pre>
 
 <p>La variable <code>$1</code> sera remplacée par tout texte
 correspondant à l'expression située entre les parenthèses dans le
@@ -262,7 +272,7 @@ présence d'un ou plusieurs drapeaux en fin de règle. Par exemple, les
 conditions de correspondance d'une règle peuvent être rendues
 insensibles à la casse par la présence du drapeau <code>[NC]</code> :
 </p>
-<pre class="prettyprint lang-config">RewriteRule ^puppy.html petitchien.html [NC]</pre>
+<pre class="prettyprint lang-config">RewriteRule "^puppy.html" "petitchien.html" [NC]</pre>
 
 
 <p>Pour une liste des drapeaux disponibles, leurs significations, et des
@@ -289,8 +299,8 @@ correspondance est évaluée.</p>
 <p>Par exemple, pour renvoyer toutes les requêtes en provenance d'une
 certaine tranche d'adresses IP vers un autre serveur, vous pouvez
 utiliser :</p>
-<pre class="prettyprint lang-config">RewriteCond %{REMOTE_ADDR} ^10\.2\.
-RewriteRule (.*) http://intranet.example.com$1</pre>
+<pre class="prettyprint lang-config">RewriteCond "%{REMOTE_ADDR}" "^10\.2\."
+RewriteRule "(.*)" "http://intranet.example.com$1"</pre>
 
 
 <p>Si vous spécifiez plus d'une directive <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code>, ces directives
@@ -298,9 +308,9 @@ doivent toutes être satisfaites pour que la règle <code class="directive"><a hre
 pour interdire les requêtes qui contiennent le mot "hack" dans la chaîne
 de requête, sauf si elles contiennent aussi un cookie contenant le mot
 "go", vous pouvez utiliser :</p>
-<pre class="prettyprint lang-config">RewriteCond %{QUERY_STRING} hack
-RewriteCond %{HTTP_COOKIE} !go
-RewriteRule . - [F]</pre>
+<pre class="prettyprint lang-config">RewriteCond "%{QUERY_STRING}" "hack"
+RewriteCond "%{HTTP_COOKIE}" "!go"
+RewriteRule "." "-" [F]</pre>
 
 <p>Notez que le point d'exclamation indique une correspondance négative
 ; ainsi, la règle n'est appliquée que si le cookie ne contient pas "go"</p>
@@ -312,8 +322,8 @@ de la règle <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule
 les variables <code>%1</code>, <code>%2</code>, etc... Par
 exemple, ce qui suit va diriger la requête vers un répertoire différent
 en fonction du nom d'hôte utilisé pour accéder au site :</p>
-<pre class="prettyprint lang-config">RewriteCond %{HTTP_HOST} (.*)
-RewriteRule ^/(.*) /sites/%1/$1</pre>
+<pre class="prettyprint lang-config">RewriteCond "%{HTTP_HOST}" "(.*)"
+RewriteRule "^/(.*)" "/sites/%1/$1"</pre>
 
 <p>Si la requête concernait <code>http://example.com/foo/bar</code>,
 alors <code>%1</code> contiendrait <code>example.com</code> et
@@ -371,7 +381,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/intro.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -15,7 +15,7 @@
  */
 
 /*
-  $Id: mod_macro.c 1562134 2014-01-28 18:11:59Z jim $
+  $Id: mod_macro.c 1663260 2015-03-02 11:12:18Z jim $
 */
 
 #include "httpd.h"
@@ -75,14 +75,9 @@ typedef struct
   Macros are kept globally...
   They are not per-server or per-directory entities.
 
-  I would need a hook BEFORE and AFTER configuration processing
-  to initialize and close them properly, but no such thing is exported,
-  although it could be available from within apache.
-
-  I would have such a hook if in server/config.c
-  The "initializer" does not seem to be called before.
-
   note: they are in a temp_pool, and there is a lazy initialization.
+        ap_macros is reset to NULL in pre_config hook to not depend
+        on static vs dynamic configuration.
 
   hash type: (char *) name -> (ap_macro_t *) macro
 */
@@ -115,17 +110,16 @@ static apr_array_header_t *get_arguments(apr_pool_t * pool, const char *line)
 /*
   warn if anything non blank appears, but ignore comments...
 */
-static void warn_if_non_blank(
-    const char * what,
-    char * ptr,
-    ap_configfile_t * cfg)
+static void warn_if_non_blank(const char * what,
+                              char * ptr,
+                              ap_configfile_t * cfg)
 {
     char * p;
     for (p=ptr; *p; p++) {
         if (*p == '#')
             break;
         if (*p != ' ' && *p != '\t') {
-            ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL,
                          "%s on line %d of %s: %s",
                          what, cfg->line_number, cfg->name, ptr);
             break;
@@ -164,8 +158,8 @@ static char *get_lines_till_end_token(apr_pool_t * pool,
             if (!strncmp(first, "</", 2)) {
                 any_nesting--;
                 if (any_nesting < 0) {
-                    ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING,
-                                 0, NULL,
+                    ap_log_error(APLOG_MARK, APLOG_WARNING,
+                                 0, NULL, APLOGNO(02793)
                                  "bad (negative) nesting on line %d of %s",
                                  config_file->line_number - line_number_start,
                                  where);
@@ -185,14 +179,14 @@ static char *get_lines_till_end_token(apr_pool_t * pool,
                 }
 
                 warn_if_non_blank(
-                    "non blank chars found after directive closing",
+                    APLOGNO(02794) "non blank chars found after directive closing",
                     endp+1, config_file);
 
                 macro_nesting--;
                 if (!macro_nesting) {
                     if (any_nesting) {
                         ap_log_error(APLOG_MARK,
-                                     APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+                                     APLOG_WARNING, 0, NULL, APLOGNO(02795)
                                      "bad cumulated nesting (%+d) in %s",
                                      any_nesting, where);
                     }
@@ -257,7 +251,7 @@ static const char *check_macro_arguments(apr_pool_t * pool,
                                 macro->name, macro->location, i + 1);
         }
         else if (!looks_like_an_argument(tab[i])) {
-            ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(02796)
                          "macro '%s' (%s) "
                          "argument name '%s' (#%d) without expected prefix, "
                          "better prefix argument names with one of '%s'.",
@@ -271,7 +265,7 @@ static const char *check_macro_arguments(apr_pool_t * pool,
             /* must not use the same argument name twice */
             if (!strcmp(tab[i], tab[j])) {
                 return apr_psprintf(pool,
-                                   "argument name conflict in macro '%s' (%s): "
+                                    "argument name conflict in macro '%s' (%s): "
                                     "argument '%s': #%d and #%d, "
                                     "change argument names!",
                                     macro->name, macro->location,
@@ -281,11 +275,11 @@ static const char *check_macro_arguments(apr_pool_t * pool,
             /* warn about common prefix, but only if non empty names */
             if (ltabi && ltabj &&
                 !strncmp(tab[i], tab[j], ltabi < ltabj ? ltabi : ltabj)) {
-                ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING,
-                             0, NULL,
+                ap_log_error(APLOG_MARK, APLOG_WARNING,
+                             0, NULL, APLOGNO(02797)
                              "macro '%s' (%s): "
-                            "argument name prefix conflict (%s #%d and %s #%d),"
-                             " be careful about your macro definition!",
+                             "argument name prefix conflict (%s #%d and %s #%d), "
+                             "be careful about your macro definition!",
                              macro->name, macro->location,
                              tab[i], i + 1, tab[j], j + 1);
             }
@@ -305,7 +299,7 @@ static void check_macro_use_arguments(const char *where,
     int i;
     for (i = 0; i < array->nelts; i++) {
         if (empty_string_p(tab[i])) {
-            ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(02798)
                          "%s: empty argument #%d", where, i + 1);
         }
     }
@@ -506,7 +500,7 @@ static const char *check_macro_contents(apr_pool_t * pool,
     const char *errmsg;
 
     if (macro->contents->nelts == 0) {
-        ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(02799)
                      "macro '%s' (%s): empty contents!",
                      macro->name, macro->location);
         return NULL;            /* no need to further warnings... */
@@ -526,7 +520,7 @@ static const char *check_macro_contents(apr_pool_t * pool,
 
     for (i = 0; i < nelts; i++) {
         if (!used->elts[i]) {
-            ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(02800)
                          "macro '%s' (%s): argument '%s' (#%d) never used",
                          macro->name, macro->location, names[i], i + 1);
         }
@@ -719,7 +713,8 @@ static const char *macro_section(cmd_parms * cmd,
         return BEGIN_MACRO " macro definition: empty name";
     }
 
-    warn_if_non_blank("non blank chars found after " BEGIN_MACRO " closing '>'",
+    warn_if_non_blank(APLOGNO(02801) "non blank chars found after "
+                      BEGIN_MACRO " closing '>'",
                       endp+1, cmd->config_file);
 
     /* coldly drop '>[^>]*$' out */
@@ -736,7 +731,7 @@ static const char *macro_section(cmd_parms * cmd,
 
     if (macro != NULL) {
         /* already defined: warn about the redefinition */
-        ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(02802)
                      "macro '%s' multiply defined: "
                      "%s, redefined on line %d of \"%s\"",
                      macro->name, macro->location,
@@ -761,7 +756,7 @@ static const char *macro_section(cmd_parms * cmd,
         apr_psprintf(pool, "macro '%s' (%s)", macro->name, macro->location);
 
     if (looks_like_an_argument(name)) {
-        ap_log_error(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(02803)
                      "%s better prefix a macro name with any of '%s'",
                      where, ARG_PREFIX);
     }
@@ -914,6 +909,12 @@ static const char *undef_macro(cmd_parms * cmd, void *dummy, const char *arg)
     return NULL;
 }
 
+static int macro_pre_config(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *ptemp)
+{
+    ap_macros = NULL;
+    return OK;
+}
+
 /************************************************************* EXPORT MODULE */
 
 /*
@@ -932,6 +933,11 @@ static const command_rec macro_cmds[] = {
     {NULL}
 };
 
+static void macro_hooks(apr_pool_t *p)
+{
+    ap_hook_pre_config(macro_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
+}
+
 /*
   Module hooks are request-oriented thus it does not suit configuration
   file utils a lot. I haven't found any clean hook to apply something
@@ -949,5 +955,5 @@ AP_DECLARE_MODULE(macro) = {
         NULL,                   /* create per-server config structure */
         NULL,                   /* merge per-server config structures */
         macro_cmds,             /* configuration commands */
-        NULL                    /* register hooks */
+        macro_hooks             /* register hooks */
 };

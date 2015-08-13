@@ -313,7 +313,7 @@
 /* #undef HAVE_LIBDL */
 
 /* Define to 1 if you have the <libutil.h> header file. */
-#define HAVE_LIBUTIL_H 1
+/* #undef HAVE_LIBUTIL_H */
 
 /* Define to 1 to enable Linux audit support. */
 /* #undef HAVE_LINUX_AUDIT */
@@ -401,6 +401,9 @@
 
 /* Define to 1 if you have the <project.h> header file. */
 /* #undef HAVE_PROJECT_H */
+
+/* Define to 1 if you have the `pstat_getproc' function. */
+/* #undef HAVE_PSTAT_GETPROC */
 
 /* Define to 1 if you have the <pty.h> header file. */
 /* #undef HAVE_PTY_H */
@@ -617,7 +620,7 @@
 #define HAVE_UNSETENV 1
 
 /* Define to 1 if you have the <util.h> header file. */
-/* #undef HAVE_UTIL_H */
+#define HAVE_UTIL_H 1
 
 /* Define to 1 if you have the `utimes' function. */
 #define HAVE_UTIMES 1
@@ -724,7 +727,7 @@
 #define PACKAGE_NAME "sudo"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "sudo 1.7.10p7"
+#define PACKAGE_STRING "sudo 1.7.10p9"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "sudo"
@@ -733,7 +736,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.7.10p7"
+#define PACKAGE_VERSION "1.7.10p9"
 
 /* The default password prompt. */
 #define PASSPROMPT "Password:"

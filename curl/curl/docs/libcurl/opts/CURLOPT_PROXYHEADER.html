@@ -4,15 +4,20 @@
 <title>CURLOPT_PROXYHEADER man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,11 +52,12 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_PROXYHEADER - custom HTTP headers to pass to proxy <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0"><pre>
-<p class="level0">#include &lt;curl/curl.h&gt;
- <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_PROXYHEADER,
- &nbsp;                         struct curl_slist *headers);
- </pre>
+<p class="level0"><pre class="level0">
+&#35;include &lt;curl/curl.h&gt;
+&nbsp;
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_PROXYHEADER,
+&nbsp;                         struct curl_slist *headers);
+</pre>
 <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a pointer to a linked list of HTTP headers to pass in your HTTP request sent to a proxy. The rules for this list is identical to the <a Class="emphasis" href="./CURLOPT_HTTPHEADER.html">CURLOPT_HTTPHEADER</a> option's. 
 <p class="level0">The headers set with this option is only ever used in requests sent to a proxy - when there's also a request sent to a host. 
@@ -62,6 +68,6 @@ p.roffit {
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Added in 7.37.0 <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_HEADEROPT.html">CURLOPT_HEADEROPT</a> <a Class="manpage" href="./CURLOPT_HTTPHEADER.html">CURLOPT_HTTPHEADER</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_HEADEROPT.html">CURLOPT_HEADEROPT</a>, <a Class="manpage" href="./CURLOPT_HTTPHEADER.html">CURLOPT_HTTPHEADER</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

@@ -462,7 +462,7 @@ udp_print(register const u_char *bp, u_int length,
 
 		case PT_AODV:
 			udpipaddr_print(ip, sport, dport);
-			aodv_print((const u_char *)(up + 1), length,
+			aodv_print(gndo, (const u_char *)(up + 1), length,
 #ifdef INET6
 			    ip6 != NULL);
 #else
@@ -574,7 +574,7 @@ udp_print(register const u_char *bp, u_int length,
 		else if (ISPORT(RIP_PORT))
 			rip_print((const u_char *)(up + 1), length);
 		else if (ISPORT(AODV_PORT))
-			aodv_print((const u_char *)(up + 1), length,
+			aodv_print(gndo, (const u_char *)(up + 1), length,
 #ifdef INET6
 			    ip6 != NULL);
 #else
@@ -641,7 +641,7 @@ udp_print(register const u_char *bp, u_int length,
 		else if (ISPORT(LDP_PORT))
 			ldp_print((const u_char *)(up + 1), length);
 		else if (ISPORT(OLSR_PORT))
-			olsr_print((const u_char *)(up + 1), length,
+			olsr_print(gndo, (const u_char *)(up + 1), length,
 #if INET6
 					(IP_V(ip) == 6) ? 1 : 0);
 #else

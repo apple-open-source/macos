@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2005, 2007, 2010
+ * Copyright (c) 2004-2005, 2007, 2010, 2012-2013
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -30,20 +30,26 @@
 # endif
 #endif /* STDC_HEADERS */
 #include <fcntl.h>
-#ifdef HAVE_DIRENT_H
-# include <dirent.h>
-# define NAMLEN(dirent) strlen((dirent)->d_name)
+#include <limits.h>
+#ifdef HAVE_PSTAT_GETPROC
+# include <sys/param.h>
+# include <sys/pstat.h>
 #else
-# define dirent direct
-# define NAMLEN(dirent) (dirent)->d_namlen
-# ifdef HAVE_SYS_NDIR_H
-#  include <sys/ndir.h>
-# endif
-# ifdef HAVE_SYS_DIR_H
-#  include <sys/dir.h>
-# endif
-# ifdef HAVE_NDIR_H
-#  include <ndir.h>
+# ifdef HAVE_DIRENT_H
+#  include <dirent.h>
+#  define NAMLEN(dirent) strlen((dirent)->d_name)
+# else
+#  define dirent direct
+#  define NAMLEN(dirent) (dirent)->d_namlen
+#  ifdef HAVE_SYS_NDIR_H
+#   include <sys/ndir.h>
+#  endif
+#  ifdef HAVE_SYS_DIR_H
+#   include <sys/dir.h>
+#  endif
+#  ifdef HAVE_NDIR_H
+#   include <ndir.h>
+#  endif
 # endif
 #endif
 
@@ -57,7 +63,7 @@
 
 /*
  * Close all file descriptors greater than or equal to lowfd.
- * This is the expensive (ballback) method.
+ * This is the expensive (fallback) method.
  */
 void
 closefrom_fallback(lowfd)
@@ -78,19 +84,21 @@ closefrom_fallback(lowfd)
     if (maxfd < 0)
 	maxfd = OPEN_MAX;
 
-    for (fd = lowfd; fd < maxfd; fd++)
-#if 6497333
-	(void) fcntl((int) fd, F_SETFD, 1);
+    for (fd = lowfd; fd < maxfd; fd++) {
+#ifdef __APPLE__
+	/* Avoid potential libdispatch crash when we close its fds. */
+	(void) fcntl((int) fd, F_SETFD, FD_CLOEXEC);
 #else
 	(void) close((int) fd);
 #endif
+    }
 }
 
 /*
  * Close all file descriptors greater than or equal to lowfd.
  * We try the fast way first, falling back on the slow method.
  */
-#ifdef HAVE_FCNTL_CLOSEM
+#if defined(HAVE_FCNTL_CLOSEM)
 void
 closefrom(lowfd)
     int lowfd;
@@ -98,28 +106,53 @@ closefrom(lowfd)
     if (fcntl(lowfd, F_CLOSEM, 0) == -1)
 	closefrom_fallback(lowfd);
 }
-#else
-# ifdef HAVE_DIRFD
+#elif defined(HAVE_PSTAT_GETPROC)
 void
 closefrom(lowfd)
     int lowfd;
 {
-    struct dirent *dent;
+    struct pst_status pstat;
+    int fd;
+
+    if (pstat_getproc(&pstat, sizeof(pstat), 0, getpid()) != -1) {
+	for (fd = lowfd; fd <= pstat.pst_highestfd; fd++)
+	    (void) close(fd);
+    } else {
+	closefrom_fallback(lowfd);
+    }
+}
+#elif defined(HAVE_DIRFD)
+void
+closefrom(lowfd)
+    int lowfd;
+{
+    const char *path;
     DIR *dirp;
     char *endp;
     long fd;
 
-    /* Use /dev/fd directory if it exists. */
-    if ((dirp = opendir("/dev/fd")) != NULL) {
+    /* Use /proc/self/fd (or /dev/fd on FreeBSD) if it exists. */
+# if defined(__FreeBSD__) || defined(__APPLE__)
+    path = "/dev/fd";
+# else
+    path = "/proc/self/fd";
+# endif
+    if ((dirp = opendir(path)) != NULL) {
+	struct dirent *dent;
 	while ((dent = readdir(dirp)) != NULL) {
 	    fd = strtol(dent->d_name, &endp, 10);
 	    if (dent->d_name != endp && *endp == '\0' &&
-		fd >= 0 && fd < INT_MAX && fd >= lowfd && fd != dirfd(dirp))
+		fd >= 0 && fd < INT_MAX && fd >= lowfd && fd != dirfd(dirp)) {
+# ifdef __APPLE__
+		/* Avoid potential libdispatch crash when we close its fds. */
+		(void) fcntl((int) fd, F_SETFD, FD_CLOEXEC);
+# else
 		(void) close((int) fd);
+# endif
+	    }
 	}
 	(void) closedir(dirp);
     } else
 	closefrom_fallback(lowfd);
 }
-#endif /* HAVE_DIRFD */
 #endif /* HAVE_FCNTL_CLOSEM */

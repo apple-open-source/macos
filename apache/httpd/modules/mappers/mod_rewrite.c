@@ -195,6 +195,7 @@ static const char* really_last_key = "rewrite_really_last";
 #define OPTION_INHERIT_DOWN         1<<6
 #define OPTION_INHERIT_DOWN_BEFORE  1<<7
 #define OPTION_IGNORE_INHERIT       1<<8
+#define OPTION_IGNORE_CONTEXT_INFO  1<<9
 
 #ifndef RAND_MAX
 #define RAND_MAX 32767
@@ -909,7 +910,7 @@ static int prefix_stat(const char *path, apr_pool_t *pool)
 /*
  * substitute the prefix path 'match' in 'input' with 'subst' (RewriteBase)
  */
-static char *subst_prefix_path(request_rec *r, char *input, char *match,
+static char *subst_prefix_path(request_rec *r, char *input, const char *match,
                                const char *subst)
 {
     apr_size_t len = strlen(match);
@@ -1334,7 +1335,7 @@ static char *lookup_map_dbd(request_rec *r, char *key, const char *label)
     const char *errmsg;
     apr_dbd_results_t *res = NULL;
     apr_dbd_row_t *row = NULL;
-    const char *ret = NULL;
+    char *ret = NULL;
     int n = 0;
     ap_dbd_t *db = dbd_acquire(r);
 
@@ -1351,12 +1352,14 @@ static char *lookup_map_dbd(request_rec *r, char *key, const char *label)
     while ((rv = apr_dbd_get_row(db->driver, r->pool, res, &row, -1)) == 0) {
         ++n;
         if (ret == NULL) {
-            ret = apr_dbd_get_entry(db->driver, row, 0);
+            ret = apr_pstrdup(r->pool,
+                              apr_dbd_get_entry(db->driver, row, 0));
         }
         else {
             /* randomise crudely amongst multiple results */
             if ((double)rand() < (double)RAND_MAX/(double)n) {
-                ret = apr_dbd_get_entry(db->driver, row, 0);
+                ret = apr_pstrdup(r->pool,
+                                  apr_dbd_get_entry(db->driver, row, 0));
             }
         }
     }
@@ -1369,11 +1372,11 @@ static char *lookup_map_dbd(request_rec *r, char *key, const char *label)
     case 0:
         return NULL;
     case 1:
-        return apr_pstrdup(r->pool, ret);
+        return ret;
     default:
         /* what's a fair rewritelog level for this? */
         rewritelog((r, 3, NULL, "Multiple values found for %s", key));
-        return apr_pstrdup(r->pool, ret);
+        return ret;
     }
 }
 
@@ -2948,6 +2951,9 @@ static const char *cmd_rewriteoptions(cmd_parms *cmd,
         else if (!strcasecmp(w, "mergebase")) {
             options |= OPTION_MERGEBASE;
         }
+        else if (!strcasecmp(w, "ignorecontextinfo")) {
+            options |= OPTION_IGNORE_CONTEXT_INFO;
+        }
         else {
             return apr_pstrcat(cmd->pool, "RewriteOptions: unknown option '",
                                w, "'", NULL);
@@ -3232,9 +3238,7 @@ static const char *cmd_rewritecond(cmd_parms *cmd, void *in_dconf,
     rewrite_server_conf *sconf;
     rewritecond_entry *newcond;
     ap_regex_t *regexp;
-    char *a1;
-    char *a2;
-    char *a3;
+    char *a1 = NULL, *a2 = NULL, *a3 = NULL;
     const char *err;
 
     sconf = ap_get_module_config(cmd->server->module_config, &rewrite_module);
@@ -3651,9 +3655,7 @@ static const char *cmd_rewriterule(cmd_parms *cmd, void *in_dconf,
     rewrite_server_conf *sconf;
     rewriterule_entry *newrule;
     ap_regex_t *regexp;
-    char *a1;
-    char *a2;
-    char *a3;
+    char *a1 = NULL, *a2 = NULL, *a3 = NULL;
     const char *err;
 
     sconf = ap_get_module_config(cmd->server->module_config, &rewrite_module);
@@ -4161,7 +4163,6 @@ static int apply_rewrite_rule(rewriterule_entry *p, rewrite_ctx *ctx)
                     r->filename));
 
         r->filename = apr_pstrcat(r->pool, "proxy:", r->filename, NULL);
-        apr_table_setn(r->notes, "rewrite-proxy", "1");
         return 1;
     }
 
@@ -4975,6 +4976,7 @@ static int hook_fixup(request_rec *r)
             return n;
         }
         else {
+            const char *tmpfilename = NULL;
             /* it was finally rewritten to a local path */
 
             /* if someone used the PASSTHROUGH flag in per-dir
@@ -5005,6 +5007,8 @@ static int hook_fixup(request_rec *r)
                             " URL: %s [IGNORING REWRITE]", r->filename));
                 return OK;
             }
+
+            tmpfilename = r->filename;
 
             /* if there is a valid base-URL then substitute
              * the per-dir prefix with this base-URL if the
@@ -5039,6 +5043,27 @@ static int hook_fixup(request_rec *r)
                                     r->filename+l));
 
                         r->filename = apr_pstrdup(r->pool, r->filename+l);
+                    }
+                }
+            }
+
+            /* No base URL, or r->filename wasn't still under dconf->directory
+             * or, r->filename wasn't still under the document root. 
+             * If there's a context document root AND a context prefix, and 
+             * the context document root is a prefix of r->filename, replace.
+             * This allows a relative substitution on a path found by mod_userdir 
+             * or mod_alias without baking in a RewriteBase.
+             */
+            if (tmpfilename == r->filename && 
+                !(dconf->options & OPTION_IGNORE_CONTEXT_INFO)) { 
+                if ((ccp = ap_context_document_root(r)) != NULL) { 
+                    const char *prefix = ap_context_prefix(r);
+                    if (prefix != NULL) { 
+                        rewritelog((r, 2, dconf->directory, "trying to replace "
+                                    "context docroot %s with context prefix %s",
+                                    ccp, prefix));
+                        r->filename = subst_prefix_path(r, r->filename,
+                                ccp, prefix);
                     }
                 }
             }

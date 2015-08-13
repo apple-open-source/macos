@@ -62,6 +62,15 @@ else
     needed_unjoin=yes
 fi
 
+echo "AD"
+echo 'show com.apple.opendirectoryd.ActiveDirectory' | scutil
+
+
+hostname=$(echo 'show com.apple.opendirectoryd.ActiveDirectory' | scutil  | grep TrustAccount | cut -f2 -d: | sed -e 's/ //g' -e 's/\$//')
+echo "hostname is: $hostname"
+
+defaults delete /Library/Preferences/com.apple.Kerberos kcm
+defaults write /Library/Preferences/com.apple.Kerberos kcm -dict-add disable-ntlm-reflection-detection true
 
 echo "running http tests"
 echo "	destroy all cred"
@@ -219,6 +228,8 @@ if [ ${needed_unjoin} = yes ] ; then
     dsconfigad -remove $R -force -user bind -password apple
     killall -9 digest-service
 fi
+
+defaults delete /Library/Preferences/com.apple.Kerberos kcm
 
 
 exit 0

@@ -1,0 +1,11 @@
+--- setup.py.orig	2015-02-20 13:13:14.000000000 -0800
++++ setup.py	2015-02-20 13:16:48.000000000 -0800
+@@ -61,7 +61,7 @@
+     """
+     return ( (path.startswith('/usr/') and not path.startswith('/usr/local'))
+                 or path.startswith('/System/')
+-                or path.startswith('/Library/') )
++                or path.startswith('/Library/') and not path.startswith('/Library/Caches/') )
+ 
+ def find_file(filename, std_dirs, paths):
+     """Searches for the directory where a given file is located,

@@ -5,23 +5,22 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.37.1</string>
+	<string>7.43.0</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.haxx.se/</string>
 	<key>OpenSourceURL</key>
-	<string>http://curl.haxx.se/download/curl-7.37.1.tar.bz2</string>
+	<string>http://curl.haxx.se/download/curl-7.43.0.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>612081014c8393fa4747f28706d72542514a14aa</string>
+	<string>d821ea39610b7f1122f1f574a4d8e20e81b3c561</string>
 	<key>OpenSourceImportDate</key>
-	<string>2014-07-24</string>
+	<string>2015-07-13</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>curl-config.in: remove -I, -L, and static library info</string>
 		<string>docs/curl.1: remove references to netrc(4) and wget(1)</string>
 		<string>include/curl/multi.h: Add availability to curl_multi_wait (13158909)</string>
 		<string>lib/ldap.c: 5648196</string>
-		<string>tests/symbol-scan.pl: remove configurehelp.pm dependency</string>
-		<string>lib/vtls/curl_darwinssl.c: 17925759 [4c134bc 0426670+fix]</string>
+		<string>lib/multi.c, lib/transfer.c: 903b6e05565bf826b4194447864288642214b094</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

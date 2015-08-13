@@ -98,6 +98,16 @@ Directory and file names:
   --srcdir=DIR
 	Find the sources in DIR [configure dir or ..]
 
+  --with-tzdir=DIR
+	Set the directory to the system's time zone data files.  This
+	is only used when sanitizing the TZ environment variable to
+	allow for fully-qualified paths in TZ.
+	By default, configure will look for an existing "zoneinfo"
+	directory in the following locations:
+	    /usr/share /usr/share/lib /usr/lib /etc
+	If no zoneinfo directory is found, the TZ variable may not
+	contain a fully-qualified path.
+
 Special features/options:
   --with-incpath=DIR
 	Adds the specified directory (or directories) to CPPFLAGS
@@ -110,6 +120,18 @@ Special features/options:
 	Adds the specified directory (or directories) to LDFLAGS
 	so configure and the compiler will look there for libraries.
 	Multiple directories may be specified as with --with-incpath.
+
+  --enable-pie
+	Build sudo and related programs as as a position independent
+	executables (PIE).  This improves the effectiveness of address
+	space layout randomization (ASLR) on systems that support it.
+	Sudo will create PIE binaries by default on Linux systems.
+
+  --disable-pie
+	Disable the creation of position independent executables (PIE),
+	even if the compiler creates PIE binaries by default.  This
+	option may be needed on some Linux systems where PIE binaries
+	are not fully supported.
 
   --with-rpath
 	Tells configure to use -Rpath in addition to -Lpath when
@@ -646,11 +668,6 @@ The following options are also configurable at runtime:
 	which are enabled by default.  This includes compiling with
 	_FORTIFY_SOURCE defined to 2, building with -fstack-protector
 	and linking with -zrelro, where supported.
-
-  --disable-pie
-	Disable the creation of position independent executables (PIE)
-        even when the compiler and linker support them.
-	By default, sudo will be built as a PIE where possible.
 
   --enable-admin-flag
 	Enable the creation of an Ubuntu-style admin flag file

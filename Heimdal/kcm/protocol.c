@@ -1761,7 +1761,7 @@ ntlm_delete_chain(struct ntlm_challenge *c)
 static int
 ntlm_expiredp(struct ntlm_challenge *c, time_t now)
 {
-    return c->ts > now - heim_ntlm_time_skew;
+    return c->ts + heim_ntlm_time_skew < now;
 }
 
 static int
@@ -1798,21 +1798,17 @@ kcm_op_add_ntlm_challenge(krb5_context context,
 			  krb5_storage *request,
 			  krb5_storage *response)
 {
-    uint8_t chal[8];
     struct ntlm_challenge *c;
     ssize_t sret;
 
     KCM_LOG_REQUEST(context, client, opcode);
-
-    if (client->uid != 0)
-	return EAUTH;
 
     c = malloc(sizeof(*c));
     if (c == NULL)
 	return ENOMEM;
 
     sret = krb5_storage_read(request, c->challenge, sizeof(c->challenge));
-    if (sret != sizeof(chal)) {
+    if (sret != sizeof(c->challenge)) {
 	free(c);
 	return KRB5_CC_IO;
     }
@@ -1825,6 +1821,41 @@ kcm_op_add_ntlm_challenge(krb5_context context,
 
     return 0;
 }
+
+/*
+ * { "CHECK_NTLM_CHALLAGE",	NULL }
+ *
+ * request:
+ *   challage 8 byte
+ *
+ * return:
+ *   replay-detected 1 byte
+ */
+
+static krb5_error_code
+kcm_op_check_ntlm_challenge(krb5_context context,
+			    kcm_client *client,
+			    kcm_operation opcode,
+			    krb5_storage *request,
+			    krb5_storage *response)
+{
+    uint8_t chal[8];
+    ssize_t sret;
+    int res;
+
+    KCM_LOG_REQUEST(context, client, opcode);
+
+    sret = krb5_storage_read(request, chal, sizeof(chal));
+    if (sret != sizeof(chal))
+	return KRB5_CC_IO;
+
+    res = check_ntlm_challage(chal);
+    if (res)
+	kcm_log(10, "ntlm reflection attack detected");
+
+    return krb5_store_uint8(response, !!res);
+}
+
 
 krb5_error_code
 kcm_parse_ntlm_challenge_one(krb5_context context, krb5_storage *sp)
@@ -1990,11 +2021,13 @@ kcm_op_do_ntlm(krb5_context context,
     if (ret)
 	goto error;
 
-    kcm_log(10, "checking for ntlm mirror attack");
-    ret = check_ntlm_challage(type2.challenge);
-    if (ret) {
-	kcm_log(0, "ntlm mirror attack detected");
-	goto error;
+    if (!disable_ntlm_reflection_detection) {
+	kcm_log(10, "checking for ntlm mirror attack");
+	ret = check_ntlm_challage(type2.challenge);
+	if (ret) {
+	    kcm_log(0, "ntlm mirror attack detected");
+	    goto error;
+	}
     }
 
     /* if service name or case matching with domain, let pick the domain */
@@ -2813,7 +2846,8 @@ static struct kcm_op kcm_ops[] = {
     { "RETAIN_CRED",		kcm_op_retain_cred },
     { "RELEASE_CRED",		kcm_op_release_cred },
     { "CRED_LABEL_GET",		kcm_op_cred_label_get },
-    { "CRED_LABEL_SET",		kcm_op_cred_label_set }
+    { "CRED_LABEL_SET",		kcm_op_cred_label_set },
+    { "CHECK_NTLM_CHALLAGE",	kcm_op_check_ntlm_challenge },
 };
 
 

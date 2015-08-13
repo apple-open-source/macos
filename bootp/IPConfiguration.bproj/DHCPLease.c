@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -531,8 +531,8 @@ DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
 		    my_log(LOG_DEBUG,
 			   "ignoring lease with SSID %@",
 			   lease_p->ssid);
-		    continue;
 		}
+		continue;
 	    }
 	    
 	}

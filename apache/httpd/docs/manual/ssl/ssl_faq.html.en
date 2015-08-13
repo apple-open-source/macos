@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -177,8 +179,8 @@ relative hyperlinks?</a></li>
     scheme).  Using <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> however, you can
     manipulate relative hyperlinks, to achieve the same effect.</p>
     <pre class="prettyprint lang-config">RewriteEngine on
-RewriteRule   ^/(.*)_SSL$   https://%{SERVER_NAME}/$1 [R,L]
-RewriteRule   ^/(.*)_NOSSL$ http://%{SERVER_NAME}/$1  [R,L]</pre>
+RewriteRule   "^/(.*)_SSL$"   "https://%{SERVER_NAME}/$1" [R,L]
+RewriteRule   "^/(.*)_NOSSL$" "http://%{SERVER_NAME}/$1"  [R,L]</pre>
 
 
     <p>This rewrite ruleset lets you use hyperlinks of the form
@@ -255,8 +257,8 @@ Certificate for testing purposes?</a></h3>
                         -keyout server.key</strong></code><br />
         These can be used as follows in your <code>httpd.conf</code>
         file:
-        <pre class="prettyprint lang-config">SSLCertificateFile    /path/to/this/server.crt
-SSLCertificateKeyFile /path/to/this/server.key</pre>
+        <pre class="prettyprint lang-config">SSLCertificateFile    "/path/to/this/server.crt"
+SSLCertificateKeyFile "/path/to/this/server.key"</pre>
 
     </li>
     <li>It is important that you are aware that this
@@ -334,8 +336,8 @@ SSLCertificateKeyFile /path/to/this/server.key</pre>
     <li>You should now have two files: <code>server.key</code> and
     <code>server.crt</code>. These can be used as follows in your
     <code>httpd.conf</code> file:
-       <pre class="prettyprint lang-config">SSLCertificateFile    /path/to/this/server.crt
-SSLCertificateKeyFile /path/to/this/server.key</pre>
+       <pre class="prettyprint lang-config">SSLCertificateFile    "/path/to/this/server.crt"
+SSLCertificateKeyFile "/path/to/this/server.key"</pre>
 
        The <code>server.csr</code> file is no longer needed.
     </li>
@@ -347,7 +349,7 @@ SSLCertificateKeyFile /path/to/this/server.key</pre>
     <p>The short answer is to use the <code>CA.sh</code> or <code>CA.pl</code>
     script provided by OpenSSL. Unless you have a good reason not to,
     you should use these for preference. If you cannot, you can create a
-    self-signed Certificate as follows:</p>
+    self-signed certificate as follows:</p>
 
     <ol>
     <li>Create a RSA private key for your server
@@ -368,11 +370,11 @@ SSLCertificateKeyFile /path/to/this/server.key</pre>
        <code><strong>$ openssl rsa -in server.key -out server.key.unsecure</strong></code><br />
        <br />
     </li>
-    <li>Create a self-signed Certificate (X509 structure)
+    <li>Create a self-signed certificate (X509 structure)
        with the RSA key you just created (output will be PEM formatted):<br />
        <br />
        <code><strong>$ openssl req -new -x509 -nodes -sha1 -days 365
-                       -key server.key -out server.crt</strong></code><br />
+                       -key server.key -out server.crt -extensions usr_cert</strong></code><br />
        <br />
        This signs the server CSR and results in a <code>server.crt</code> file.<br />
        You can see the details of this Certificate using:<br />
@@ -754,20 +756,22 @@ Explorer (MSIE)?</a></h3>
     or higher), you can either rearrange mod_ssl's cipher list with
     <code class="directive"><a href="../mod/mod_ssl.html#sslciphersuite">SSLCipherSuite</a></code>
     (possibly in conjunction with <code class="directive"><a href="../mod/mod_ssl.html#sslhonorcipherorder">SSLHonorCipherOrder</a></code>),
-    or you can use the <code class="directive"><a href="../mod/mod_ssl.html#sslcertificatefile">SSLCertificateFile</a></code>
-    directive to configure custom DH parameters with a 1024-bit prime, which
+    or you can use custom DH parameters with a 1024-bit prime, which
     will always have precedence over any of the built-in DH parameters.</p>
 
-    <p>To generate custom DH parameters, use the <code>openssl dhparam</code>
-    command. Alternatively, you can append the following standard 1024-bit DH
+    <p>To generate custom DH parameters, use the <code>openssl dhparam 1024</code>
+    command. Alternatively, you can use the following standard 1024-bit DH
     parameters from <a href="http://www.ietf.org/rfc/rfc2409.txt">RFC 2409</a>,
-    section 6.2 to the respective
-    <code class="directive"><a href="../mod/mod_ssl.html#sslcertificatefile">SSLCertificateFile</a></code> file:</p>
+    section 6.2:</p>
     <div class="example"><pre>-----BEGIN DH PARAMETERS-----
 MIGHAoGBAP//////////yQ/aoiFowjTExmKLgNwc0SkCTgiKZ8x0Agu+pjsTmyJR
 Sgh5jjQE3e+VGbPNOkMbMCsKbfJfFDdP4TVtbVHCReSFtXZiXn7G9ExC6aY37WsL
 /1y29Aa37e44a/taiZ+lrp8kEXxLH+ZJKGZR7OZTgf//////////AgEC
 -----END DH PARAMETERS-----</pre></div>
+    <p>Add the custom parameters including the "BEGIN DH PARAMETERS" and
+    "END DH PARAMETERS" lines to the end of the first certificate file
+    you have configured using the
+    <code class="directive"><a href="../mod/mod_ssl.html#sslcertificatefile">SSLCertificateFile</a></code> directive.</p>
 
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -922,7 +926,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/ssl/ssl_faq.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

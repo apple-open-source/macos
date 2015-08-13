@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -135,7 +137,7 @@
       uses asynchronous processing to avoid devoting a thread to each
       connection. Due to the nature of the OpenSSL library the
       <code class="module"><a href="../mod/event.html">event</a></code> mpm is currently incompatible with
-	  <code class="module"><a href="../mod/mod_ssl.html">mod_ssl</a></code> and other input filters. In these
+      <code class="module"><a href="../mod/mod_ssl.html">mod_ssl</a></code> and other input filters. In these
       cases it falls back to the behaviour of the
       <code class="module"><a href="../mod/worker.html">worker</a></code> mpm.</li>
 
@@ -334,13 +336,15 @@
 
     <p>In the server configuration file, put</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/"&gt;
     AllowOverride None
 &lt;/Directory&gt;</pre>
 
 
     <p>This prevents the use of <code>.htaccess</code> files in all
     directories apart from those specifically enabled.</p>
+
+    <p>Note that this setting is the default since Apache 2.3.9.</p>
 
   </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -364,7 +368,7 @@
     work around this, add the following block to your server's
     configuration:</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/"&gt;
     Require all denied
 &lt;/Directory&gt;</pre>
 
@@ -373,17 +377,17 @@
     appropriate <code class="directive"><a href="../mod/core.html#directory">Directory</a></code> blocks to
     allow access only in those areas you wish. For example,</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /usr/users/*/public_html&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/usr/users/*/public_html"&gt;
     Require all granted
 &lt;/Directory&gt;
-&lt;Directory /usr/local/httpd&gt;
+&lt;Directory "/usr/local/httpd"&gt;
     Require all granted
 &lt;/Directory&gt;</pre>
 
 
     <p>Pay particular attention to the interactions of <code class="directive"><a href="../mod/core.html#location">Location</a></code> and <code class="directive"><a href="../mod/core.html#directory">Directory</a></code> directives; for instance, even
-    if <code>&lt;Directory /&gt;</code> denies access, a <code>
-    &lt;Location /&gt;</code> directive might overturn it.</p>
+    if <code>&lt;Directory "/"&gt;</code> denies access, a <code>
+    &lt;Location "/"&gt;</code> directive might overturn it.</p>
 
     <p>Also be wary of playing games with the <code class="directive"><a href="../mod/mod_userdir.html#userdir">UserDir</a></code> directive; setting it to
     something like <code>./</code> would have the same effect, for root, as
@@ -479,7 +483,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/misc/security_tips.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

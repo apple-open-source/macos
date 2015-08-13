@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -547,6 +549,18 @@ CustomLog "|$/usr/local/apache/bin/rotatelogs /var/log/access_log 86400" common<
       gösterimi de desteklenmekte olup "<code>|</code>" kullanımına
       eşdeğerdir.</p>
 
+    <div class="note"><h3>Windows'ta yığın alanı</h3>
+    <p>Windows'ta çok sayıda borulu günlükleme süreci çalışırken ve özellikle
+      HTTPD bir hizmet olarak çalışıyorsa sorunlar baş gösterebilir. Bunun
+      başlıca sebebi masaüstü yığın alanının (heap) dışına taşılmasıdır. Her
+      hizmete ayrılan masüstü yığın alanı, kayıt defterindeki
+      HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\SessionManager\SubSystems\Windows
+      kaydındaki üçüncü değiştirge olan <code>SharedSection</code>
+      değeridir. <strong>Bu değeri değiştirirken çok dikkatli olun</strong>;
+      bu, Windows kayıt defterini değiştirirken verilen normal
+      uyarılardandır, fakat eğer bu değer çok yüksek olursa masaüstü yığın
+      alanının tükenebileceği dikkate alınmalıdır.</p>
+    </div>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="virtualhost" id="virtualhost">Sanal Konaklar</a></h2>
@@ -584,7 +598,7 @@ CustomLog logs/access_log ortaksankon</pre>
 
 
     <p><code>%v</code> belirteci isteği sunan sanal konağın ismini günlüğe
-      yazmak için kullanılır. Daha sonra <a href="programs/other.html">split-logfile</a> gibi bir program
+      yazmak için kullanılır. Daha sonra <a href="programs/split-logfile.html">split-logfile</a> gibi bir program
       kullanarak, bu dosyadan her sanal konak için ayrı birer dosya elde
       edilebilir.</p>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
@@ -662,7 +676,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/logs.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -12,6 +12,9 @@
 #endif
 #endif
 
+bool
+GSSCheckNTLMReflection (uint8_t challange[8]);
+
 struct gssapi_mech_interface_desc *
 __gss_get_mechanism (gss_const_OID mech);
 

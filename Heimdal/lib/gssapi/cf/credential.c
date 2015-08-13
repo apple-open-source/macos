@@ -701,3 +701,4 @@ GSSCredCopyName(gss_cred_id_t cred)
 {
     return GSSCredentialCopyName(cred);
 }
+

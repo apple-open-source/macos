@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -45,7 +47,7 @@
     des projets Open Source .</p>
 
     <p>Si vous effectuez une mise à jour depuis une version mineure vers
-    la suivante (par exemple, 2.2.50 à 2.2.51), veuillez passer à la section
+    la suivante (par exemple, 2.4.9 à 2.4.10), veuillez passer à la section
     <a href="#upgrading">mise à jour</a>.</p>
 
 </div>
@@ -138,10 +140,10 @@
       Si ce n'est pas le cas, ou si vous préférez ne pas utiliser les
       versions fournies par le système, téléchargez les dernières
       versions d'APR et APR-Util depuis <a href="http://apr.apache.org/">Apache APR</a>, décompressez-les
-      respectivement dans <code>./srclib/apr</code> et
-      <code>./srclib/apr-util</code> (les noms des répertoires ne
+      respectivement dans <code>/racine_sources_httpd/srclib/apr</code> et
+      <code>/racine_sources_httpd/srclib/apr-util</code> (les noms des répertoires ne
       doivent pas comporter de numéros de versions ; par exemple, la
-      distribution d'APR doit se trouver dans ./srclib/apr/), et
+      distribution d'APR doit se trouver dans /racine_sources_httpd/srclib/apr/), et
       utilisez l'option <code>--with-included-apr</code> du script
       <code>./configure</code>. Sur certaines plateformes, vous devrez
       peut-être installer les paquets <code>-dev</code> correspondants
@@ -150,7 +152,7 @@
 
       <dt>Bibliothèque d'expressions rationnelles compatibles Perl
       (PCRE)</dt>
-      <dd>Cette librairie est nécessaire mais n'est plus fournie avec la
+      <dd>Cette bibliothèque est nécessaire mais n'est plus fournie avec la
       distribution de httpd. Téléchargez le code source depuis <a href="http://www.pcre.org/">http://www.pcre.org</a> ou installez
       un portage du paquet. Si votre suite de compilation ne trouve pas
       le script pcre-config installé au cours du processus de
@@ -192,11 +194,7 @@
       <dd>L'interpréteur Perl 5 (les versions 5.003 ou supérieures conviennent)
       est nécessaire pour l'exécution de certains scripts comme
       <code class="program"><a href="./programs/apxs.html">apxs</a></code> ou <code class="program"><a href="./programs/dbmmanage.html">dbmmanage</a></code>
-      (qui sont écrits en Perl). Si vous disposez de plusieurs interpréteurs
-      Perl (par exemple, une installation globale Perl 4, et
-      votre installation personnelle de Perl 5), il vous faut utiliser l'option
-      <code>--with-perl</code> (voir ci-dessous) afin de vous assurer que le
-      bon interpréteur sera utilisé par <code class="program"><a href="./programs/configure.html">configure</a></code>.
+      (qui sont écrits en Perl).
       Si le script <code class="program"><a href="./programs/configure.html">configure</a></code> ne trouve pas d'interpréteur
       Perl 5, vous ne pourrez pas utiliser les scripts qui en ont besoin.
       Bien entendu, vous pourrez tout de même construire et utiliser
@@ -488,7 +486,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/install.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

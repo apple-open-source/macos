@@ -996,7 +996,7 @@ IOFWUserLocalIsochPort::modifyJumpDCL ( UInt32 inJumpDCLCompilerData, UInt32 inL
 	--inLabelDCLCompilerData ;
 
 	// be sure opcodes exist
-	if ( inJumpDCLCompilerData > fProgramCount || inLabelDCLCompilerData > fProgramCount )
+	if ( (inJumpDCLCompilerData >= fProgramCount) || (inLabelDCLCompilerData >= fProgramCount) )
 	{
 		DebugLog( "IOFWUserLocalIsochPort::modifyJumpDCL: DCL index (inJumpDCLCompilerData=%u, inLabelDCLCompilerData=%u) past end of lookup table (length=%u)\n", 
 				(uint32_t)inJumpDCLCompilerData,
@@ -1160,10 +1160,19 @@ IOFWUserLocalIsochPort::userNotify (
 	{
 		case kFWNuDCLModifyNotification :
 		{
+            void * iter_data = data;
+            
 			IOMemoryMap * bufferMap = fProgram->getBufferMap() ;
 			for( unsigned index=0; index < numDCLs; ++index )
 			{
-				unsigned dclIndex = *(unsigned*)data - 1 ;
+                // don't run of the end of the data buffer
+                if( iter_data >= ((UInt8*)data + dataSize) )
+                {
+                    error = kIOReturnBadArgument;
+                    break;
+                }
+
+				unsigned dclIndex = *(unsigned*)iter_data - 1 ;
 				if ( dclIndex >= programLength )
 				{
 					DebugLog("out of range DCL dclIndex=%d, programLength=%d\n", dclIndex, programLength ) ;
@@ -1173,10 +1182,10 @@ IOFWUserLocalIsochPort::userNotify (
 				{
 					dcls[ index ] = (IOFWDCL*)program->getObject( dclIndex ) ;
 					
-					data = (UInt8*)data + sizeof( unsigned ) ;
-					IOByteCount dataSize ;
+					iter_data = (UInt8*)iter_data + sizeof( unsigned ) ;
+					IOByteCount import_data_size = 0;
 					
-					error = dcls[ index ]->importUserDCL( (UInt8*)data, dataSize, bufferMap, program ) ;
+					error = dcls[ index ]->importUserDCL( (UInt8*)iter_data, import_data_size, bufferMap, program ) ;
 
 					// if there is no branch set, make sure the DCL "branches" to the 
 					// dcl that comes next in the program if there is one...
@@ -1185,7 +1194,7 @@ IOFWUserLocalIsochPort::userNotify (
 						dcls[ index ]->setBranch( (IOFWDCL*)program->getObject( dclIndex + 1 ) ) ;
 					}
 					
-					data = (UInt8*)data + dataSize ;
+					iter_data = (UInt8*)iter_data + import_data_size;
 				}
 
 				if ( error )
@@ -1200,7 +1209,8 @@ IOFWUserLocalIsochPort::userNotify (
 		case kFWNuDCLModifyJumpNotification :
 		{
 			unsigned * dclIndexTable = (unsigned*)data ;
-			
+            unsigned dcl_index_count = dataSize / sizeof(unsigned);
+            
 			// subtract 1 from each index in our list.
 			// when the notification type is kFWNuDCLModifyJumpNotification, the dcl list
 			// actually contains pairs of DCL indices. The first is the dcl having its branch modified,
@@ -1211,6 +1221,13 @@ IOFWUserLocalIsochPort::userNotify (
 
 				while( pairIndex < numDCLs )
 				{
+                    // don't run of the end of the data buffer
+                    if( index >= dcl_index_count )
+                    {
+                        error = kIOReturnBadArgument;
+                        break;
+                    }
+                    
 					--dclIndexTable[ index ] ;
 					if ( dclIndexTable[ index ] >= programLength )
 					{
@@ -1251,11 +1268,20 @@ IOFWUserLocalIsochPort::userNotify (
 		
 		case kFWNuDCLUpdateNotification :
 		{
-			unsigned index = 0 ;
+            unsigned dcl_indices_count = dataSize / sizeof(unsigned);
+
+            unsigned index = 0 ;
 			while ( index < numDCLs )
 			{
 				unsigned * dclIndices = (unsigned*)data ;
-				
+
+                // don't run of the end of the data buffer
+                if( index >= dcl_indices_count )
+                {
+                    error = kIOReturnBadArgument;
+                    break;
+                }
+                
 				--dclIndices[ index ] ;
 				if ( __builtin_expect( dclIndices[ index ] >= programLength, false ) )
 				{

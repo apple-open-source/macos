@@ -1,0 +1,13 @@
+--- contrib/pdfmark/Makefile.sub.orig	2015-06-26 02:53:38.000000000 -0700
++++ contrib/pdfmark/Makefile.sub	2015-06-26 02:54:58.000000000 -0700
+@@ -18,10 +18,8 @@
+ # Foundation, 51 Franklin St - Fifth Floor, Boston, MA 02110-1301, USA.
+ 
+ MAN1=\
+-  pdfroff.n
+ 
+ CMDFILES=\
+-  pdfroff
+ 
+ TMACFILES=\
+   pdfmark.tmac \

@@ -4,15 +4,20 @@
 <title>libcurl-errors man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -82,6 +87,8 @@ p.roffit {
 <p class="level1">FTP servers return a 227-line as a response to a PASV command. If libcurl fails to parse that line, this return code is passed back. 
 <p class="level0"><a name="CURLEFTPCANTGETHOST"></a><span class="nroffip">CURLE_FTP_CANT_GET_HOST (15)</span> 
 <p class="level1">An internal failure to lookup the host used for the new connection. 
+<p class="level0"><a name="CURLEHTTP2"></a><span class="nroffip">CURLE_HTTP2 (16)</span> 
+<p class="level1">A problem was detected in the HTTP2 framing layer. This is somewhat generic and can be one out of several problems, see the error buffer for details. 
 <p class="level0"><a name="CURLEFTPCOULDNTSETTYPE"></a><span class="nroffip">CURLE_FTP_COULDNT_SET_TYPE (17)</span> 
 <p class="level1">Received an error when trying to set the transfer mode to binary or ASCII. 
 <p class="level0"><a name="CURLEPARTIALFILE"></a><span class="nroffip">CURLE_PARTIAL_FILE (18)</span> 
@@ -243,6 +250,7 @@ p.roffit {
 <p class="level0"><a name="CURLSHENOMEM"></a><span class="nroffip">CURLSHE_NOMEM (4)</span> 
 <p class="level1">Not enough memory was available. (Added in 7.12.0) 
 <p class="level0"><a name="CURLSHENOTBUILTIN"></a><span class="nroffip">CURLSHE_NOT_BUILT_IN (5)</span> 
-<p class="level1">The requested sharing could not be done because the library you use don't have that particular feature enabled. (Added in 7.23.0) <p class="roffit">
+<p class="level1">The requested sharing could not be done because the library you use don't have that particular feature enabled. (Added in 7.23.0) <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
+<p class="level0"><a Class="manpage" href="./curl_easy_strerror.html">curl_easy_strerror</a>, <a Class="manpage" href="./curl_multi_strerror.html">curl_multi_strerror</a>, <span Class="manpage"> </span> <a Class="manpage" href="./curl_share_strerror.html">curl_share_strerror</a>, <span Class="manpage">  CURLOPT_ERRORBUFFER (3)</span> <span Class="manpage"> </span> <span Class="manpage">CURLOPT_VERBOSE (3)</span> <span Class="manpage">  CURLOPT_DEBUGFUNCTION (3) </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

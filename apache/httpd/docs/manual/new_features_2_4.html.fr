@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -47,13 +49,12 @@ serveur HTTP Apache</h1>
     
     <dl>
       <dt>Modules multiprocessus (MPMs) chargeables à l'exécution</dt>
-      <dd>On peut maintenant <a href="mpm.html#dynamic">built as
-      loadable modules</a> plusieurs MPMs en tant que modules
-      chargeables. Le choix du MPM à utiliser s'effectue à
-      l'exécution.</dd>
+      <dd>Plusieurs MPMs peuvent maintenant être <a href="mpm.html#dynamic">compilés en tant que modules
+      chargeables</a>. Le choix du MPM à utiliser s'effectue
+      à l'exécution via la directive <code class="directive"><a href="./mod/mod_so.html#loadmodule">LoadModule</a></code>.</dd>
 
       <dt>MPM Event</dt>
-      <dd>Le <a href="mod/event.html">Event MPM</a> est sorti du stade expérimental et est
+      <dd>Le <a href="mod/event.html">MPM Event</a> n'en est plus au stade expérimental et est
       maintenant pleinement supporté.</dd>
 
       <dt>Support du mode asynchrone</dt>
@@ -67,7 +68,7 @@ serveur HTTP Apache</h1>
       nouveaux niveaux <code>trace1</code> à <code>trace8</code> ont été
       ajoutés au dessus du niveau de journalisation <code>debug</code>.</dd>
 
-      <dt>Sections de configuration au niveau de la requête</dt>
+      <dt>Sections de configuration au niveau requête</dt>
       <dd>Les sections <code class="directive"><a href="./mod/core.html#if">If</a></code>,
       <code class="directive"><a href="./mod/core.html#elseif">&lt;ElseIf&gt;</a></code> et
       <code class="directive"><a href="./mod/core.html#else">&lt;Else&gt;</a></code>
@@ -81,12 +82,12 @@ serveur HTTP Apache</h1>
       <code class="directive"><a href="./mod/core.html#if">&lt;If&gt;</a></code>, etc...
       </dd>
 
-      <dt>KeepAliveTimeout in milliseconds</dt>
-      <dd>It is now possible to specify <code class="directive"><a href="./mod/core.html#keepalivetimeout">KeepAliveTimeout</a></code> in milliseconds.
+      <dt>KeepAliveTimeout en millisecondes</dt>
+      <dd>Il est maintenant possible de définir la directive <code class="directive"><a href="./mod/core.html#keepalivetimeout">KeepAliveTimeout</a></code> en millisecondes.
       </dd>
 
-      <dt>NameVirtualHost directive</dt>
-      <dd>Cette directive obsolète n'est plus utile.</dd>
+      <dt>Directive NameVirtualHost</dt>
+      <dd>Cette directive n'est plus nécessaire et est maintenant obsolète.</dd>
 
       <dt>Directives autorisées dans les fichiers <code>.htaccess</code></dt>
       <dd>La nouvelle directive <code class="directive"><a href="./mod/core.html#allowoverridelist">AllowOverrideList</a></code> permet de contrôler de
@@ -96,7 +97,7 @@ serveur HTTP Apache</h1>
       <dt>Variables dans les fichiers de configuration</dt>
       <dd>La directive <code class="directive"><a href="./mod/core.html#define">Define</a></code>
       permet de définir des variables dans les fichiers de
-      configuration, améliorant ainsi la clareté de la représentation si
+      configuration, améliorant ainsi la clareté de la présentation si
       la même valeur est utilisée en plusieurs points de la
       configuration.
       </dd>
@@ -162,7 +163,8 @@ serveur HTTP Apache</h1>
 
       <dt><code class="module"><a href="./mod/mod_lua.html">mod_lua</a></code></dt>
       <dd>Embarque le langage <a href="http://www.lua.org/">Lua</a> dans
-      httpd pour la configuration et les fonctions logiques courantes (Experimental).</dd>
+      httpd pour la configuration et les fonctions logiques courantes
+      (Expérimental).</dd>
 
       <dt><code class="module"><a href="./mod/mod_log_debug.html">mod_log_debug</a></code></dt>
       <dd>Permet d'introduire une journalisation personnalisée à
@@ -196,6 +198,17 @@ serveur HTTP Apache</h1>
       dans les modules de filtrage basés sur libxml2 (support du
       markup)</dd>
 
+      <dt><code class="module"><a href="./mod/mod_macro.html">mod_macro</a></code> (disponible à partir de la version 2.4.5)</dt>
+      <dd>Permet d'utiliser des macros au sein des fichiers de
+      configuration.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_proxy_wstunnel.html">mod_proxy_wstunnel</a></code> (disponible à partir de la version 2.4.5)</dt>
+      <dd>Support des tunnels web-socket.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_authnz_fcgi.html">mod_authnz_fcgi</a></code> (disponible à partir de la version 2.4.10)</dt>
+      <dd>Permet aux applications d'autorisation FastCGI d'authentifier
+      et/ou autoriser les clients.</dd>
+
     </dl>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -223,6 +236,8 @@ serveur HTTP Apache</h1>
       <dd>Le support des clés EC a été ajouté à celui des clés RSA et
       DSA.</dd>
 
+      <dd>Support de TLS-SRP (disponible à partir de la version 2.4.4).</dd>
+
       <dt><code class="module"><a href="./mod/mod_proxy.html">mod_proxy</a></code></dt>
 
       <dd>La directive <code class="directive"><a href="./mod/mod_proxy.html#proxypass">ProxyPass</a></code> est maintenant configurée
@@ -232,6 +247,9 @@ serveur HTTP Apache</h1>
 
       <dd>Il est maintenant possible de configurer l'adresse source dans
       les requêtes mandatées.</dd>
+
+      <dd>Support des sockets de type Unix vers le serveur
+      d'arrière-plan (disponible à partir de la version 2.4.7).</dd>
 
       <dt><code class="module"><a href="./mod/mod_proxy_balancer.html">mod_proxy_balancer</a></code></dt>
 
@@ -293,7 +311,7 @@ serveur HTTP Apache</h1>
       clients anciens qui nécessitent de tels en-têtes (Ceci affecte
       tous les modules qui utilisent ces variables d'environnement).</dd>
 
-      <dt><code class="module"><a href="./mod/mod_authz_core.html">mod_authz_core</a></code>Conteneurs de logique d'autorisation</dt>
+      <dt><code class="module"><a href="./mod/mod_authz_core.html">mod_authz_core</a></code> Conteneurs de logique d'autorisation</dt>
 
       <dd>La directive <code class="directive"><a href="./mod/mod_authz_core.html#require">Require</a></code> et les directives de
       conteneurs associées, comme <code class="directive"><a href="./mod/mod_authz_core.html#requireall">&lt;RequireAll&gt;</a></code>, permettent de définir une
@@ -320,12 +338,16 @@ serveur HTTP Apache</h1>
       rejète les connexions inactives vers le serveur LDAP.</dd>
       <dd><code class="module"><a href="./mod/mod_ldap.html">mod_ldap</a></code> propose la directive <code class="directive"><a href="./mod/mod_ldap.html#ldaplibrarydebug">LDAPLibraryDebug</a></code> qui permet de
       journaliser les informations de débogage fournies par la boîte à
-      outils LDAP utilisée</dd>
+      outils LDAP utilisée.</dd>
 
       <dt><code class="module"><a href="./mod/mod_info.html">mod_info</a></code></dt>
       <dd><code class="module"><a href="./mod/mod_info.html">mod_info</a></code> est maintenant capable d'afficher la
       configuration préinterprétée sur stdout au cours du démarrage du
       serveur.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_auth_basic.html">mod_auth_basic</a></code></dt>
+      <dd>Nouveau mécanisme générique permettant d'effectuer une
+      authentification basique (disponible à partir de la version 2.4.5).</dd>
 
     </dl>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
@@ -334,7 +356,8 @@ serveur HTTP Apache</h1>
     
     <dl>
         <dt><code class="program"><a href="./programs/fcgistarter.html">fcgistarter</a></code></dt>
-        <dd>Nouvel utilitaire pour le démarrage des démons FastCGI</dd>
+        <dd>Nouvel utilitaire pour le démarrage des démons
+	FastCGI.</dd>
 	<dt><code class="program"><a href="./programs/htcacheclean.html">htcacheclean</a></code></dt>
         <dd>Les URLs présentes dans le cache peuvent maintenant être
 	affichées, accompagnées éventuellement de leurs métadonnées.</dd>
@@ -352,6 +375,11 @@ serveur HTTP Apache</h1>
 	courant.</dd>
         <dd>Possibilité d'invoquer un script personnalisé après la
 	rotation.</dd>
+
+	<dt><code class="program"><a href="./programs/htpasswd.html">htpasswd</a></code>, <code class="program"><a href="./programs/htdbm.html">htdbm</a></code></dt>
+        <dd>Support de l'algorithme bcrypt (disponible à partir de la
+	version 2.4.4).
+        </dd>
     </dl>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -362,7 +390,7 @@ serveur HTTP Apache</h1>
         <dd>La documentation du module <code class="module"><a href="./mod/mod_rewrite.html">mod_rewrite</a></code> a
 	été réorganisée et presque entièrement réécrite en mettant
 	l'accent sur les exemples et l'utilisation courante, ainsi que
-	sur la l'incitation à utiliser d'autres solutions lorsque cela
+	sur l'incitation à utiliser d'autres solutions lorsque cela
 	s'avère plus approprié. Le document <a href="rewrite/">Rewrite
 	Guide</a> constitue maintenant une section de premier niveau ;
 	il est mieux organisé et contient beaucoup plus de détails.</dd>
@@ -460,7 +488,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/new_features_2_4.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

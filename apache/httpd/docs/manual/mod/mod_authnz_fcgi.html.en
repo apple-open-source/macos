@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -30,7 +32,8 @@
 httpd authentication and authorization</td></tr>
 <tr><th><a href="module-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">Module Identifier:</a></th><td>authnz_fcgi_module</td></tr>
-<tr><th><a href="module-dict.html#SourceFile">Source File:</a></th><td>mod_authnz_fcgi.c</td></tr></table>
+<tr><th><a href="module-dict.html#SourceFile">Source File:</a></th><td>mod_authnz_fcgi.c</td></tr>
+<tr><th><a href="module-dict.html#Compatibility">Compatibility:</a></th><td>Available in version 2.4.10 and later</td></tr></table>
 <h3>Summary</h3>
 
     <p>This module allows FastCGI authorizer applications to
@@ -44,23 +47,24 @@ httpd authentication and authorization</td></tr>
     such as for Basic authentication, or can authenticate using arbitrary
     mechanisms.</p>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
-<ul id="toc">
-<li><img alt="" src="../images/down.gif" /> <a href="#authnzfcgicheckauthnprovider">AuthnzFcgiCheckAuthnProvider</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#authnzfcgidefineprovider">AuthnzFcgiDefineProvider</a></li>
-</ul>
-<h3>Topics</h3>
+<div id="quickview"><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#invocations">Invocation modes</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#examples">Additional examples</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#limitations">Limitations</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#logging">Logging</a></li>
-</ul><h3>See also</h3>
+</ul><h3 class="directives">Directives</h3>
+<ul id="toc">
+<li><img alt="" src="../images/down.gif" /> <a href="#authnzfcgicheckauthnprovider">AuthnzFcgiCheckAuthnProvider</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#authnzfcgidefineprovider">AuthnzFcgiDefineProvider</a></li>
+</ul>
+<h3>See also</h3>
 <ul class="seealso">
 <li><a href="../howto/auth.html">Authentication, Authorization,
 and Access Control</a></li>
 <li><code class="module"><a href="../mod/mod_auth_basic.html">mod_auth_basic</a></code></li>
 <li><code class="program"><a href="../programs/fcgistarter.html">fcgistarter</a></code></li>
+<li><code class="module"><a href="../mod/mod_proxy_fcgi.html">mod_proxy_fcgi</a></code></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -123,7 +127,7 @@ while (FCGI::accept &gt;= 0) {
 
       Example configuration:
 <pre class="prettyprint lang-config">AuthnzFcgiDefineProvider authn FooAuthn fcgi://localhost:10102/
-&lt;Location /protected/&gt;
+&lt;Location "/protected/"&gt;
   AuthType Basic
   AuthName "Restricted"
   AuthBasicProvider FooAuthn
@@ -164,7 +168,7 @@ while (FCGI::accept &gt;= 0) {
 
       Example configuration:
 <pre class="prettyprint lang-config">AuthnzFcgiDefineProvider authz FooAuthz fcgi://localhost:10103/
-&lt;Location /protected/&gt;
+&lt;Location "/protected/"&gt;
   AuthType ...
   AuthName ...
   AuthBasicProvider ...
@@ -215,7 +219,7 @@ while (FCGI::accept &gt;= 0) {
 
       Example configuration:
 <pre class="prettyprint lang-config">AuthnzFcgiDefineProvider authnz FooAuthnz fcgi://localhost:10103/
-&lt;Location /protected/&gt;
+&lt;Location "/protected/"&gt;
   AuthType Basic
   AuthName "Restricted"
   AuthBasicProvider FooAuthnz
@@ -263,7 +267,7 @@ while (FCGI::accept &gt;= 0) {
 
       Example configuration:
 <pre class="prettyprint lang-config">AuthnzFcgiDefineProvider authn FooAuthn fcgi://localhost:10103/
-&lt;Location /protected/&gt;
+&lt;Location "/protected/"&gt;
   AuthType ...
   AuthName ...
   AuthnzFcgiCheckAuthnProvider FooAuthn \
@@ -508,7 +512,7 @@ authentication and/or authorization</td></tr>
     <dl>
       <dt><em>type</em></dt>
       <dd>This must be set to <em>authn</em> for authentication,
-      <em>authz</em> for authentication, or <em>authnz</em> for
+      <em>authz</em> for authorization, or <em>authnz</em> for
       a generic FastCGI authorizer which performs both checks.</dd>
 
       <dt><em>provider-name</em></dt>
@@ -547,7 +551,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authnz_fcgi.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

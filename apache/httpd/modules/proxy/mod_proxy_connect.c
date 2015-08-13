@@ -203,6 +203,7 @@ static int proxy_connect_handler(request_rec *r, proxy_worker *worker,
     apr_socket_t *sock;
     conn_rec *c = r->connection;
     conn_rec *backconn;
+    int done = 0;
 
     apr_bucket_brigade *bb = apr_brigade_create(p, c->bucket_alloc);
     apr_status_t rv;
@@ -210,7 +211,6 @@ static int proxy_connect_handler(request_rec *r, proxy_worker *worker,
     char buffer[HUGE_STRING_LEN];
     apr_socket_t *client_socket = ap_get_conn_socket(c);
     int failed, rc;
-    int client_error = 0;
     apr_pollset_t *pollset;
     apr_pollfd_t pollfd;
     const apr_pollfd_t *signalled;
@@ -320,7 +320,7 @@ static int proxy_connect_handler(request_rec *r, proxy_worker *worker,
     /* Add client side to the poll */
     pollfd.p = r->pool;
     pollfd.desc_type = APR_POLL_SOCKET;
-    pollfd.reqevents = APR_POLLIN;
+    pollfd.reqevents = APR_POLLIN | APR_POLLHUP;
     pollfd.desc.s = client_socket;
     pollfd.client_data = NULL;
     apr_pollset_add(pollset, &pollfd);
@@ -414,9 +414,9 @@ static int proxy_connect_handler(request_rec *r, proxy_worker *worker,
     r->proto_input_filters = c->input_filters;
 /*    r->sent_bodyct = 1;*/
 
-    while (1) { /* Infinite loop until error (one side closes the connection) */
-        if ((rv = apr_pollset_poll(pollset, -1, &pollcnt, &signalled))
-            != APR_SUCCESS) {
+    do { /* Loop until done (one side closes the connection, or an error) */
+        rv = apr_pollset_poll(pollset, -1, &pollcnt, &signalled);
+        if (rv != APR_SUCCESS) {
             if (APR_STATUS_IS_EINTR(rv)) {
                 continue;
             }
@@ -434,43 +434,46 @@ static int proxy_connect_handler(request_rec *r, proxy_worker *worker,
 
             if (cur->desc.s == sock) {
                 pollevent = cur->rtnevents;
-                if (pollevent & APR_POLLIN) {
+                if (pollevent & (APR_POLLIN | APR_POLLHUP)) {
 #ifdef DEBUGGING
                     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01025)
                                   "sock was readable");
 #endif
-                    rv = proxy_connect_transfer(r, backconn, c, bb, "sock");
-                    }
-                else if ((pollevent & APR_POLLERR)
-                         || (pollevent & APR_POLLHUP)) {
-                         rv = APR_EPIPE;
-                         ap_log_rerror(APLOG_MARK, APLOG_NOTICE, 0, r, APLOGNO(01026)
-                                       "err/hup on backconn");
+                    done |= proxy_connect_transfer(r, backconn, c, bb,
+                                                   "sock") != APR_SUCCESS;
                 }
-                if (rv != APR_SUCCESS)
-                    client_error = 1;
+                else if (pollevent & APR_POLLERR) {
+                    ap_log_rerror(APLOG_MARK, APLOG_NOTICE, 0, r, APLOGNO(01026)
+                                  "err on backconn");
+                    backconn->aborted = 1;
+                    done = 1;
+                }
             }
             else if (cur->desc.s == client_socket) {
                 pollevent = cur->rtnevents;
-                if (pollevent & APR_POLLIN) {
+                if (pollevent & (APR_POLLIN | APR_POLLHUP)) {
 #ifdef DEBUGGING
                     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01027)
                                   "client was readable");
 #endif
-                    rv = proxy_connect_transfer(r, c, backconn, bb, "client");
+                    done |= proxy_connect_transfer(r, c, backconn, bb,
+                                                   "client") != APR_SUCCESS;
+                }
+                else if (pollevent & APR_POLLERR) {
+                    ap_log_rerror(APLOG_MARK, APLOG_NOTICE, 0, r, APLOGNO(02827)
+                                  "err on client");
+                    c->aborted = 1;
+                    done = 1;
                 }
             }
             else {
-                rv = APR_EBADF;
                 ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(01028)
                               "unknown socket in pollset");
+                done = 1;
             }
 
         }
-        if (rv != APR_SUCCESS) {
-            break;
-        }
-    }
+    } while (!done);
 
     ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
                   "finished with poll() - cleaning up");
@@ -481,12 +484,11 @@ static int proxy_connect_handler(request_rec *r, proxy_worker *worker,
      * Close the socket and clean up
      */
 
-    if (client_error)
+    if (backconn->aborted)
         apr_socket_close(sock);
     else
         ap_lingering_close(backconn);
 
-    c->aborted = 1;
     c->keepalive = AP_CONN_CLOSE;
 
     return OK;

@@ -221,11 +221,6 @@ build_type2_packet(OM_uint32 *minor_status,
 
 
 
-krb5_error_code
-_krb5_kcm_ntlm_challenge(krb5_context context, int op __attribute((__unused__)),
-			 uint8_t chal[8]);
-
-
 /*
  *
  */
@@ -296,7 +291,7 @@ _gss_ntlm_accept_sec_context
 		    krb5_init_context(&context);
 		});
 	    if (context)
-		_krb5_kcm_ntlm_challenge(context, 0, ctx->challenge);
+		krb5_kcm_ntlm_challenge(context, ctx->challenge);
 	}
 
 	data.data = input_token_buffer->value;

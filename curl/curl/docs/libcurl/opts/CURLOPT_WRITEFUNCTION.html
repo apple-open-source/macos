@@ -4,15 +4,20 @@
 <title>CURLOPT_WRITEFUNCTION man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,11 +52,13 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_WRITEFUNCTION - set callback for writing received data <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0"><pre>
-<p class="level0">#include &lt;curl/curl.h&gt;
- <p class="level0">size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
- <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_WRITEFUNCTION, write_callback);
- </pre>
+<p class="level0"><pre class="level0">
+&#35;include &lt;curl/curl.h&gt;
+&nbsp;
+size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
+&nbsp;
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_WRITEFUNCTION, write_callback);
+</pre>
 <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a pointer to your callback function, which should match the prototype shown above. 
 <p class="level0">This callback function gets called by libcurl as soon as there is data received that needs to be saved.  <span Class="emphasis">ptr</span> points to the delivered data, and the size of that data is <span Class="emphasis">size</span> multiplied with <span Class="emphasis">nmemb</span>. 
@@ -67,6 +74,6 @@ p.roffit {
 <p class="level0">Support for the CURL_WRITEFUNC_PAUSE return code was added in version 7.18.0. <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">This will return CURLE_OK. <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>
 <p class="level0">A common technique is to use this callback to store the incoming data into a dynamically growing allocated buffer. Like in the getinmemory example: <a href="http://curl.haxx.se/libcurl/c/getinmemory.html">http://curl.haxx.se/libcurl/c/getinmemory.html</a> <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_WRITEDATA.html">CURLOPT_WRITEDATA</a> <a Class="manpage" href="./CURLOPT_READFUNCTION.html">CURLOPT_READFUNCTION</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_WRITEDATA.html">CURLOPT_WRITEDATA</a>, <a Class="manpage" href="./CURLOPT_READFUNCTION.html">CURLOPT_READFUNCTION</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

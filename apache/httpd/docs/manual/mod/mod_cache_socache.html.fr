@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -86,9 +88,9 @@ CacheSocacheMaxSize 102400
 </ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="CacheSocache" id="CacheSocache">CacheSocache</a> <a name="cachesocache" id="cachesocache">Directive</a></h2>
+<div class="directive-section"><h2><a name="cachesocache" id="cachesocache">Directive</a> <a name="CacheSocache" id="CacheSocache">CacheSocache</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>L'implémentation du cache d'objets partagés à utiliser</td></tr>
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Implémentation du cache d'objets partagés à utiliser</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>CacheSocache <var>type[:args]</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
@@ -96,9 +98,10 @@ CacheSocacheMaxSize 102400
 <tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur HTTP
 Apache</td></tr>
 </table>
-    <p>La directive <code class="directive">CacheSocache</code> définit
-    l'implémentation du cache d'objets partagés à utiliser,
-    suivie d'arguments optionnels. On peut choisir entre <a href="../socache.html">plusieurs implémentations</a> de caches d'objets
+    <p>La directive <code class="directive">CacheSocache</code>
+    définit l'implémentation du cache d'objets partagés à utiliser,
+    suivie d'arguments optionnels. Il est
+    possible de choisir entre plusieurs <a href="../socache.html">implémentations</a> de caches d'objets
     partagés.</p>
 
     <pre class="prettyprint lang-config">CacheSocache shmcb</pre>
@@ -106,7 +109,7 @@ Apache</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="CacheSocacheMaxSize" id="CacheSocacheMaxSize">CacheSocacheMaxSize</a> <a name="cachesocachemaxsize" id="cachesocachemaxsize">Directive</a></h2>
+<div class="directive-section"><h2><a name="cachesocachemaxsize" id="cachesocachemaxsize">Directive</a> <a name="CacheSocacheMaxSize" id="CacheSocacheMaxSize">CacheSocacheMaxSize</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>La taille maximale d'une entrée pouvant être placée dans le
 cache</td></tr>
@@ -118,8 +121,8 @@ cache</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur HTTP
 Apache</td></tr>
 </table>
-    <p>La directive <code class="directive">CacheSocacheMaxSize</code> définit
-    la taille maximale, en octets, de la somme des en-têtes et
+    <p>La directive <code class="directive">CacheSocacheMaxSize</code>
+    définit la taille maximale, en octets, de la somme des en-têtes et
     du corps d'un document pouvant être stocké dans le cache. Bien
     entendu, plus la taille des en-têtes sera grande, plus la taille
     maximale du corps du document s'en trouvera réduite.</p>
@@ -127,8 +130,8 @@ Apache</td></tr>
     <p>Le module <code class="module"><a href="../mod/mod_cache_socache.html">mod_cache_socache</a></code> ne tentera de mettre
     en cache que des réponses qui possèdent une taille de contenu
     explicite, ou dont la taille est suffisamment petite pour qu'elles
-    soient écrites en une seule passe. On pourra ainsi laisser le module
-    <code class="module"><a href="../mod/mod_cache_disk.html">mod_cache_disk</a></code> mettre en cache des réponses dont
+    soient écrites en une seule passe. Ceci permet au module
+    <code class="module"><a href="../mod/mod_cache_disk.html">mod_cache_disk</a></code> de mettre en cache des réponses dont
     la taille est trop importante pour pouvoir être mises en cache par
     <code class="module"><a href="../mod/mod_cache_socache.html">mod_cache_socache</a></code>.</p>
 
@@ -137,7 +140,7 @@ Apache</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="CacheSocacheMaxTime" id="CacheSocacheMaxTime">CacheSocacheMaxTime</a> <a name="cachesocachemaxtime" id="cachesocachemaxtime">Directive</a></h2>
+<div class="directive-section"><h2><a name="cachesocachemaxtime" id="cachesocachemaxtime">Directive</a> <a name="CacheSocacheMaxTime" id="CacheSocacheMaxTime">CacheSocacheMaxTime</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>La durée maximale de stockage d'un document dans le cache
 avant péremption</td></tr>
@@ -149,8 +152,8 @@ avant péremption</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur HTTP
 Apache</td></tr>
 </table>
-    <p>La directive <code class="directive">CacheSocacheMaxTime</code> permet de
-    définir la durée de stockage maximale en secondes d'un document dans
+    <p>La directive <code class="directive">CacheSocacheMaxTime</code>
+    définit la durée de stockage maximale en secondes d'un document dans
     le cache avant péremption. Cette définition l'emporte sur la durée
     de fraîcheur définie pour le document par le protocole HTTP.</p>
 
@@ -159,7 +162,7 @@ Apache</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="CacheSocacheMinTime" id="CacheSocacheMinTime">CacheSocacheMinTime</a> <a name="cachesocachemintime" id="cachesocachemintime">Directive</a></h2>
+<div class="directive-section"><h2><a name="cachesocachemintime" id="cachesocachemintime">Directive</a> <a name="CacheSocacheMinTime" id="CacheSocacheMinTime">CacheSocacheMinTime</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>La durée minimale de stockage d'un document dans le cache</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>CacheSocacheMinTime <var>seconds</var></code></td></tr>
@@ -167,22 +170,22 @@ Apache</td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel, répertoire, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_cache_socache</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.5 du serveur HTTP
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur HTTP
 Apache</td></tr>
 </table>
-    <p>La directive <code class="directive">CacheSocacheMinTime</code> définit
-    le nombre de secondes au delà de la durée de fraîcheur de la
+    <p>La directive <code class="directive">CacheSocacheMinTime</code>
+    définit le nombre de secondes au delà de la durée de fraîcheur de la
     réponse pendant lesquelles cette dernière devra être stockée dans le
-    cache d'objets partagés. Si une réponse n'est stockée que
-    pour une durée égale à sa durée de fraîcheur, il n'y aura pas lieu
-    de la rafraîchir.</p>
+    cache d'objets partagés. En effet, si une réponse n'est stockée que
+    pour une durée égale à sa durée de fraîcheur, elle n'a pas besoin
+    d'être rafraîchie.</p>
 
     <pre class="prettyprint lang-config">CacheSocacheMinTime 600</pre>
 
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="CacheSocacheReadSize" id="CacheSocacheReadSize">CacheSocacheReadSize</a> <a name="cachesocachereadsize" id="cachesocachereadsize">Directive</a></h2>
+<div class="directive-section"><h2><a name="cachesocachereadsize" id="cachesocachereadsize">Directive</a> <a name="CacheSocacheReadSize" id="CacheSocacheReadSize">CacheSocacheReadSize</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>La quantité minimale de données du document à lire et
 mettre en cache avant envoi au client</td></tr>
@@ -191,11 +194,11 @@ mettre en cache avant envoi au client</td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel, répertoire, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_cache_socache</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.5 du serveur HTTP
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur HTTP
 Apache</td></tr>
 </table>
-    <p>La directive <code class="directive">CacheSocacheReadSize</code> définit
-    la quantité minimale de données, en octets, à lire depuis
+    <p>La directive <code class="directive">CacheSocacheReadSize</code>
+    définit la quantité minimale de données, en octets, à lire depuis
     l'arrière-plan avant envoi au client. Avec la valeur par défaut 0,
     les données sont transmises au client dès leur arrivée et quelle que
     soit leur taille. Si la valeur définie est non nulle, le cache
@@ -213,7 +216,7 @@ Apache</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="CacheSocacheReadTime" id="CacheSocacheReadTime">CacheSocacheReadTime</a> <a name="cachesocachereadtime" id="cachesocachereadtime">Directive</a></h2>
+<div class="directive-section"><h2><a name="cachesocachereadtime" id="cachesocachereadtime">Directive</a> <a name="CacheSocacheReadTime" id="CacheSocacheReadTime">CacheSocacheReadTime</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>La durée minimale de lecture avant l'envoi des données</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>CacheSocacheReadTime <var>millisecondes</var></code></td></tr>
@@ -224,8 +227,8 @@ Apache</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.5 du serveur HTTP
 Apache</td></tr>
 </table>
-    <p>La directive <code class="directive">CacheSocacheReadTime</code> définit
-    le temps minimal qui doit s'écouler avant de tenter
+    <p>La directive <code class="directive">CacheSocacheReadTime</code>
+    définit le temps minimal qui doit s'écouler avant de tenter
     l'envoi des données au client. Cette durée sera mise à profit pour
     lire et mettre en tampon les données avant leur envoi au client.
     Ceci peut améliorer les performances en cas de mise en cache de
@@ -267,7 +270,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_cache_socach
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -4,15 +4,20 @@
 <title>CURLOPT_URL man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -46,8 +51,8 @@ p.roffit {
 </head><body>
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
-<p class="level0">CURLOPT_URL - provide the URL to use in the reqest <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0">#include &lt;curl/curl.h&gt; 
+<p class="level0">CURLOPT_URL - provide the URL to use in the request <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
+<p class="level0">&#35;include &lt;curl/curl.h&gt; 
 <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_URL, char *URL); <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass in a pointer to the <span Class="emphasis">URL</span> to work with. The parameter should be a char * to a zero terminated string which must be URL-encoded in the following format: 
 <p class="level0">scheme://host:port/path 
@@ -65,6 +70,7 @@ p.roffit {
 <p class="level0">It is also possible to specify the user name, password and any supported login options as part of the host, for the following protocols, when connecting to servers that require authentication: 
 <p class="level0"><a href="http://user">http://user</a>:password@www.example.com 
 <p class="level0"><a href="ftp://user">ftp://user</a>:password@ftp.example.com 
+<p class="level0">smb://domain%2fuser:password@server.example.com 
 <p class="level0">imap://user:password;options@mail.example.com 
 <p class="level0">pop3://user:password;options@mail.example.com 
 <p class="level0">smtp://user:password;options@mail.example.com 
@@ -121,6 +127,11 @@ p.roffit {
 <p class="level1">s<a href="ftp://user">ftp://user</a>@example.com/~/my-file - This specifies the file my-file in the user's home directory 
 <p class="level1">s<a href="ftp://ssh.example.com/">ftp://ssh.example.com/</a>~/Documents/ - This requests a directory listing of the Documents directory under the user's home directory 
 <p class="level1">
+<p class="level0"><a name="SMB"></a><span class="nroffip">SMB</span> 
+<p class="level1">The path part of a SMB request specifies the file to retrieve and from what share and directory or the share to upload to and as such, may not be omitted. If the user name is not embedded in the URL, it can be set with the <a Class="emphasis" href="./CURLOPT_USERPWD.html">CURLOPT_USERPWD</a> or <a Class="emphasis" href="./CURLOPT_USERNAME.html">CURLOPT_USERNAME</a> option. If the user name is embedded in the URL then it must contain the domain name and as such, the backslash must be URL encoded as %2f. 
+<p class="level1">smb://server.example.com/files/issue - This specifies the file "issue" located in the root of the "files" share 
+<p class="level1">smb://server.example.com/files/ -T issue - This specifies the file "issue" will be uploaded to the root of the "files" share. 
+<p class="level1">
 <p class="level0"><a name="LDAP"></a><span class="nroffip">LDAP</span> 
 <p class="level1">The path part of a LDAP request can be used to specify the: Distinguished Name, Attributes, Scope, Filter and Extension for a LDAP search. Each field is separated by a question mark and when that field is not required an empty string with the question mark separator should be included. 
 <p class="level1">ldap://ldap.example.com/o=My%20Organisation - This will perform a LDAP search with the DN as My Organisation. 
@@ -129,15 +140,28 @@ p.roffit {
 <p class="level1">For more information about the individual components of a LDAP URL please see <a href="http://www.ietf.org/rfc/rfc4516.txt">RFC 4516</a>. 
 <p class="level0"><a name="RTMP"></a><span class="nroffip">RTMP</span> 
 <p class="level1">There's no official URL spec for RTMP so libcurl uses the URL syntax supported by the underlying librtmp library. It has a syntax where it wants a traditional URL, followed by a space and a series of space-separated name=value pairs. 
-<p class="level1">While space is not typically a "legal" letter, libcurl accepts them. When a user wants to pass in a '#' (hash) character it will be treated as a fragment and get cut off by libcurl if provided literally. You will instead have to escape it by providing it as backslash and its ASCII value in hexadecimal: "\23". <a name="DEFAULT"></a><h2 class="nroffsh">DEFAULT</h2>
-<p class="level0">There is no default URL. If this option isn't set, no transfer can be performed. <a name="PROTOCOLS"></a><h2 class="nroffsh">PROTOCOLS</h2>
+<p class="level1">While space is not typically a "legal" letter, libcurl accepts them. When a user wants to pass in a '&#35;' (hash) character it will be treated as a fragment and get cut off by libcurl if provided literally. You will instead have to escape it by providing it as backslash and its ASCII value in hexadecimal: "\23". <a name="DEFAULT"></a><h2 class="nroffsh">DEFAULT</h2>
+<p class="level0">There is no default URL. If this option isn't set, no transfer can be performed. <a name="SECURITY"></a><h2 class="nroffsh">SECURITY CONCERNS</h2>
+<p class="level0">Applications may at times find it convenient to allow users to specify URLs for various purposes and that string would then end up fed to this option. 
+<p class="level0">Getting a URL from an external untrusted party will bring reasons for several security concerns: 
+<p class="level0">If you have an application that runs as or in a server application, getting an unfiltered URL can easily trick your application to access a local resource instead of a remote. Protecting yourself against localhost accesses is very hard when accepting user provided URLs. 
+<p class="level0">Such custom URLs can also access other ports than you planned as port numbers are part of the regular URL format. The combination of a local host and a custom port number can allow external users to play tricks with your local services. 
+<p class="level0">Accepting external URLs may also use other protocols than http:// or other common ones. Restrict what accept with <a Class="emphasis" href="./CURLOPT_PROTOCOLS.html">CURLOPT_PROTOCOLS</a>. 
+<p class="level0">User provided URLs can also be made to point to sites that redirect further on (possibly to other protocols too). Consider your <a Class="emphasis" href="./CURLOPT_FOLLOWLOCATION.html">CURLOPT_FOLLOWLOCATION</a> and <a Class="emphasis" href="./CURLOPT_REDIR_PROTOCOLS.html">CURLOPT_REDIR_PROTOCOLS</a> settings. <a name="PROTOCOLS"></a><h2 class="nroffsh">PROTOCOLS</h2>
 <p class="level0">All <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>
-<p class="level0"><pre>
-<p class="level0">&nbsp;  curl_easy_setopt(curl, CURLOPT_URL, "<a href="http://example.com">http://example.com</a>");
- </pre>
-<a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
-<p class="level0">POP3 and SMTP added in 7.31.0 <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
-<p class="level0">Returns CURLE_OK on success or CURLE_OUT_OF_MEMORY if there was insufficient heap space. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_VERBOSE.html">CURLOPT_VERBOSE</a> <a Class="manpage" href="./CURLOPT_PROTOCOLS.html">CURLOPT_PROTOCOLS</a> <span Class="manpage"> </span> <span Class="manpage">curl_easy_perform (3)</span> <p class="roffit">
+<p class="level0"><pre class="level0">
+CURL *curl = curl_easy_init();
+if(curl) {
+&nbsp; curl_easy_setopt(curl, CURLOPT_URL, "<a href="http://example.com">http://example.com</a>");
+&nbsp;
+&nbsp; curl_easy_perform(curl);
+}
+</pre>
+
+<p class="level0"><a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
+<p class="level0">POP3 and SMTP were added in 7.31.0 <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
+<p class="level0">Returns CURLE_OK on success or CURLE_OUT_OF_MEMORY if there was insufficient heap space. 
+<p class="level0">Note that <span Class="emphasis">curl_easy_setopt(3)</span> won't actually parse the given string so given a bad URL, it will not be detected until <span Class="emphasis">curl_easy_perform(3)</span> or similar is called. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
+<p class="level0"><a Class="manpage" href="./CURLOPT_VERBOSE.html">CURLOPT_VERBOSE</a>, <a Class="manpage" href="./CURLOPT_PROTOCOLS.html">CURLOPT_PROTOCOLS</a>, <span Class="manpage"> </span> <a Class="manpage" href="./CURLOPT_FORBID_REUSE.html">CURLOPT_FORBID_REUSE</a>, <a Class="manpage" href="./CURLOPT_FRESH_CONNECT.html">CURLOPT_FRESH_CONNECT</a>, <span Class="manpage"> </span> <span Class="manpage">curl_easy_perform (3)</span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

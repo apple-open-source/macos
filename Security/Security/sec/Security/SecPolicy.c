@@ -1785,7 +1785,8 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreateEscrowServiceSigner(void)
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
-	SecPolicyAddBasicX509Options(options);
+	// X509, ignoring date validity
+	SecPolicyAddBasicCertOptions(options);
 
 
 	add_ku(options, kSecKeyUsageKeyEncipherment);

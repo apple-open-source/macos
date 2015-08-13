@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -133,18 +135,18 @@ Virtual Hosts</a> to help you decide.  </p>
 
     <pre class="prettyprint lang-config">&lt;VirtualHost 172.20.30.40:80&gt;
     ServerAdmin webmaster@www1.example.com
-    DocumentRoot /www/vhosts/www1
+    DocumentRoot "/www/vhosts/www1"
     ServerName www1.example.com
-    ErrorLog /www/logs/www1/error_log
-    CustomLog /www/logs/www1/access_log combined
+    ErrorLog "/www/logs/www1/error_log"
+    CustomLog "/www/logs/www1/access_log" combined
 &lt;/VirtualHost&gt;
 
 &lt;VirtualHost 172.20.30.50:80&gt;
     ServerAdmin webmaster@www2.example.org
-    DocumentRoot /www/vhosts/www2
+    DocumentRoot "/www/vhosts/www2"
     ServerName www2.example.org
-    ErrorLog /www/logs/www2/error_log
-    CustomLog /www/logs/www2/access_log combined
+    ErrorLog "/www/logs/www2/error_log"
+    CustomLog "/www/logs/www2/access_log" combined
 &lt;/VirtualHost&gt;</pre>
 
 
@@ -199,7 +201,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/ip-based.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -197,6 +197,9 @@ $hodadmin . password \
     { echo "SRP verifier missing" ; exit 1; }
 
 
+defaults delete /Library/Preferences/com.apple.Kerberos kcm
+defaults write /Library/Preferences/com.apple.Kerberos kcm -dict-add disable-ntlm-reflection-detection true
+
 chown -R $u "${testdir}/smb"
 
 echo $pw > ${testdir}/foopassword
@@ -498,6 +501,8 @@ else
     echo "not running windows mount test since you are no on apple network"
 fi
 
+
+defaults delete /Library/Preferences/com.apple.Kerberos kcm
 
 sh ${leaks_kill} --check digest-service digest-service || exit 1
 sh ${leaks_kill} --check kcm kcm || exit 1

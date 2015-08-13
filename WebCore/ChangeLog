@@ -1,3 +1,1336 @@
+2015-07-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r186863.
+
+2015-07-29  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r185848.
+
+2015-07-27  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r180020.
+
+2015-07-27  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r182829.
+
+2015-07-24  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge patch for r187189.
+
+    2015-07-24  Dean Jackson  <dino@apple.com>
+
+            The merge of r187189 made changes to a file that doesn't
+            yet exist in this branch. Move the code to the right place.
+
+            * html/canvas/WebGLRenderingContext.cpp:
+            (WebCore::WebGLRenderingContext::validateDrawArrays): Call into validateSimulatedVertexAttrib0.
+            (WebCore::WebGLRenderingContext::validateDrawElements): Ditto.
+            (WebCore::WebGLRenderingContext::validateSimulatedVertexAttrib0): Copy from the existing code.
+            (WebCore::WebGLRenderingContext::simulateVertexAttrib0): Ditto.
+            * html/canvas/WebGLRenderingContext.h:
+
+2015-07-24  Anders Carlsson  <andersca@apple.com>
+
+        Fix fallout from merging changes for
+        <rdar://problem/21707887> CSP doesn't prevent image loading of <object> when page contains <video controls> and ENABLE(MEDIA_CONTROLS_SCRIPT) is enabled
+
+        Reviewed by Alexey Proskuryakov.
+
+        Tweaked http/tests/security/isolatedWorld/image-load-should-not-bypass-main-world-csp.html so that
+        it will test allowing evals in non-main worlds.
+
+        * bindings/js/ScriptController.cpp:
+        (WebCore::ScriptController::initScript):
+        Due to ContentSecurityPolicy::allowEval being modified on ToT, we'd always end up passing true for
+        the overrideContentSecurityPolicy parameter (since the ContentSecurityPolicy::SuppressReport parameter
+        was incorrectly treated as a boolean).
+        Fix this by merging part of the fix for bug 141316.
+
+        * loader/cache/CachedResourceLoader.cpp:
+        (WebCore::CachedResourceLoader::defaultCachedResourceOptions):
+        The correct ContentSecurityPolicyImposition should be DoPolicyCheck. This was the case on ToT but for
+        some reason it was changed to SkipPolicyCheck when the patch was merged.
+
+        * page/DOMSecurityPolicy.cpp:
+        (WebCore::DOMSecurityPolicy::allowsEval):
+        Pass false for overrideContentSecurityPolicy.
+
+
+2015-07-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r185838.
+
+2015-07-23  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r187189.
+
+    2015-07-23  Dean Jackson  <dino@apple.com>
+
+            Out of bounds in WebGLRenderingContext::simulateVertexAttrib0
+            https://bugs.webkit.org/show_bug.cgi?id=147176
+            <rdar://problem/21567767>
+
+            Reviewed by Oliver Hunt.
+
+            Test: fast/canvas/webgl/out-of-bounds-simulated-vertexAttrib0-drawArrays.html
+
+            Add overflow checking for the drawing calls, specifically the way
+            they may simulate vertexAttrib0.
+
+            * html/canvas/WebGLRenderingContextBase.cpp:
+            (WebCore::WebGLRenderingContextBase::validateDrawArrays): Call new validation method.
+            (WebCore::WebGLRenderingContextBase::validateDrawElements): Ditto.
+            (WebCore::WebGLRenderingContextBase::validateSimulatedVertexAttrib0): New method that
+            validates the parameters used to create the simulated attribute.
+            (WebCore::WebGLRenderingContextBase::simulateVertexAttrib0): No need to do overflow
+            checking here now that the validation method does it for us.
+            (WebCore::WebGLRenderingContextBase::validateVertexAttributes): Deleted.
+            * html/canvas/WebGLRenderingContextBase.h: Add new validation method.
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186863. rdar://problem/21714843
+
+    2015-07-15  Brady Eidson  <beidson@apple.com>
+
+            WebKit document.cookie mis-parsing.
+            rdar://problem/21715050 and https://bugs.webkit.org/show_bug.cgi?id=146976
+
+            Reviewed by Sam Weinig.
+
+            * platform/network/mac/CookieJarMac.mm:
+            (WebCore::setCookiesFromDOM): Use new CFNetwork SPI when available.
+
+2015-07-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186533. rdar://problem/21533137
+
+    2015-07-08  Lucas Forschler  <lforschler@apple.com>
+
+            Merge change for rdar://problem/21533232
+
+        2015-07-08  Zalan Bujtas  <zalan@apple.com>
+
+                Do not crash when the descendant frame tree is destroyed during layout.
+                https://bugs.webkit.org/show_bug.cgi?id=144540
+                rdar://problem/20793184
+
+                Reviewed by Andreas Kling.
+
+                Widget::setFrameRect(), through WebHTMLView layout, could trigger a style recalc, which in turn
+                could initiate an onBeforeLoad callback.
+                If javascript happens to destroy the current iframe in the onBeforeLoad callback, we lose the descendant
+                render tree, including the child FrameView (the iframe element's view). However the RenderIFrame
+                object stays protected until after the layout is done. (see protectRenderWidgetUntilLayoutIsDone())
+
+                Climbing back on the callstack, we need to make sure that
+                1. the root widget of the descendant render tree (FrameView) stays valid as long as it is needed.
+                2. RenderFrameBase::layoutWithFlattening() can handle the case when the associated widget (child FrameView) is set to nullptr.
+                (see RenderWidget::willBeDestroyed() -> setWidget(nullptr))
+
+                (and later, when layout is finished this (RenderIFrame) object gets destroyed too.)
+
+                Covered by fast/frames/flattening/crash-remove-iframe-during-object-beforeload.html.
+
+                * page/FrameView.cpp:
+                (WebCore::FrameView::setFrameRect):
+                (WebCore::FrameView::updateEmbeddedObject):
+                (WebCore::FrameView::updateWidgetPositions):
+                * platform/ScrollView.cpp:
+                (WebCore::ScrollView::setFrameRect):
+                * platform/mac/WidgetMac.mm:
+                (WebCore::Widget::setFrameRect):
+                * rendering/RenderFrameBase.cpp:
+                (WebCore::RenderFrameBase::layoutWithFlattening):
+                (WebCore::RenderFrameBase::childRenderView):
+                (WebCore::RenderFrameBase::peformLayoutWithFlattening):
+                * rendering/RenderFrameBase.h:
+                * rendering/RenderWidget.cpp:
+                (WebCore::RenderWidget::updateWidgetPosition):
+                * rendering/RenderWidget.h:
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186781. rdar://problem/21708063
+
+    2015-07-13  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r186530. rdar://problem/21708151
+
+            * WebCore.exp.in: Export methods.
+
+        2015-07-08  Brady Eidson  <beidson@apple.com>
+
+            Move PingLoaders to the NetworkingProcess.
+            <rdar://problem/18860263> and https://bugs.webkit.org/show_bug.cgi?id=146710
+
+            Reviewed by Tim Horton.
+
+            No new tests.
+            There's no current solution for communicating back to a page that a ping load has reached its target.
+            Until we have such a solution, any attempt at a layout test will be fragile at best.
+
+            * WebCore.xcodeproj/project.pbxproj:
+
+            * loader/LoaderStrategy.cpp:
+            (WebCore::LoaderStrategy::createPingHandle): Default implementation is create the PingHandle directly.
+            * loader/LoaderStrategy.h:
+
+            PingLoader becomes a static class for now that crafts the ResourceRequest then passes it off
+            to the LoaderStrategy:
+            * loader/PingLoader.cpp:
+            (WebCore::PingLoader::loadImage):
+            (WebCore::PingLoader::sendPing):
+            (WebCore::PingLoader::sendViolationReport):
+            (WebCore::PingLoader::startPingLoad):
+            (WebCore::PingLoader::createPingLoader): Deleted.
+            (WebCore::PingLoader::PingLoader): Deleted.
+            (WebCore::PingLoader::~PingLoader): Deleted.
+            * loader/PingLoader.h:
+            (WebCore::PingLoader::timeoutTimerFired): Deleted.
+
+            PingHandle does what PingLoader used to - It's a basic ResourceHandleClient that simply waits
+            for any response/completion/failure and then deletes itself.
+            * platform/network/PingHandle.h: Added.
+            (WebCore::PingHandle::PingHandle):
+            (WebCore::PingHandle::usesAsyncCallbacks):
+            (WebCore::PingHandle::timeoutTimerFired):
+            (WebCore::PingHandle::~PingHandle):
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186763. rdar://problem/21707917
+
+    2015-07-13  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r186476. rdar://problem/21708269
+
+            * WebCore.exp.in: Add symbol to export list since WEBCORE_EXPORT
+            isn't available on the branch.
+
+        2015-07-07  Brady Eidson  <beidson@apple.com>
+
+            HTTP Auth cached after disabling private browsing/reset.
+            <rdar://problem/8293055> and https://bugs.webkit.org/show_bug.cgi?id=146654
+
+            Reviewed by Tim Horton.
+
+            Test: http/tests/security/private-browsing-http-auth.html
+
+            - Change most static CredentialStorage methods to be instance methods instead.
+            - Make a CredentialStorage objects be per-NetworkStorageSession.
+
+            * Modules/websockets/WebSocketChannel.cpp:
+            (WebCore::WebSocketChannel::WebSocketChannel):
+            (WebCore::WebSocketChannel::connect): Only start the web socket load if a networking
+              context is available.
+
+            * platform/network/CredentialStorage.cpp:
+            (WebCore::CredentialStorage::defaultCredentialStorage): Returns the credential storage
+              from the default NetworkStorageSession.
+            (WebCore::CredentialStorage::set):
+            (WebCore::CredentialStorage::get):
+            (WebCore::CredentialStorage::remove):
+            (WebCore::CredentialStorage::findDefaultProtectionSpaceForURL):
+            (WebCore::CredentialStorage::clearCredentials):
+            (WebCore::protectionSpaceToCredentialMap): Deleted.
+            (WebCore::originsWithCredentials): Deleted.
+            (WebCore::pathToDefaultProtectionSpaceMap): Deleted.
+            (WebCore::findDefaultProtectionSpaceForURL): Deleted.
+            (WebCore::CredentialStorage::setPrivateMode): Deleted. Was a no-op anyways.
+            * platform/network/CredentialStorage.h:
+
+            * platform/network/NetworkStorageSession.h:
+            (WebCore::NetworkStorageSession::credentialStorage):
+
+            * platform/network/cf/ResourceHandleCFNet.cpp:
+            (WebCore::ResourceHandle::createCFURLConnection):
+            (WebCore::ResourceHandle::willSendRequest):
+            (WebCore::ResourceHandle::didReceiveAuthenticationChallenge):
+            (WebCore::ResourceHandle::receivedCredential):
+
+            * platform/network/cf/SocketStreamHandle.h:
+            (WebCore::SocketStreamHandle::create):
+            * platform/network/cf/SocketStreamHandleCFNet.cpp:
+            (WebCore::SocketStreamHandle::SocketStreamHandle):
+            (WebCore::SocketStreamHandle::getStoredCONNECTProxyCredentials):
+            (WebCore::getStoredCONNECTProxyCredentials): Deleted.
+
+            * platform/network/curl/ResourceHandleCurl.cpp:
+            (WebCore::ResourceHandle::didReceiveAuthenticationChallenge):
+            (WebCore::ResourceHandle::receivedCredential):
+            * platform/network/curl/ResourceHandleManager.cpp:
+            (WebCore::ResourceHandleManager::applyAuthenticationToRequest):
+
+            * platform/network/mac/ResourceHandleMac.mm:
+            (WebCore::ResourceHandle::createNSURLConnection):
+            (WebCore::ResourceHandle::willSendRequest):
+            (WebCore::ResourceHandle::didReceiveAuthenticationChallenge):
+            (WebCore::ResourceHandle::receivedCredential):
+
+            * platform/network/soup/ResourceHandleSoup.cpp:
+            (WebCore::applyAuthenticationToRequest):
+            (WebCore::ResourceHandle::didReceiveAuthenticationChallenge):
+            (WebCore::ResourceHandle::receivedCredential):
+        
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186744. rdar://problem/21716371
+
+    2015-07-12  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r184434, and a small part of r173173. rdar://problem/21716506
+
+        2015-05-15  Antti Koivisto  <antti@apple.com>
+
+            When redirecting to data URL use HTTP response for same origin policy checks
+            https://bugs.webkit.org/show_bug.cgi?id=145054
+            rdar://problem/20299050
+
+            Reviewed by Alexey Proskuryakov.
+
+            Test: http/tests/security/canvas-remote-read-data-url-image-redirect.html
+
+            * dom/ScriptElement.cpp:
+            (WebCore::ScriptElement::notifyFinished):
+            * dom/ScriptExecutionContext.cpp:
+            (WebCore::ScriptExecutionContext::sanitizeScriptError):
+            * html/canvas/CanvasRenderingContext.cpp:
+            (WebCore::CanvasRenderingContext::wouldTaintOrigin):
+            * loader/ImageLoader.cpp:
+            (WebCore::ImageLoader::notifyFinished):
+            * loader/MediaResourceLoader.cpp:
+            (WebCore::MediaResourceLoader::responseReceived):
+            * loader/TextTrackLoader.cpp:
+            (WebCore::TextTrackLoader::notifyFinished):
+            * loader/cache/CachedImage.cpp:
+            (WebCore::CachedImage::isOriginClean):
+            * loader/cache/CachedResource.cpp:
+            (WebCore::CachedResource::passesAccessControlCheck):
+            (WebCore::CachedResource::passesSameOriginPolicyCheck):
+
+                Factor repeatedly used same origin policy test into a function.
+
+            (WebCore::CachedResource::redirectReceived):
+
+                When redirecting to a data URL save the redirect response.
+
+            (WebCore::CachedResource::responseForSameOriginPolicyChecks):
+
+                In case we got redirected to data use that response instead of the final data response for policy checks.
+
+            * loader/cache/CachedResource.h:
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186793. rdar://problem/21707880
+
+    2015-07-13  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r186663. rdar://problem/21708241
+
+        2015-07-09  Daniel Bates  <dabates@apple.com>
+
+            Fetching Content Security Policy report URL should respect same origin policy
+            https://bugs.webkit.org/show_bug.cgi?id=146754
+            <rdar://problem/18860259>
+
+            Reviewed by Brady Eidson.
+
+            Inspired by Blink r149791 (by Mike West <mkwst@chromium.org>):
+            <https://src.chromium.org/viewvc/blink?revision=149791&view=revision>
+
+            As per <http://www.w3.org/TR/2015/CR-CSP2-20150219/#send-violation-reports>, fetching the
+            Content Security Policy report URL should include cookies if and only if the origin of
+            the protected resource is equal to the origin of the report URL.
+
+            Tests: http/tests/security/contentSecurityPolicy/report-cross-origin-no-cookies-when-private-browsing-enabled.html
+                   http/tests/security/contentSecurityPolicy/report-cross-origin-no-cookies-when-private-browsing-toggled.html
+                   http/tests/security/contentSecurityPolicy/report-cross-origin-no-cookies.html
+                   http/tests/security/contentSecurityPolicy/report-same-origin-no-cookies-when-private-browsing-toggled.html
+                   http/tests/security/contentSecurityPolicy/report-same-origin-with-cookies-when-private-browsing-enabled.html
+                   http/tests/security/contentSecurityPolicy/report-same-origin-with-cookies.html
+
+            * loader/PingLoader.cpp:
+            (WebCore::PingLoader::sendViolationReport):
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186749. rdar://problem/21532770
+
+    2015-07-12  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r185769. rdar://problem/21727217
+
+        2015-06-19  Andy Estes  <aestes@apple.com>
+
+            Various assertion failures occur when executing script in the midst of DOM insertion
+            https://bugs.webkit.org/show_bug.cgi?id=132482
+
+            Reviewed by Darin Adler.
+
+            Prior to this change, when an element containing a <script> child was inserted into a document, the script was
+            executed in ScriptElement::insertedInto(). That script can access nodes that follow it in the newly-inserted
+            hierarchy but are not yet fully inserted, leading to at least the following problems:
+
+                - The script could remove a node that is not yet marked as in the document.
+                - The script could remove a named <map> that has yet to be added to TreeScope::m_imageMapsByName.
+                - The script could remove a form control that has yet to be added to FormController::m_formElementsWithState.
+
+            These scenarios all result in assertion failures. This change ensures that each node in the newly-inserted
+            hierarchy is fully inserted before executing any scripts.
+
+            Tests: fast/dom/element-removed-while-inserting-parent-crash.html
+                   fast/dom/named-map-removed-while-inserting-parent-crash.html
+                   fast/forms/form-control-removed-while-inserting-parent-crash.html
+                   svg/dom/element-removed-while-inserting-parent-crash.html
+
+            * dom/ScriptElement.cpp:
+            (WebCore::ScriptElement::shouldNotifySubtreeInsertions): Renamed from insertedInto().
+            Returned true in the case where insertedInto() would've called prepareScript().
+            (WebCore::ScriptElement::didNotifySubtreeInsertions): Called prepareScript().
+            (WebCore::ScriptElement::insertedInto): Renamed to shouldNotifySubtreeInsertions().
+            * dom/ScriptElement.h:
+            * html/HTMLScriptElement.cpp:
+            (WebCore::HTMLScriptElement::insertedInto): If shouldNotifySubtreeInsertions() is true, returned InsertionShouldCallDidNotifySubtreeInsertions.
+            Otherwise, returned InsertionDone.
+            (WebCore::HTMLScriptElement::didNotifySubtreeInsertions): Called ScriptElement::didNotifySubtreeInsertions().
+            * html/HTMLScriptElement.h:
+            * svg/SVGScriptElement.cpp:
+            (WebCore::SVGScriptElement::insertedInto): Did the same as HTMLScriptElement::insertedInto().
+            (WebCore::SVGScriptElement::didNotifySubtreeInsertions): Called ScriptElement::didNotifySubtreeInsertions().
+            * svg/SVGScriptElement.h:
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186747. rdar://problem/21716398
+
+    2015-07-12  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r186474. rdar://problem/21716537
+
+        2015-07-07  Zalan Bujtas  <zalan@apple.com>
+
+            REGRESSION(169105): CSS Regions: renderer returns wrong selection root when it is inside a column flow.
+            https://bugs.webkit.org/show_bug.cgi?id=146529
+            rdar://problem/21613670
+
+            Reviewed by Mihnea Ovidenie and David Kilzer.
+
+            This patch ensures that RenderObject::selectionRoot() handles column flows properly while searching for the associated
+            selection root.
+            When the renderer is inside a column flow and the column flow is part of a named flow, we stop
+            traversing the ancestor chain, searching for the selection root, when we reach the column flow.
+            Since the column flow is not a selection root, we mistakenly fall back to the RenderView as selection root.
+            Instead, we should check if the column is inside a named flow and return the selection root accordingly.
+            Returning the wrong selection root confuses RenderView::splitSelectionBetweenSubtrees() logic and this particular
+            RenderObject could end up in multiple selection trees.
+
+            Test: fast/regions/selection/crash-when-element-is-inside-column-and-the-containing-block-is-inside-flow.html
+
+            * rendering/RenderObject.cpp:
+            (WebCore::RenderObject::selectionRoot):
+
+2015-07-15  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186746. rdar://problem/21716391
+
+    2015-07-12  David Kilzer  <ddkilzer@apple.com>
+
+            Merge r185572. rdar://problem/21716531
+
+        2015-06-15  Zalan Bujtas  <zalan@apple.com>
+
+            RootInlineBox::m_lineBreakObj becomes invalid when a child renderer is removed and the line does not get marked dirty.
+            https://bugs.webkit.org/show_bug.cgi?id=145988
+            rdar://problem/20959137
+
+            Reviewed by David Hyatt.
+
+            This patch ensures that we find the right first inline box so that we can dirty the
+            the appropriate line boxes.
+            With marking the right line boxes dirty, now we can update RootInlineBox::m_lineBreakObj at the next layout.
+
+            Test: fast/inline/crash-when-child-renderer-is-removed-and-line-stays-clean.html
+
+            * rendering/RenderInline.cpp:
+            (WebCore::RenderInline::culledInlineFirstLineBox):
+            (WebCore::RenderInline::culledInlineLastLineBox):
+            * rendering/RootInlineBox.cpp:
+            (WebCore::RootInlineBox::setLineBreakInfo): Deleted. Remove misleading assert and comment.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186508. rdar://problem/21707887
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r186389. rdar://problem/21708243
+
+        2015-07-06  Daniel Bates  <dabates@apple.com>
+
+                Fix the Windows build following <https://trac.webkit.org/changeset/186388>
+                (https://bugs.webkit.org/show_bug.cgi?id=144830)
+
+                As we for for Mac in WebCoreAVFResourceLoader::startLoading(), instantiate ResourceLoaderOptions
+                with ContentSecurityPolicyImposition::DoPolicyCheck.
+
+                * platform/graphics/avfoundation/cf/WebCoreAVCFResourceLoader.cpp:
+                (WebCore::WebCoreAVCFResourceLoader::startLoading):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186591. rdar://problem/21716407
+
+    2015-07-09  David Kilzer  <ddkilzer@apple.com>
+
+            <rdar://problem/21716549> Donner: Safari URL And Javascript Prompt Origin Spoof Vulnerability
+
+            Merge r184151.
+
+        2015-05-11  Dan Bernstein  <mitz@apple.com>
+
+            WebCore part of <rdar://problem/20878075> Trying to navigate to an invalid URL loads about:blank, but -[WKWebView URL] returns the invalid URL
+
+            Reviewed by Alexey Proskuryakov.
+
+            Test: TestWebKitAPI/Tests/WebKit2Cocoa/ProvisionalURLChange.mm
+
+            In some cases, trying to navigate to an invalid URL results in navigation to about:blank.
+            When the about:blank load is committed, the UI process still thinks that the provisional
+            URL is the original, invalid URL, and updates its state to reflect that that’s the URL that
+            has been committed.
+
+            The provisional URL changes (1) when a provisional load begins, (2) when a server redirect
+            happens, (3) when the client changes the request in willSendRequest, and (4) in this
+            about:blank case. For (1) and (2), there are frame loader client callbacks. (3) is client-
+            initiated. So this patch addresses (4).
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::maybeLoadEmpty): If our request URL is changing to about:blank and
+            while loading the main resource, call FrameLoaderClient::dispatchDidChangeProvisionalURL.
+            * loader/FrameLoaderClient.h: Added dispatchDidChangeProvisionalURL with an empty
+            implementation.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186577. rdar://problem/21533109
+
+    2015-07-08  Lucas Forschler  <lforschler@apple.com>
+
+            Merge r186165. rdar://problem/21533207
+
+        2015-06-30  Zalan Bujtas  <zalan@apple.com>
+
+                Frame flattening: Hit-testing an iframe could end up destroying the associated inline tree context.
+                https://bugs.webkit.org/show_bug.cgi?id=146447
+                rdar://problem/20613501
+
+                Reviewed by Simon Fraser.
+
+                This patch ensures that the render tree associated with the document on which
+                the hit-test is initiated does not get laid out, unless it was directly mutated prior to the hittest.
+
+                Hit-test requirements:
+                1. A clean the render tree before hit-testing gets propagated to the renderers.
+                Document::updateLayout() ensures it by calling both updateStyleIfNeeded() and layout() not only on the current tree, but also
+                on the ancestors if needed.
+
+                2. No render tree mutation while hit-testing the renderers.
+
+                When an iframe is being hit-tested, this hit-test could bubble down to the child frame's render view.
+                In order to ensure #1, we call Document::updateLayout() on the current (subframe) document.
+                If updateStyleIfNeeded() mutates the render tree, we mark it dirty for layout(). However frame flattening also
+                marks the parent renderer (RenderIFrame) dirty.
+                While calling layout() to clean the current render tree, we end up laying out the parent tree too.
+                Laying out the parent tree could end up destroying the inline tree context from where the
+                hittest just bubbled down. (InlineFlowBox -> RenderWidget -> RenderView).
+
+                This patch protects the render tree from such unintentional inline tree mutation during hittesting.
+                After the initial layout we set a layout disallow flag on the frame view to defer subsequent layouts.
+                This patch only changes behavior when frame flattening is enabled, but in future we may always want to enable this.
+
+                Test: fast/frames/flattening/hittest-iframe-while-style-changes-crash.html
+
+                * page/FrameView.cpp:
+                (WebCore::FrameView::layout):
+                (WebCore::FrameView::startLayoutAtMainFrameViewIfNeeded): Deleted. -> Assertion in no longer valid.
+                * page/FrameView.h:
+                * rendering/RenderView.cpp:
+                (WebCore::FrameFlatteningLayoutDisallower::FrameFlatteningLayoutDisallower):
+                (WebCore::FrameFlatteningLayoutDisallower::~FrameFlatteningLayoutDisallower):
+                (WebCore::RenderView::hitTest): Protect the render tree from subsequent layouts.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186575. rdar://problem/21716377
+
+    2015-07-08  Lucas Forschler  <lforschler@apple.com>
+
+            Merge r185665. rdar://problem/21716515
+
+        2015-06-17  Zalan Bujtas  <zalan@apple.com>
+
+                Selection cache produces invalid result when ancestor has float element.
+                https://bugs.webkit.org/show_bug.cgi?id=146042
+                rdar://problem/20604592
+
+                Reviewed by Ryosuke Niwa.
+
+                Selection cache already takes floats into account, however it's not enough to check current
+                block against floats. Any of the ancestor's float starting from the selection root block
+                can impact the selection offsets.
+
+                Test: fast/block/selection-cache-is-incorrect-when-non-direct-parent-has-float.html
+
+                * rendering/LogicalSelectionOffsetCaches.h:
+                (WebCore::LogicalSelectionOffsetCaches::ContainingBlockInfo::ContainingBlockInfo):
+                (WebCore::LogicalSelectionOffsetCaches::ContainingBlockInfo::setBlock):
+                (WebCore::LogicalSelectionOffsetCaches::ContainingBlockInfo::block):
+                (WebCore::LogicalSelectionOffsetCaches::ContainingBlockInfo::cache):
+                (WebCore::LogicalSelectionOffsetCaches::ContainingBlockInfo::hasFloatsOrFlowThreads):
+                (WebCore::LogicalSelectionOffsetCaches::LogicalSelectionOffsetCaches):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186571. rdar://problem/21716420
+
+    2015-07-08  Lucas Forschler  <lforschler@apple.com>
+
+            Merge r185392
+
+        2015-06-09  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+                feComposite filter does not clip the paint rect to its effect rect when the operator is 'in' or 'atop'
+                https://bugs.webkit.org/show_bug.cgi?id=137856
+
+                Reviewed by Darin Adler.
+
+                There was bug in calculating the absolutePaintRect of the feComposite filter
+                when the operator is equal to 'in' or 'atop'. The absolutePaintRect was set
+                to the absolutePaintRect of the background FilterEffect which is correct.
+                What was missing is clipping this rectangle to the maxEffectRect of the
+                filter which we do for other operators.
+
+                Tests: svg/filters/feComposite-background-rect-control-operators.svg
+
+                * platform/graphics/IntRect.h:
+                (WebCore::operator-=):
+                (WebCore::operator-): Add new operators to IntRect.
+
+                * platform/graphics/filters/FEComposite.cpp:
+                (WebCore::FEComposite::determineAbsolutePaintRect): Make sure the filter
+                absolutePaintRect is clipped to maxEffectRect for all operators.
+
+                (WebCore::FEComposite::platformApplySoftware): Code clean-up.
+
+                * platform/graphics/filters/FilterEffect.cpp:
+                (WebCore::FilterEffect::determineAbsolutePaintRect): Move the clipping
+                part to a separate function.
+
+                (WebCore::FilterEffect::clipAbsolutePaintRect): Clip the absolutePaintRect
+                to the maxEffectRect of the filter.
+
+                * platform/graphics/filters/FilterEffect.h:
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186567. rdar://problem/21716428
+
+    2015-07-08  Lucas Forschler  <lforschler@apple.com>
+
+            Merge r184965 rdar://problem/21716564
+
+        2015-05-28  Myles C. Maxfield  <mmaxfield@apple.com>
+
+                Crash under ICU with ASAN during editing/selection/move-by-word-visually-crash-test-5.html
+                https://bugs.webkit.org/show_bug.cgi?id=145429
+                <rdar://problem/20992218>
+
+                Reviewed by Alexey Proskuryakov.
+
+                WebKit uses some strings which contain the lower 8-bits of UTF-16 (thereby saving space). However,
+                ICU doesn't understand this encoding. When we want to use ICU functions with strings in this encoding,
+                we create a UTextProvider which converts our encoded strings to UTF-16 for ICU, one chunk at a time.
+                This object contains a vtable which we populate to perform the conversion.
+
+                The WebKit function which actually returns the UTF-16 chunks has two relevant arguments: an index into
+                the encoded string which ICU is requesting, and a direction from that index which ICU is interested
+                in. This function populates a "chunk" which is characterized by a pointer to a buffer, the length of
+                the populated data in the buffer, and an offset into the chunk which represents the index that the
+                requested character was put into.
+
+                When ICU requests data going backward, we fill in the chunk accordingly, with the requested character
+                all the way at the end. We then set the offset equal to the length of the buffer. However, this length
+                value is stale from the previous time the function ran. Therefore, ICU was reading the wrong index in
+                the chunk when expecting the requested character.
+
+                Covered by editing/selection/move-by-word-visually-crash-test-5.html.
+
+                * platform/text/icu/UTextProviderLatin1.cpp:
+                (WebCore::uTextLatin1Access):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186560. rdar://problem/21716387
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r184653. rdar://problem/21716528
+
+        2015-05-20  Antti Koivisto  <antti@apple.com>
+
+                Assertion failure in WebCore::BidiRun::BidiRun()
+                https://bugs.webkit.org/show_bug.cgi?id=145203
+                rdar://problem/20958973
+
+                Reviewed by Andreas Kling.
+
+                Test: fast/text/text-combine-crash.html
+
+                * rendering/line/BreakingContext.h:
+                (WebCore::BreakingContext::handleText):
+
+                    Renove !isCombined() check. RenderCombineText::combineText() doesn't
+                    do any work unless needed and text may become uncombined too.
+
+                * rendering/line/LineBreaker.cpp:
+                (WebCore::LineBreaker::skipLeadingWhitespace):
+
+                    Same here.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186558. rdar://problem/21716436
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r183838. rdar://problem/21716569
+
+        2015-05-05  Joseph Pecoraro  <pecoraro@apple.com>
+
+                Web Inspector: Crash under WebCore::domWindowFromExecState reloading page with inspector open
+                https://bugs.webkit.org/show_bug.cgi?id=144636
+
+                Reviewed by Mark Lam.
+
+                This ensures we create an InjectedScript for the execution context
+                (frame) preventing the global object / exec state from getting garbage
+                collected before we remove it from our map.
+
+                * inspector/PageRuntimeAgent.cpp:
+                (WebCore::PageRuntimeAgent::notifyContextCreated):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186557. rdar://problem/21716382
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r183436. rdar://problem/21716524
+
+        2015-04-27  Daniel Bates  <dabates@apple.com>
+
+                Form control may be associated with the wrong HTML Form element after form id change
+                https://bugs.webkit.org/show_bug.cgi?id=133456
+                <rdar://problem/17095055>
+
+                Reviewed by Andy Estes.
+
+                Fixes an issue where a form control may be associated with the wrong HTML Form element
+                after the id of the HTML Form element associated with the form control is changed when
+                there is more than one HTML Form element with the same id in the document. Specifically,
+                a form control that has an HTML form attribute value X will always be associated with
+                some HTML Form element f where f.id = X regardless of whether f.id is subsequently
+                changed.
+
+                Tests: fast/forms/change-form-id-to-be-unique-then-submit-form.html
+                       fast/forms/change-form-id-to-be-unique.html
+
+                * dom/Element.cpp:
+                (WebCore::Element::attributeChanged): Notify observers when the id of an element changed.
+                (WebCore::Element::updateId): Added parameter NotifyObservers (defaults to NotifyObservers::Yes),
+                as to whether we should notify observers of the id change.
+                (WebCore::Element::updateIdForTreeScope): Ditto.
+                (WebCore::Element::willModifyAttribute): Do not notify observers of the id change immediately. As
+                indicated by the name of this method, we plan to modify the DOM attribute id of the element, but
+                we have not actually modified it when this method is called. Instead we will notify observers
+                in Element::attributeChanged(), which is called after the DOM attribute id is modified.
+                (WebCore::Element::cloneAttributesFromElement): Ditto.
+                * dom/Element.h: Defined enum class NotifyObservers.
+                * dom/TreeScope.cpp:
+                (WebCore::TreeScope::addElementById): Added boolean parameter notifyObservers (defaults to true)
+                as to whether we should dispatch a notification to all observers.
+                (WebCore::TreeScope::removeElementById): Ditto.
+                * dom/TreeScope.h:
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186556. rdar://problem/21716415
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r183398. rdar://problem/21716555
+
+        2015-04-27  Darin Adler  <darin@apple.com>
+
+                Crashes under IDBDatabase::closeConnection
+                https://bugs.webkit.org/show_bug.cgi?id=141745
+
+                Reviewed by Alexey Proskuryakov.
+
+                * Modules/indexeddb/IDBDatabase.cpp:
+                (WebCore::IDBDatabase::~IDBDatabase): Do the work of close/closeConnection without
+                actually calling those functions.
+                (WebCore::IDBDatabase::closeConnection): Protect the database so it's not destroyed
+                in the middle of this function's execution.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186554. rdar://problem/21716400
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r182918. rdar://problem/21716544
+
+        2015-04-16  Brady Eidson  <beidson@apple.com>
+
+                Media element can manipulate DOM during Document destruction.
+                rdar://problem/20553898 and https://bugs.webkit.org/show_bug.cgi?id=143780
+
+                Reviewed by Jer Noble.
+
+                * html/HTMLMediaElement.cpp:
+                (WebCore::HTMLMediaElement::configureMediaControls): Bail if the element has no active document.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186553. rdar://problem/21716372
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r182829. rdar://problem/21716511
+
+        2015-04-14  Chris Dumez  <cdumez@apple.com>
+
+                Regression(r180020): Web Inspector crashes on pages that have a stylesheet with an invalid MIME type
+                https://bugs.webkit.org/show_bug.cgi?id=143745
+                <rdar://problem/20243916>
+
+                Reviewed by Joseph Pecoraro.
+
+                After r180020, we are stricter and no longer accept CSS resources that
+                are not served with a CSS MIME type. Showing Web inspector on a page
+                with such bad resource would crash because
+                InspectorPageAgent::cachedResourceContent() would return true but
+                the result String would be null. This null String would then later
+                be passed to the Yarr interpreter and crash on a String::is8Bit()
+                call.
+
+                cachedResourceContent() calls CachedCSSStyleSheet::sheetText(). Before
+                r180020, it would return the text, even if the MIME type was incorrect.
+                However, this is no longer the case and we now need to make sure that
+                cachedResourceContent() returns false if sheetText() returns a null
+                String.
+
+                Test: http/tests/inspector/css/bad-mime-type.html
+
+                * inspector/InspectorPageAgent.cpp:
+                (WebCore::InspectorPageAgent::cachedResourceContent):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186551. rdar://problem/21716372
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r180020. rdar://problem/21716511
+
+        2015-02-12  Chris Dumez  <cdumez@apple.com>
+
+                Drop the quirks-mode exception for CSS MIME types
+                https://bugs.webkit.org/show_bug.cgi?id=141501
+
+                Reviewed by Alexey Proskuryakov.
+
+                Drop the quirks-mode exception for CSS MIME types.
+                This matches Firefox's behavior.
+
+                This patch is based on the following Blink revision:
+                http://src.chromium.org/viewvc/blink?view=revision&revision=189669
+
+                Tests:
+                - http/tests/misc/css-accept-any-type.html
+                - http/tests/security/cross-origin-css.html
+
+                * css/StyleSheetContents.cpp:
+                (WebCore::StyleSheetContents::parseAuthorStyleSheet):
+                * dom/ProcessingInstruction.cpp:
+                (WebCore::ProcessingInstruction::setCSSStyleSheet):
+                * inspector/InspectorPageAgent.cpp:
+                (WebCore::InspectorPageAgent::cachedResourceContent):
+                * loader/cache/CachedCSSStyleSheet.cpp:
+                (WebCore::CachedCSSStyleSheet::sheetText):
+                (WebCore::CachedCSSStyleSheet::canUseSheet):
+                * loader/cache/CachedCSSStyleSheet.h:
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186539. rdar://problem/21707873
+
+    2015-07-08  Lucas Forschler  <lforschler@apple.com>
+
+            Merge r186232 rdar://problem/9091261
+
+        2015-07-02  Brady Eidson  <beidson@apple.com>
+
+                Add preference to disable all http-equiv.
+                <rdar://problem/9091261> and https://bugs.webkit.org/show_bug.cgi?id=146553
+
+                Reviewed by Sam Weinig.
+
+                No new tests (Covered by existing test)
+
+                * dom/Document.cpp:
+                (WebCore::Document::processHttpEquiv):
+                * page/Settings.in:
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186521. rdar://problem/21707887
+
+    2015-07-08  Daniel Bates  <dabates@apple.com>
+
+            Merge r186388. rdar://problem/21708243
+
+        2015-07-06  Daniel Bates  <dabates@apple.com>
+
+                Isolated worlds should respect Content Security Policy; User Agent Shadow DOM
+                should be exempt from Content Security Policy
+                https://bugs.webkit.org/show_bug.cgi?id=144830
+                <rdar://problem/18860261>
+
+                Reviewed by Geoffrey Garen.
+
+                Make scripts that run in an isolated world be subject to the Content Security Policy (CSP) of the page
+                and exempt features implemented using a user agent shadow DOM. As a side effect of this change,
+                Safari Content Extensions will respect the CSP policy of the page when loading subresources (e.g. an image).
+
+                Tests: http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-audio.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-css-background.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-css-cursor.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-css-filter-on-image.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-css-webkit-image-set.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-embed-plugin.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-external-script.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-iframe.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-image-after-redirect.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-image.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-inline-script.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-inline-style.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-inline-stylesheet.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-object-plugin.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-object.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-svg-feimage-element.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-svg-font.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-svg-use-element.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-track.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-video.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/block-loading-user-agent-image-from-non-user-agent-content.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-allowed.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked2.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked3.html
+                       http/tests/security/contentSecurityPolicy/userAgentShadowDOM/video-controls-allowed.html
+                       http/tests/security/isolatedWorld/image-load-should-not-bypass-main-world-csp.html
+
+                * Modules/websockets/WebSocket.cpp:
+                (WebCore::WebSocket::connect): Pass shouldBypassMainWorldContentSecurityPolicy to ContentSecurityPolicy::allowConnectToSource().
+                * css/CSSCanvasValue.h:
+                (WebCore::CSSCanvasValue::loadSubimages): Modified to take argument ResourceLoaderOptions (unused).
+                * css/CSSCrossfadeValue.cpp:
+                (WebCore::CSSCrossfadeValue::fixedSize): Explicitly instantiate default ResourceLoaderOptions and pass
+                pass it when requesting a cached image. Added FIXME comment to skip Content Security Policy check when
+                the cross fade is applied to an element in a user agent shadow tree.
+                (WebCore::CSSCrossfadeValue::loadSubimages): Take a ResourceLoaderOptions as an argument and passes it
+                as appropriate.
+                (WebCore::CSSCrossfadeValue::image): Explicitly instantiate default ResourceLoaderOptions and pass it
+                when requesting a cached image. Added FIXME comment to skip Content Security Policy check when the cross
+                fade is applied to an element in a user agent shadow tree.
+                * css/CSSCrossfadeValue.h:
+                * css/CSSCursorImageValue.cpp:
+                (WebCore::CSSCursorImageValue::cachedImage): Take a ResourceLoaderOptions as an argument and passes it
+                as appropriate.
+                * css/CSSCursorImageValue.h:
+                * css/CSSFilterImageValue.cpp:
+                (WebCore::CSSFilterImageValue::fixedSize): Explicitly instantiate default ResourceLoaderOptions and pass
+                pass it when requesting a cached image. Added FIXME comment to skip Content Security Policy check when
+                the cross fade is applied to an element in a user agent shadow tree.
+                (WebCore::CSSFilterImageValue::loadSubimages): Take a ResourceLoaderOptions as an argument and passes it
+                as appropriate.
+                (WebCore::CSSFilterImageValue::loadSubimages): Explicitly instantiate default ResourceLoaderOptions and pass
+                pass it when requesting a cached image. Added FIXME comment to skip Content Security Policy check when
+                the cross fade is applied to an element in a user agent shadow tree.
+                (WebCore::CSSFilterImageValue::image):
+                * css/CSSFilterImageValue.h:
+                * css/CSSFontFaceSrcValue.cpp:
+                (WebCore::CSSFontFaceSrcValue::cachedFont): Take a boolean, isInitiatingElementInUserAgentShadowTree,
+                so as to determine the appropriate CSP imposition. In particular, we skip the CSP check when the initiating element
+                (e.g. SVG font-face element) is in a user agent shadow tree.
+                * css/CSSFontFaceSrcValue.h:
+                * css/CSSFontSelector.cpp:
+                (WebCore::CSSFontSelector::addFontFaceRule): Take a boolean, isInitiatingElementInUserAgentShadowTree, and passes
+                it as appropriate.
+                * css/CSSFontSelector.h:
+                * css/CSSGradientValue.h:
+                (WebCore::CSSGradientValue::loadSubimages): Take a ResourceLoaderOptions as an argument and passes it
+                as appropriate.
+                * css/CSSImageGeneratorValue.cpp:
+                (WebCore::CSSImageGeneratorValue::loadSubimages): Ditto.
+                (WebCore::CSSImageGeneratorValue::cachedImageForCSSValue): Ditto.
+                * css/CSSImageGeneratorValue.h:
+                * css/CSSImageSetValue.cpp:
+                (WebCore::CSSImageSetValue::cachedImageSet): Deleted.
+                * css/CSSImageSetValue.h:
+                * css/CSSImageValue.cpp:
+                (WebCore::CSSImageValue::cachedImage): Deleted.
+                * css/CSSImageValue.h:
+                * css/RuleSet.cpp:
+                (WebCore::RuleSet::addChildRules): Take a boolean, isInitiatingElementInUserAgentShadowTree, and passes
+                it as appropriate.
+                (WebCore::RuleSet::addRulesFromSheet): Added FIXME comment to skip Content Security Policy check when
+                when stylesheet is in a user agent shadow tree.
+                * css/RuleSet.h:
+                * css/StyleResolver.cpp:
+                (WebCore::StyleResolver::StyleResolver): Determine whether the SVG font-face element is in a user agent shadow tree
+                and pass the appropriate value when calling CSSFontSelector::addFontFaceRule(). Also, modernized code; used C++11 range
+                -based for-loop instead of const_iterator idiom.
+                (WebCore::StyleResolver::loadPendingSVGDocuments): Skip CSP check when requesting subresources as a byproduct of
+                resolving style for an element in a user agent shadow tree.
+                (WebCore::StyleResolver::loadPendingImage): Ditto.
+                (WebCore::StyleResolver::loadPendingShapeImage): Ditto.
+                * css/StyleRuleImport.cpp:
+                (WebCore::StyleRuleImport::requestStyleSheet): Added FIXME comment to skip Content Security Policy check when
+                when stylesheet is in a user agent shadow tree.
+                * dom/Element.h:
+                * dom/InlineStyleSheetOwner.cpp:
+                (WebCore::InlineStyleSheetOwner::createSheet): Skip CSP check for an inline <style> that is in a user agent shadow tree.
+                * dom/Node.cpp:
+                (WebCore::Node::isInUserAgentShadowTree): Added.
+                * dom/Node.h:
+                * dom/ScriptElement.cpp:
+                (WebCore::ScriptElement::requestScript): Skip CSP check for an external JavaScript script in a user agent shadow tree.
+                (WebCore::ScriptElement::executeScript): Skip CSP check for an inline JavaScript script that is in a user agent shadow tree.
+                * dom/StyledElement.cpp:
+                (WebCore::StyledElement::styleAttributeChanged): Skip CSP check when modifying the inline style of an element in a user
+                agent shadow tree.
+                * html/HTMLMediaElement.cpp:
+                (WebCore::HTMLMediaElement::isSafeToLoadURL): Skip CSP check for a <audio>, <video> in a user agent shadow tree.
+                (WebCore::HTMLMediaElement::outOfBandTrackSources): Ditto.
+                * html/HTMLTrackElement.cpp:
+                (WebCore::HTMLTrackElement::canLoadURL): Ditto.
+                * html/track/LoadableTextTrack.cpp:
+                (WebCore::LoadableTextTrack::loadTimerFired): Determine whether the <track> is in a user agent shadow tree
+                and pass the appropriate value when calling TextTrackLoader::load().
+                * loader/DocumentLoader.cpp:
+                (WebCore::DocumentLoader::startLoadingMainResource): Do CSP check when loading a resource by default.
+                * loader/ImageLoader.cpp:
+                (WebCore::ImageLoader::updateFromElement): Skip CSP check for an image that is in a user agent shadow tree.
+                * loader/MediaResourceLoader.cpp:
+                (WebCore::MediaResourceLoader::start): Instantiate ResourceLoaderOptions passing placeholder value ContentSecurityPolicyImposition::DoPolicyCheck.
+                This value does not affect the request because we do not check the Content Security Policy for raw resource requests.
+                * loader/NetscapePlugInStreamLoader.cpp:
+                (WebCore::NetscapePlugInStreamLoader::NetscapePlugInStreamLoader): Added FIXME comment to skip Content Security Policy check
+                when when associated plugin element is in a user agent shadow tree.
+                * loader/PolicyChecker.cpp:
+                (WebCore::PolicyChecker::checkNavigationPolicy): Skip CSP check for a <iframe> in a user agent shadow tree.
+                * loader/ResourceLoaderOptions.h: Defined enum class ContentSecurityPolicyImposition with explicit type uint8_t so
+                as to provide a hint to the compiler (for better packing) when it computes the memory layout for struct that
+                contains an instance of this class.
+                (WebCore::ResourceLoaderOptions::ResourceLoaderOptions): Added argument contentSecurityPolicyImposition.
+                (WebCore::ResourceLoaderOptions::contentSecurityPolicyImposition): Added.
+                (WebCore::ResourceLoaderOptions::setContentSecurityPolicyImposition): Added.
+                * loader/SubframeLoader.cpp:
+                (WebCore::SubframeLoader::pluginIsLoadable): Skip CSP check for a plugin element that is in a user agent shadow tree.
+                (WebCore::SubframeLoader::createJavaAppletWidget): Skip CSP check for an applet element that is in a user agent shadow tree.
+                * loader/TextTrackLoader.cpp:
+                (WebCore::TextTrackLoader::load): Take a boolean, isInitiatingElementInUserAgentShadowTree, and sets the appropriate
+                Content Security Policy imposition for the text track request.
+                * loader/TextTrackLoader.h:
+                * loader/cache/CachedResourceLoader.cpp:
+                (WebCore::CachedResourceLoader::requestUserCSSStyleSheet): Skip CSP check for a user-specified stylesheet.
+                (WebCore::CachedResourceLoader::canRequest): Only check the CSP of the page if specified in the resource loader options for the request.
+                (WebCore::CachedResourceLoader::defaultCachedResourceOptions): Add ContentSecurityPolicyImposition::DoPolicyCheck to the default
+                resource loader options so that do check the CSP policy of the page before performing a resource request by default.
+                * loader/cache/CachedSVGDocumentReference.cpp:
+                (WebCore::CachedSVGDocumentReference::load): Take a ResourceLoaderOptions as an argument and passes it as appropriate.
+                * loader/cache/CachedSVGDocumentReference.h:
+                * loader/icon/IconLoader.cpp:
+                (WebCore::IconLoader::startLoading): Instantiate ResourceLoaderOptions passing placeholder value ContentSecurityPolicyImposition::DoPolicyCheck.
+                This value does not affect the request because we do not check the Content Security Policy for raw resource requests.
+                * page/ContentSecurityPolicy.cpp:
+                (WebCore::ContentSecurityPolicy::allowJavaScriptURLs): Take an argument called overrideContentSecurityPolicy (defaults to false). When
+                overrideContentSecurityPolicy := true, this function unconditionally returns true.
+                (WebCore::ContentSecurityPolicy::allowInlineEventHandlers): Ditto.
+                (WebCore::ContentSecurityPolicy::allowInlineScript): Ditto.
+                (WebCore::ContentSecurityPolicy::allowInlineStyle): Ditto.
+                (WebCore::ContentSecurityPolicy::allowEval): Ditto.
+                (WebCore::ContentSecurityPolicy::allowPluginType): Ditto.
+                (WebCore::ContentSecurityPolicy::allowScriptFromSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowObjectFromSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowChildFrameFromSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowImageFromSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowStyleFromSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowFontFromSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowMediaFromSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowConnectToSource): Ditto.
+                (WebCore::ContentSecurityPolicy::allowFormAction): Ditto.
+                (WebCore::ContentSecurityPolicy::allowBaseURI): Ditto.
+                * page/ContentSecurityPolicy.h:
+                * page/DOMSecurityPolicy.cpp:
+                * page/EventSource.cpp:
+                (WebCore::EventSource::create): Pass shouldBypassMainWorldContentSecurityPolicy to ContentSecurityPolicy::allowConnectToSource().
+                * platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.mm:
+                (WebCore::WebCoreAVFResourceLoader::startLoading): Instantiate ResourceLoaderOptions passing placeholder value ContentSecurityPolicyImposition::DoPolicyCheck.
+                This value does not affect the request because we do not check the Content Security Policy for raw resource requests.
+                * svg/SVGFEImageElement.cpp:
+                (WebCore::SVGFEImageElement::requestImageResource): Skip CSP check for a SVG FEImage element in a user agent shadow tree.
+                * svg/SVGFontFaceUriElement.cpp:
+                (WebCore::SVGFontFaceUriElement::loadFont): Skip CSP check for a SVG font-face-uri element in a user agent shadow tree.
+                * svg/SVGUseElement.cpp:
+                (WebCore::SVGUseElement::updateExternalDocument): Skip CSP check for a SVG use element in a user agent shadow tree.
+                * testing/Internals.cpp:
+                (WebCore::Internals::ensureUserAgentShadowRoot): Added.
+                * testing/Internals.h:
+                * testing/Internals.idl: Added declaration for ensureUserAgentShadowRoot().
+                * xml/XMLHttpRequest.cpp:
+                (WebCore::XMLHttpRequest::open): Pass shouldBypassMainWorldContentSecurityPolicy to ContentSecurityPolicy::allowConnectToSource().
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186516. rdar://problem/21707896
+
+    2015-06-10  Chris Dumez  <cdumez@apple.com>
+
+            ASSERT_WITH_SECURITY_IMPLICATION in WebCore::DocumentOrderedMap::getElementById
+            https://bugs.webkit.org/show_bug.cgi?id=145857
+            <rdar://problem/16798440>
+
+            Reviewed by Darin Adler.
+
+            Make sure Node::insertedInto() gets called on the inserted node and its
+            descendants after its insertion into the tree but *before*
+            ContainerNode::childrenChanged() is called on the parent node. This is
+            needed so that the descendants know they've been inserted into the tree
+            (and their InDocumentFlag flag gets set) before the parent node does
+            anything with them in childrenChanged().
+
+            In the case of <rdar://problem/16798440>, executing HTMLScriptElement's
+            childrenChanged() after appending a child to a script element was causing
+            the script to be executed. The script would call getElementBy() which
+            would traverse the DOM tree and find a matching Element in the newly
+            inserted subtree. However, the matching Element's InDocumentFlag flag was
+            not set yet because the element's insertedInto() method has not been called
+            yet at this point. This would cause us to hit an assertion as
+            DocumentOrderedMap::getElementById() is only supposed to return elements
+            that are in a Document.
+
+            This patch is based on Blink r178976 by <esprehn@chromium.org>:
+            https://src.chromium.org/viewvc/blink?view=rev&revision=178976
+
+            Tests: fast/dom/script-getElementById-during-insertion.html
+                   fast/dom/script-remove-child-id-map.html
+
+            * dom/ContainerNode.cpp:
+            (WebCore::ContainerNode::notifyChildInserted):
+            (WebCore::ContainerNode::notifyChildRemoved):
+            (WebCore::ContainerNode::removeChildren):
+            (WebCore::ContainerNode::parserInsertBefore): Deleted.
+            (WebCore::ContainerNode::removeChild): Deleted.
+            (WebCore::ContainerNode::parserRemoveChild): Deleted.
+            (WebCore::ContainerNode::parserAppendChild): Deleted.
+            (WebCore::ContainerNode::childrenChanged): Deleted.
+            (WebCore::ContainerNode::setAttributeEventListener): Deleted.
+            (WebCore::ContainerNode::querySelector): Deleted.
+            * dom/ContainerNodeAlgorithms.cpp:
+            (WebCore::ChildNodeInsertionNotifier::notifyDescendantInsertedIntoDocument):
+            (WebCore::ChildNodeInsertionNotifier::notifyDescendantInsertedIntoTree):
+            * dom/ContainerNodeAlgorithms.h:
+            (WebCore::ChildNodeInsertionNotifier::notifyNodeInsertedIntoDocument):
+            (WebCore::ChildNodeInsertionNotifier::notifyNodeInsertedIntoTree):
+            (WebCore::ChildNodeInsertionNotifier::notify):
+            (WebCore::ChildNodeRemovalNotifier::notifyNodeRemovedFromDocument): Deleted.
+            * dom/Element.cpp:
+            (WebCore::Element::addShadowRoot):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186507. rdar://problem/21707927
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r186384. rdar://problem/21708281
+
+        2015-07-06  Dean Jackson  <dino@apple.com>
+
+                Memory corruption in WebGLRenderingContext::simulateVertexAttrib0
+                https://bugs.webkit.org/show_bug.cgi?id=146652
+                <rdar://problem/21567767>
+
+                Follow-up fix.
+
+                * html/canvas/WebGLRenderingContextBase.cpp:
+                (WebCore::WebGLRenderingContextBase::simulateVertexAttrib0):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186506. rdar://problem/21707927
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r186380. rdar://problem/21708281
+
+        2015-07-06  Dean Jackson  <dino@apple.com>
+
+                Memory corruption in WebGLRenderingContext::simulateVertexAttrib0
+                https://bugs.webkit.org/show_bug.cgi?id=146652
+                <rdar://problem/21567767>
+
+                Reviewed by Brent Fulgham.
+
+                The expression "(numVertex + 1) * 4 * sizeof(GC3Dfloat)" could potentially
+                overflow. Make it use checked arithmetic.
+
+                I couldn't make a test case that reliably exercised this.
+
+                * html/canvas/WebGLRenderingContextBase.cpp:
+                (WebCore::WebGLRenderingContextBase::simulateVertexAttrib0): Used Checked<GC3Dsizeiptr>
+                for calculating the size of the buffer.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186505. rdar://problem/21707923
+
+    2015-07-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r185848. rdar://problem/21708274
+
+        2015-06-22  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+                Web sockets should be treated as active mixed content
+                https://bugs.webkit.org/show_bug.cgi?id=140624
+
+                Reviewed by Sam Weinig.
+
+                Tests: http/tests/security/mixedContent/websocket/insecure-websocket-in-iframe.html
+                       http/tests/security/mixedContent/websocket/insecure-websocket-in-main-frame.html
+
+                * Modules/websockets/WebSocket.cpp:
+                (WebCore::WebSocket::connect): Block ws:// WebSocket connections from https:// pages, and
+                emit the onerror event after doing so.
+                * platform/SchemeRegistry.cpp:
+                (WebCore::secureSchemes): Add wss:// to the list of secure schemes.
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186504. rdar://problem/21707900
+
+    2015-07-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r185838. rdar://problem/21708257
+
+        2015-06-22  Zalan Bujtas  <zalan@apple.com>
+
+                REGRESSION(r169105) Dangling renderer pointer in SelectionSubtreeRoot::SelectionSubtreeData.
+                https://bugs.webkit.org/show_bug.cgi?id=146116
+                rdar://problem/20959369
+
+                Reviewed by Brent Fulgham.
+
+                This patch ensures that we don't adjust the selection unless the visual selection still matches this subtree root.
+
+                When multiple selection roots are present we need to ensure that a RenderObject
+                only shows up in one of them.
+                RenderView::splitSelectionBetweenSubtrees(), as the name implies, splits the
+                selection and sets the selection range (start/end) on each selection root.
+                However, SelectionSubtreeRoot::adjustForVisibleSelection() later recomputes the range
+                based on visible selection and that could end up collecting renderers as selection start/end
+                from another selection subtree.
+                RenderObject's holds the last selection state (RenderObject::setSelectionState).
+                If we set a renderer first as "on selection border" and later "inside" using multiple selection roots,
+                we can't clean up selections properly when this object gets destroyed.
+                One of the roots ends up with a dangling RenderObject pointer.
+
+                Test: fast/regions/crash-when-renderer-is-in-multiple-selection-subtrees.html
+
+                * rendering/SelectionSubtreeRoot.cpp:
+                (WebCore::SelectionSubtreeRoot::adjustForVisibleSelection):
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186503. rdar://problem/21707907
+
+    2015-07-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r184885. rdar://problem/21708260
+
+        2015-05-26  Zalan Bujtas  <zalan@apple.com>
+
+                Overhanging float sets are not cleaned up properly when floating renderer is destroyed.
+                https://bugs.webkit.org/show_bug.cgi?id=145323
+                rdar://problem/20980628
+
+                Reviewed by Dave Hyatt.
+
+                This patch ensures when an overhanging float renderer is destroyed,
+                all the sibling containers' floating object set(m_floatingObjects) gets properly cleaned up.
+
+                When an overhanging float is present, we cache the renderer on the parent and on the affected
+                sibling containers too. (RenderBlockFlow::m_floatingObjects) These caches(sets) get cleared and repopulated
+                during ::layout(). In order to have a float renderer removed from a set, a layout needs to be initiated on the container.
+                This is normally done through RenderBlockFlow::markSiblingsWithFloatsForLayout() and RenderBlockFlow::markAllDescendantsWithFloatsForLayout().
+                However, when the float container's parent's writing direction changes (and we promote the children containers to new formatting contexts),
+                the layout propagation through siblings does not work anymore.
+
+                The avoidsFloats() check in RenderBlockFlow::markSiblingsWithFloatsForLayout() has very little performance gain, but it prevents us
+                from propagating layout to siblings when certain properties of the parent container changes.
+
+                Test: fast/block/float/crash-when-floating-object-is-removed.xhtml
+
+                * rendering/RenderBlockFlow.cpp:
+                (WebCore::RenderBlockFlow::markSiblingsWithFloatsForLayout):
+                * rendering/RenderBox.cpp:
+                (WebCore::outermostBlockContainingFloatingObject):
+                (WebCore::RenderBox::removeFloatingOrPositionedChildFromBlockLists):
+                (WebCore::RenderBox::outermostBlockContainingFloatingObject): Deleted.
+                * rendering/RenderBox.h:
+
+2015-07-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r186502. rdar://problem/21707910
+
+    2015-07-07  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r184577. rdar://problem/21708263
+
+        2015-05-19  Zalan Bujtas  <zalan@apple.com>
+
+                Merged anonymous blocks should invalidate simple line layout path.
+                https://bugs.webkit.org/show_bug.cgi?id=145104
+                rdar://problem/20980930
+
+                Reviewed by Antti Koivisto.
+
+                When anonymous blocks are merged together, it's not guaranteed that the final block can use simple line layout.
+                This patch ensures that the flow block, where the other block's content gets moved to, is no longer on simple line layout path.
+                Whether the final flow block ends up using inline boxes or simple line layout will be determined during the next layout.
+
+                Test: fast/block/crash-when-anonymous-blocks-are-merged-with-simple-line-layout.html
+
+                * rendering/RenderElement.cpp:
+                (WebCore::RenderElement::insertChildInternal):
+
 2015-06-08  Babak Shafiei  <bshafiei@apple.com>
 
         Merge r183682.

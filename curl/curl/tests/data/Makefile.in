@@ -13,6 +13,28 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
+
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
+#
+# Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://curl.haxx.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+###########################################################################
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -77,9 +99,9 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+DIST_COMMON = $(srcdir)/Makefile.inc $(srcdir)/Makefile.in \
+	$(srcdir)/Makefile.am
 subdir = tests/data
-DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(top_srcdir)/mkinstalldirs
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/m4/curl-confopts.m4 \
@@ -100,7 +122,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
@@ -158,6 +180,7 @@ CURL_DISABLE_LDAPS = @CURL_DISABLE_LDAPS@
 CURL_DISABLE_POP3 = @CURL_DISABLE_POP3@
 CURL_DISABLE_PROXY = @CURL_DISABLE_PROXY@
 CURL_DISABLE_RTSP = @CURL_DISABLE_RTSP@
+CURL_DISABLE_SMB = @CURL_DISABLE_SMB@
 CURL_DISABLE_SMTP = @CURL_DISABLE_SMTP@
 CURL_DISABLE_TELNET = @CURL_DISABLE_TELNET@
 CURL_DISABLE_TFTP = @CURL_DISABLE_TFTP@
@@ -182,7 +205,7 @@ GREP = @GREP@
 HAVE_GNUTLS_SRP = @HAVE_GNUTLS_SRP@
 HAVE_LDAP_SSL = @HAVE_LDAP_SSL@
 HAVE_LIBZ = @HAVE_LIBZ@
-HAVE_SSLEAY_SRP = @HAVE_SSLEAY_SRP@
+HAVE_OPENSSL_SRP = @HAVE_OPENSSL_SRP@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -210,6 +233,7 @@ MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
 NROFF = @NROFF@
+NSS_LIBS = @NSS_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -234,6 +258,7 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 SSL_ENABLED = @SSL_ENABLED@
+SSL_LIBS = @SSL_LIBS@
 STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
@@ -250,7 +275,7 @@ USE_NSS = @USE_NSS@
 USE_OPENLDAP = @USE_OPENLDAP@
 USE_POLARSSL = @USE_POLARSSL@
 USE_SCHANNEL = @USE_SCHANNEL@
-USE_SSLEAY = @USE_SSLEAY@
+USE_UNIX_SOCKETS = @USE_UNIX_SOCKETS@
 USE_WINDOWS_SSPI = @USE_WINDOWS_SSPI@
 VERSION = @VERSION@
 VERSIONNUM = @VERSIONNUM@
@@ -376,18 +401,20 @@ test800 test801 test802 test803 test804 test805 test806 test807 test808 \
 test809 test810 test811 test812 test813 test814 test815 test816 test817 \
 test818 test819 test820 test821 test822 test823 test824 test825 test826 \
 test827 test828 test829 test830 test831 test832 test833 test834 test835 \
-test836 \
+test836 test837 test838 test839 test840 \
 \
 test850 test851 test852 test853 test854 test855 test856 test857 test858 \
 test859 test860 test861 test862 test863 test864 test865 test866 test867 \
 test868 test869 test870 test871 test872 test873 test874 test875 test876 \
-test877 test878 test879 test880 test881 test882 \
+test877 test878 test879 test880 test881 test882 test883 test884 test885 \
+test886 \
 \
 test900 test901 test902 test903 test904 test905 test906 test907 test908 \
 test909 test910 test911 test912 test913 test914 test915 test916 test917 \
 test918 test919 test920 test921 test922 test923 test924 test925 test926 \
 test927 test928 test929 test930 test931 test932 test933 test934 test935 \
-test936 test937 test938 test939 test940 \
+test936 test937 test938 test939 test940 test941 test942 test943 test944 \
+test945 \
 \
 test1000 test1001 test1002 test1003 test1004 test1005 test1006 test1007 \
 test1008 test1009 test1010 test1011 test1012 test1013 test1014 test1015 \
@@ -405,14 +432,14 @@ test1096 test1097 test1098 test1099 test1100 test1101 test1102 test1103 \
 test1104 test1105 test1106 test1107 test1108 test1109 test1110 test1111 \
 test1112 test1113 test1114 test1115 test1116 test1117 test1118 test1119 \
 test1120 test1121 test1122 test1123 test1124 test1125 test1126 test1127 \
-test1128 test1129 test1130 test1131 test1132 test1133 test1134 \
+test1128 test1129 test1130 test1131 test1132 test1133 test1134 test1135 \
 \
 test1200 test1201 test1202 test1203 test1204 test1205 test1206 test1207 \
 test1208 test1209 test1210 test1211 test1212 test1213 test1214 test1215 \
 test1216 test1217 test1218 test1219 \
 test1220 test1221 test1222 test1223 test1224 test1225 test1226 test1227 \
 test1228 test1229 test1230 test1231 test1232 test1233 test1234 test1235 \
-test1236 test1237 test1238 test1239 test1240 \
+test1236 test1237 test1238 test1239 test1240 test1241 \
 \
 test1300 test1301 test1302 test1303 test1304 test1305 test1306 test1307 \
 test1308 test1309 test1310 test1311 test1312 test1313 test1314 test1315 \
@@ -430,15 +457,22 @@ test1396 test1397 test1398 \
 \
 test1400 test1401 test1402 test1403 test1404 test1405 test1406 test1407 \
 test1408 test1409 test1410 test1411 test1412 test1413 test1414 test1415 \
-test1416 test1417 test1418 test1419 \
-\
-test1428 \
+test1416 test1417 test1418 test1419 test1420 test1421 test1422 test1423 \
+test1424 \
+test1428 test1429 test1430 test1431 test1432 test1433 test1434 test1435 \
+test1436 \
 \
 test1500 test1501 test1502 test1503 test1504 test1505 test1506 test1507 \
 test1508 test1509 test1510 test1511 test1512 test1513 test1514 test1515 \
 test1516 \
 \
-test1525 test1526 test1527 test1528 \
+test1520 \
+\
+test1525 test1526 test1527 test1528 test1529 test1530 \
+\
+test1600 test1601 test1602 \
+\
+test1800 test1801 \
 \
 test1900 test1901 test1902 test1903 \
 \
@@ -446,13 +480,16 @@ test2000 test2001 test2002 test2003 test2004 test2005 test2006 test2007 \
 test2008 test2009 test2010 test2011 test2012 test2013 test2014 test2015 \
 test2016 test2017 test2018 test2019 test2020 test2021 test2022 test2023 \
 test2024 test2025 test2026 test2027 test2028 test2029 test2030 test2031 \
-test2032 test2033
+test2032 test2033 test2034 test2035 test2036 test2037 test2038 test2039 \
+test2040
 
+
+# TESTCASES are taken from Makefile.inc
 EXTRA_DIST = $(TESTCASES) DISABLED
 all: all-am
 
 .SUFFIXES:
-$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/Makefile.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -473,6 +510,7 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	    echo ' cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe)'; \
 	    cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe);; \
 	esac;
+$(srcdir)/Makefile.inc:
 
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh

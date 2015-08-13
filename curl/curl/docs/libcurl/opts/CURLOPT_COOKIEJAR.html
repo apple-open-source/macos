@@ -4,15 +4,20 @@
 <title>CURLOPT_COOKIEJAR man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,7 +52,7 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_COOKIEJAR - file name to store cookies to <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0">#include &lt;curl/curl.h&gt; 
+<p class="level0">&#35;include &lt;curl/curl.h&gt; 
 <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_COOKIEJAR, char *filename); <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a <span Class="emphasis">filename</span> as char *, zero terminated. This will make libcurl write all internally known cookies to the specified file when <span Class="emphasis">curl_easy_cleanup(3)</span> is called. If no cookies are known, no file will be created. Specify "-" as filename to instead have the cookies written to stdout. Using this option also enables cookies for this session, so if you for example follow a location it will make matching cookies get sent accordingly. 
 <p class="level0">Note that libcurl doesn't read any cookies from the cookie jar. If you want to read cookies from a file, use <a Class="emphasis" href="./CURLOPT_COOKIEFILE.html">CURLOPT_COOKIEFILE</a>. 
@@ -57,6 +62,6 @@ p.roffit {
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Along with HTTP <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK if HTTP is supported, CURLE_UNKNOWN_OPTION if not, or CURLE_OUT_OF_MEMORY if there was insufficient heap space. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_COOKIEFILE.html">CURLOPT_COOKIEFILE</a> <a Class="manpage" href="./CURLOPT_COOKIE.html">CURLOPT_COOKIE</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_COOKIEFILE.html">CURLOPT_COOKIEFILE</a>, <a Class="manpage" href="./CURLOPT_COOKIE.html">CURLOPT_COOKIE</a>, <a Class="manpage" href="./CURLOPT_COOKIELIST.html">CURLOPT_COOKIELIST</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

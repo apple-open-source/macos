@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -61,7 +63,15 @@
     </p>
 
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#basicconfig">Basic Configuration</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#standalone">Standalone Login</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#inline">Inline Login</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#inlinepreservebody">Inline Login with Body Preservation</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#loggingout">Logging Out</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#urlencoding">Usernames and Passwords</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#authformauthoritative">AuthFormAuthoritative</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authformbody">AuthFormBody</a></li>
@@ -79,15 +89,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#authformsize">AuthFormSize</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authformusername">AuthFormUsername</a></li>
 </ul>
-<h3>Topics</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#basicconfig">Basic Configuration</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#standalone">Standalone Login</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#inline">Inline Login</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#inlinepreservebody">Inline Login with Body Preservation</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#loggingout">Logging Out</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#urlencoding">Usernames and Passwords</a></li>
-</ul><h3>See also</h3>
+<h3>See also</h3>
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_session.html">mod_session</a></code></li>
 <li><code class="directive"><a href="../mod/mod_authn_core.html#authname">AuthName</a></code></li>
@@ -108,10 +110,10 @@
       the user will be redirected to the form login page.</p>
 
       <div class="example"><h3>Basic example</h3><pre class="prettyprint lang-config">AuthFormProvider file
-AuthUserFile conf/passwd
+AuthUserFile "conf/passwd"
 AuthType form
 AuthName realm
-AuthFormLoginRequiredLocation http://example.com/login.html
+AuthFormLoginRequiredLocation "http://example.com/login.html"
 Session On
 SessionCookieName session path=/
 SessionCryptoPassphrase secret</pre>
@@ -159,12 +161,12 @@ SessionCryptoPassphrase secret</pre>
       The action of the form should point at this handler, which is configured within
       Apache httpd as follows:</p>
 
-      <div class="example"><h3>Form login handler example</h3><pre class="prettyprint lang-config">&lt;Location /dologin.html&gt;
+      <div class="example"><h3>Form login handler example</h3><pre class="prettyprint lang-config">&lt;Location "/dologin.html"&gt;
     SetHandler form-login-handler
-    AuthFormLoginRequiredLocation http://example.com/login.html
-    AuthFormLoginSuccessLocation http://example.com/success.html
+    AuthFormLoginRequiredLocation "http://example.com/login.html"
+    AuthFormLoginSuccessLocation "http://example.com/success.html"
     AuthFormProvider file
-    AuthUserFile conf/passwd
+    AuthUserFile "conf/passwd"
     AuthType form
     AuthName realm
     Session On
@@ -221,11 +223,11 @@ SessionCryptoPassphrase secret</pre>
       containing the login form, as follows:</p>
 
       <div class="example"><h3>Basic inline example</h3><pre class="prettyprint lang-config">AuthFormProvider file
-ErrorDocument 401 /login.shtml
-AuthUserFile conf/passwd
+ErrorDocument 401 "/login.shtml"
+AuthUserFile "conf/passwd"
 AuthType form
 AuthName realm
-AuthFormLoginRequiredLocation http://example.com/login.html
+AuthFormLoginRequiredLocation "http://example.com/login.html"
 Session On
 SessionCookieName session path=/
 SessionCryptoPassphrase secret</pre>
@@ -291,7 +293,7 @@ SessionCryptoPassphrase secret</pre>
       technology.</p>
 
       <div class="example"><h3>CGI example</h3><pre class="prettyprint lang-config">        AuthFormProvider file
-        ErrorDocument 401 /cgi-bin/login.cgi
+        ErrorDocument 401 "/cgi-bin/login.cgi"
         ...</pre>
 </div>
 
@@ -312,7 +314,7 @@ SessionCryptoPassphrase secret</pre>
 
       <div class="example"><h3>Basic logout example</h3><pre class="prettyprint lang-config">SetHandler form-logout-handler
 AuthName realm
-AuthFormLogoutLocation http://example.com/loggedout.html
+AuthFormLogoutLocation "http://example.com/loggedout.html"
 Session On
 SessionCookieName session path=/
 SessionCryptoPassphrase secret</pre>
@@ -327,7 +329,7 @@ SessionCryptoPassphrase secret</pre>
       </p>
 
       <div class="example"><h3>Basic session expiry example</h3><pre class="prettyprint lang-config">SetHandler form-logout-handler
-AuthFormLogoutLocation http://example.com/loggedout.html
+AuthFormLogoutLocation "http://example.com/loggedout.html"
 Session On
 SessionMaxAge 1
 SessionCookieName session path=/
@@ -456,7 +458,7 @@ lower level modules</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache HTTP Server 2.3.0 and later. The use of the expression
-parser hass been added in 2.4.4.</td></tr>
+parser has been added in 2.4.4.</td></tr>
 </table>
     <p>The <code class="directive"><a href="#authformloginrequiredlocation">AuthFormLoginRequiredLocation</a></code> directive
     specifies the URL to redirect to should the user not be authorised to view a page. The value
@@ -480,7 +482,7 @@ parser hass been added in 2.4.4.</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache HTTP Server 2.3.0 and later. The use of the expression
-parser hass been added in 2.4.4.</td></tr>
+parser has been added in 2.4.4.</td></tr>
 </table>
     <p>The <code class="directive"><a href="#authformloginsuccesslocation">AuthFormLoginSuccessLocation</a></code> directive
     specifies the URL to redirect to should the user have logged in successfully. The value is
@@ -503,7 +505,7 @@ parser hass been added in 2.4.4.</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache HTTP Server 2.3.0 and later. The use of the expression
-parser hass been added in 2.4.4.</td></tr>
+parser has been added in 2.4.4.</td></tr>
 </table>
     <p>The <code class="directive"><a href="#authformlogoutlocation">AuthFormLogoutLocation</a></code> directive
     specifies the URL of a page on the server to redirect to should the user attempt to log
@@ -513,9 +515,9 @@ parser hass been added in 2.4.4.</td></tr>
     <p>When a URI is accessed that is served by the handler <code>form-logout-handler</code>,
     the page specified by this directive will be shown to the end user. For example:</p>
 
-    <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">&lt;Location /logout&gt;
+    <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">&lt;Location "/logout"&gt;
     SetHandler form-logout-handler
-    AuthFormLogoutLocation http://example.com/loggedout.html
+    AuthFormLogoutLocation "http://example.com/loggedout.html"
     Session on
     #...
 &lt;/Location&gt;</pre>
@@ -608,12 +610,12 @@ parser hass been added in 2.4.4.</td></tr>
     by the <code class="module"><a href="../mod/mod_authn_file.html">mod_authn_file</a></code> module.  Make sure
     that the chosen provider module is present in the server.</p>
 
-    <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">&lt;Location /secure&gt;
+    <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">&lt;Location "/secure"&gt;
     AuthType form
     AuthName "private area"
     AuthFormProvider  dbm
     AuthDBMType        SDBM
-    AuthDBMUserFile    /www/etc/dbmpasswd
+    AuthDBMUserFile    "/www/etc/dbmpasswd"
     Require            valid-user
     #...
 &lt;/Location&gt;</pre>
@@ -720,7 +722,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_auth_form.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

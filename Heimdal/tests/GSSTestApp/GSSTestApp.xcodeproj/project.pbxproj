@@ -10,6 +10,7 @@
 		EB054DA71763E1E500907EAB /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = EB054DA51763E1E500907EAB /* Icon.png */; };
 		EB054DA91763E31E00907EAB /* iTunesArtwork.png in Resources */ = {isa = PBXBuildFile; fileRef = EB054DA61763E1E500907EAB /* iTunesArtwork.png */; };
 		EB054DAB1763E73A00907EAB /* Icon-72.png in Resources */ = {isa = PBXBuildFile; fileRef = EB054DAA1763E73300907EAB /* Icon-72.png */; };
+		EB0B5A351B4E00E900B6C385 /* httpserver.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0B5A341B4E00E900B6C385 /* httpserver.m */; };
 		EB0FBFCA1784453300EC4F54 /* CredentialTesterView.xib in Resources */ = {isa = PBXBuildFile; fileRef = EB0FBFC91784453300EC4F54 /* CredentialTesterView.xib */; };
 		EB0FBFCD178445AC00EC4F54 /* CredentialTesterView.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0FBFCC178445AC00EC4F54 /* CredentialTesterView.m */; };
 		EB0FBFD017844CE400EC4F54 /* expirationDateTransformer.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0FBFCF17844CE400EC4F54 /* expirationDateTransformer.m */; };
@@ -28,6 +29,7 @@
 		EB5BB83D176409B50024E174 /* TestHarness.m in Sources */ = {isa = PBXBuildFile; fileRef = EBA2675F17630D4600B5A686 /* TestHarness.m */; };
 		EB5BB83E176409B50024E174 /* InitialCredential.m in Sources */ = {isa = PBXBuildFile; fileRef = EBA2676117630D5D00B5A686 /* InitialCredential.m */; };
 		EB5BB83F176409B50024E174 /* SenTestCase+GSS.m in Sources */ = {isa = PBXBuildFile; fileRef = EBA2676417630E2900B5A686 /* SenTestCase+GSS.m */; };
+		EB90C56D1B4DE63F00C5090D /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = EB90C56C1B4DE63F00C5090D /* main.m */; };
 		EB94FFDA18B17DC600EF2C02 /* com.apple.Kerberos.plist in Resources */ = {isa = PBXBuildFile; fileRef = EB94FFD918B17DC600EF2C02 /* com.apple.Kerberos.plist */; };
 		EB94FFDB18B17DC600EF2C02 /* com.apple.Kerberos.plist in Resources */ = {isa = PBXBuildFile; fileRef = EB94FFD918B17DC600EF2C02 /* com.apple.Kerberos.plist */; };
 		EB94FFDE18B1837300EF2C02 /* TestUsers.m in Sources */ = {isa = PBXBuildFile; fileRef = EB94FFDD18B1837300EF2C02 /* TestUsers.m */; };
@@ -67,6 +69,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB90C5681B4DE63F00C5090D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -74,6 +85,8 @@
 		EB054DA51763E1E500907EAB /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Icon.png; path = Icons/Icon.png; sourceTree = "<group>"; };
 		EB054DA61763E1E500907EAB /* iTunesArtwork.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = iTunesArtwork.png; path = Icons/iTunesArtwork.png; sourceTree = "<group>"; };
 		EB054DAA1763E73300907EAB /* Icon-72.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "Icon-72.png"; path = "Icons/Icon-72.png"; sourceTree = "<group>"; };
+		EB0B5A341B4E00E900B6C385 /* httpserver.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = httpserver.m; sourceTree = "<group>"; };
+		EB0B5A361B4E08E600B6C385 /* httpserver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = httpserver.h; sourceTree = "<group>"; };
 		EB0FBFC91784453300EC4F54 /* CredentialTesterView.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = CredentialTesterView.xib; sourceTree = "<group>"; };
 		EB0FBFCB178445AC00EC4F54 /* CredentialTesterView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CredentialTesterView.h; sourceTree = "<group>"; };
 		EB0FBFCC178445AC00EC4F54 /* CredentialTesterView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CredentialTesterView.m; sourceTree = "<group>"; };
@@ -99,6 +112,8 @@
 		EB5BB8321764084D0024E174 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		EB5BB837176408D10024E174 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk/System/Library/Frameworks/GSS.framework; sourceTree = DEVELOPER_DIR; };
 		EB5BB84017640B920024E174 /* GSSTestApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = GSSTestApp.entitlements; sourceTree = "<group>"; };
+		EB90C56A1B4DE63F00C5090D /* GSSCFHTTPServerTests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = GSSCFHTTPServerTests; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB90C56C1B4DE63F00C5090D /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		EB94FFD918B17DC600EF2C02 /* com.apple.Kerberos.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.Kerberos.plist; path = Tests/com.apple.Kerberos.plist; sourceTree = "<group>"; };
 		EB94FFDC18B1837300EF2C02 /* TestUsers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TestUsers.h; path = Tests/TestUsers.h; sourceTree = "<group>"; };
 		EB94FFDD18B1837300EF2C02 /* TestUsers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = TestUsers.m; path = Tests/TestUsers.m; sourceTree = "<group>"; };
@@ -147,6 +162,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB90C5671B4DE63F00C5090D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EBA2672917630BBB00B5A686 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -171,6 +193,14 @@
 				EB054DA61763E1E500907EAB /* iTunesArtwork.png */,
 			);
 			name = Icons;
+			sourceTree = "<group>";
+		};
+		EB55849F1B5F5C34004324BD /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				EB42F4371169201400FCDD8F /* AspenFamily.xcconfig */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		EB5BB81E1764084D0024E174 /* Other Frameworks */ = {
@@ -212,16 +242,27 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		EB90C56B1B4DE63F00C5090D /* GSSCFHTTPServerTests */ = {
+			isa = PBXGroup;
+			children = (
+				EB90C56C1B4DE63F00C5090D /* main.m */,
+				EB0B5A361B4E08E600B6C385 /* httpserver.h */,
+				EB0B5A341B4E00E900B6C385 /* httpserver.m */,
+			);
+			path = GSSCFHTTPServerTests;
+			sourceTree = "<group>";
+		};
 		EBA2672317630BBB00B5A686 = {
 			isa = PBXGroup;
 			children = (
-				EB42F4371169201400FCDD8F /* AspenFamily.xcconfig */,
 				EBA2673517630BBB00B5A686 /* GSSTestAppIOS */,
 				EB5BB8221764084D0024E174 /* GSSTestAppOSX */,
 				EB054DA41763E0E000907EAB /* Icons */,
 				EBA2675D17630BC500B5A686 /* Tests */,
+				EB90C56B1B4DE63F00C5090D /* GSSCFHTTPServerTests */,
 				EBA2672E17630BBB00B5A686 /* Frameworks */,
 				EBA2672D17630BBB00B5A686 /* Products */,
+				EB55849F1B5F5C34004324BD /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -230,6 +271,7 @@
 			children = (
 				EBA2672C17630BBB00B5A686 /* GSSTestApp.app */,
 				EB5BB81B1764084D0024E174 /* GSSTestApp.app */,
+				EB90C56A1B4DE63F00C5090D /* GSSCFHTTPServerTests */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -325,6 +367,23 @@
 			productReference = EB5BB81B1764084D0024E174 /* GSSTestApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		EB90C5691B4DE63F00C5090D /* GSSCFHTTPServerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB90C5721B4DE63F00C5090D /* Build configuration list for PBXNativeTarget "GSSCFHTTPServerTests" */;
+			buildPhases = (
+				EB90C5661B4DE63F00C5090D /* Sources */,
+				EB90C5671B4DE63F00C5090D /* Frameworks */,
+				EB90C5681B4DE63F00C5090D /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GSSCFHTTPServerTests;
+			productName = GSSCFHTTPServerTests;
+			productReference = EB90C56A1B4DE63F00C5090D /* GSSCFHTTPServerTests */;
+			productType = "com.apple.product-type.tool";
+		};
 		EBA2672B17630BBB00B5A686 /* GSSTestAppIOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EBA2675A17630BBB00B5A686 /* Build configuration list for PBXNativeTarget "GSSTestAppIOS" */;
@@ -358,6 +417,9 @@
 							};
 						};
 					};
+					EB90C5691B4DE63F00C5090D = {
+						CreatedOnToolsVersion = 7.0;
+					};
 					EBA2672B17630BBB00B5A686 = {
 						SystemCapabilities = {
 							com.apple.Keychain = {
@@ -381,6 +443,7 @@
 			targets = (
 				EBA2672B17630BBB00B5A686 /* GSSTestAppIOS */,
 				EB5BB81A1764084D0024E174 /* GSSTestAppOSX */,
+				EB90C5691B4DE63F00C5090D /* GSSCFHTTPServerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -435,6 +498,15 @@
 				EB5BB8291764084D0024E174 /* main.m in Sources */,
 				EB5BB83E176409B50024E174 /* InitialCredential.m in Sources */,
 				EB0FBFCD178445AC00EC4F54 /* CredentialTesterView.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB90C5661B4DE63F00C5090D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB0B5A351B4E00E900B6C385 /* httpserver.m in Sources */,
+				EB90C56D1B4DE63F00C5090D /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -534,6 +606,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
@@ -662,6 +735,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
@@ -713,6 +787,70 @@
 			};
 			name = "Release-asan";
 		};
+		EB90C56E1B4DE63F00C5090D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/bin;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB90C56F1B4DE63F00C5090D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/bin;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EB90C5701B4DE63F00C5090D /* Release-asan */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/bin;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Release-asan";
+		};
+		EB90C5711B4DE63F00C5090D /* Release-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/bin;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Release-Embedded";
+		};
 		EBA2675817630BBB00B5A686 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -746,6 +884,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -776,6 +915,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
@@ -835,6 +975,17 @@
 				EB5BB8351764084D0024E174 /* Release */,
 				EB6863E217BA742000148C74 /* Release-asan */,
 				EB574ABD1765A07800FEF806 /* Release-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB90C5721B4DE63F00C5090D /* Build configuration list for PBXNativeTarget "GSSCFHTTPServerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB90C56E1B4DE63F00C5090D /* Debug */,
+				EB90C56F1B4DE63F00C5090D /* Release */,
+				EB90C5701B4DE63F00C5090D /* Release-asan */,
+				EB90C5711B4DE63F00C5090D /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

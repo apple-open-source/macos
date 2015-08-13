@@ -35,6 +35,8 @@
 #include <System/sys/fileport.h>
 #include <bsm/audit.h>
 #include <bsm/audit_uevents.h>      // AUE_ssauthint
+#include <membership.h>
+#include <membershipPriv.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/mach++.h>
 #include <stdlib.h>
@@ -1563,12 +1565,32 @@ QueryKeychainAuth::operator () (const char *database, const char *description, A
 Reason 
 QueryKeychainAuth::accept(string &username, string &passphrase)
 {
-    const char *user = username.c_str();
-    const char *passwd = passphrase.c_str();
-    int checkpw_status = checkpw(user, passwd);
-    
-    if (checkpw_status != CHECKPW_SUCCESS)
+	// Note: QueryKeychainAuth currently requires that the
+	// specified user be in the admin group. If this requirement
+	// ever needs to change, the group name should be passed as
+	// a separate argument to this method.
+
+	const char *user = username.c_str();
+	const char *passwd = passphrase.c_str();
+	int checkpw_status = checkpw(user, passwd);
+
+	if (checkpw_status != CHECKPW_SUCCESS) {
 		return SecurityAgent::invalidPassphrase;
+	}
+
+	const char *group = "admin";
+	if (group) {
+		int rc, ismember;
+		uuid_t group_uuid, user_uuid;
+		rc = mbr_group_name_to_uuid(group, group_uuid);
+		if (rc) { return SecurityAgent::userNotInGroup; }
+
+		rc = mbr_user_name_to_uuid(user, user_uuid);
+		if (rc) { return SecurityAgent::userNotInGroup; }
+
+		rc = mbr_check_membership(user_uuid, group_uuid, &ismember);
+		if (rc || !ismember) { return SecurityAgent::userNotInGroup; }
+	}
 
 	return SecurityAgent::noReason;
 }

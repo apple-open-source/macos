@@ -50,7 +50,6 @@
 EXTERN int	msgCount;			/* Count of messages read in */
 EXTERN int	 rcvmode;			/* True if receiving mail */
 EXTERN int	sawcom;				/* Set after first command */
-EXTERN char	*Tflag;				/* -T temp file for netnews */
 EXTERN int	senderr;			/* An error while checking */
 EXTERN int	edit;				/* Indicates editing a file */
 EXTERN int	readonly;			/* Will be unable to rewrite file */

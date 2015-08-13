@@ -326,6 +326,12 @@ void Trust::evaluate(bool disableEV)
 	else if (mNetworkPolicy == useNetworkDisabled)
 		actionDataP->ActionFlags &= ~(CSSM_TP_ACTION_FETCH_CERT_FROM_NET);
 
+	if (policySpecified(mPolicies, CSSMOID_APPLE_TP_ESCROW_SERVICE)) {
+		// ignore expiration dates, per rdar://21943474
+		actionDataP->ActionFlags |= (CSSM_TP_ACTION_ALLOW_EXPIRED |
+				CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT);
+	}
+
     /*
 	 * Policies (one at least, please).
 	 * For revocation policies, see if any have been explicitly specified...

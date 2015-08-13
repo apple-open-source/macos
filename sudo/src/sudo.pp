@@ -84,7 +84,7 @@ still allow people to get their work done."
 
 %if [rpm]
 	# Add distro info to release
-	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*//' -e 's/-.*$//'`
+	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*\([0-9]\{1,2\}\).*/\1/'`
 	case "$pp_rpm_distro" in
 	centos*|rhel*)
 		pp_rpm_release="$pp_rpm_release.el${osrelease%%[0-9]}"
@@ -285,14 +285,14 @@ still allow people to get their work done."
 %endif
 
 %files [!aix]
-	$sudoedit_man		0644 symlink,ignore-others $sudoedit_man_target
 	$mandir/man*/*		0644
+	$sudoedit_man		0644 symlink,ignore-others $sudoedit_man_target
 
 %files [aix]
 	# Some versions use catpages, some use manpages.
-	$sudoedit_man		0644 symlink,ignore-others $sudoedit_man_target
 	$mandir/cat*/*		0644 optional
 	$mandir/man*/*		0644 optional
+	$sudoedit_man		0644 symlink,ignore-others $sudoedit_man_target
 
 %pre [aix]
 	if rpm -q %{name} >/dev/null 2>&1; then

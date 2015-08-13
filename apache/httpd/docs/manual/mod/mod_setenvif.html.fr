@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -81,7 +83,7 @@ serveur HTTP Apache</a></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="BrowserMatch" id="BrowserMatch">BrowserMatch</a> <a name="browsermatch" id="browsermatch">Directive</a></h2>
+<div class="directive-section"><h2><a name="browsermatch" id="browsermatch">Directive</a> <a name="BrowserMatch" id="BrowserMatch">BrowserMatch</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit des variables d'environnement en fonction du
 contenu de l'en-tête HTTP User-Agent</td></tr>
@@ -109,7 +111,7 @@ BrowserMatch MSIE !javascript</pre>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="BrowserMatchNoCase" id="BrowserMatchNoCase">BrowserMatchNoCase</a> <a name="browsermatchnocase" id="browsermatchnocase">Directive</a></h2>
+<div class="directive-section"><h2><a name="browsermatchnocase" id="browsermatchnocase">Directive</a> <a name="BrowserMatchNoCase" id="BrowserMatchNoCase">BrowserMatchNoCase</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit des variables d'environnement en fonction du
 contenu de l'en-tête HTTP User-Agent sans tenir compte de la
@@ -140,7 +142,7 @@ SetEnvIfNoCase User-Agent Robot is_a_robot</pre>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="SetEnvIf" id="SetEnvIf">SetEnvIf</a> <a name="setenvif" id="setenvif">Directive</a></h2>
+<div class="directive-section"><h2><a name="setenvif" id="setenvif">Directive</a> <a name="SetEnvIf" id="SetEnvIf">SetEnvIf</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit des variables d'environnement en fonction des
 attributs de la requête</td></tr>
@@ -266,7 +268,7 @@ serveur HTTP Apache</a> pour des exemples supplémentaires.
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="SetEnvIfExpr" id="SetEnvIfExpr">SetEnvIfExpr</a> <a name="setenvifexpr" id="setenvifexpr">Directive</a></h2>
+<div class="directive-section"><h2><a name="setenvifexpr" id="setenvifexpr">Directive</a> <a name="SetEnvIfExpr" id="SetEnvIfExpr">SetEnvIfExpr</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit des variables d'environnement en fonction d'une expression ap_expr</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>SetEnvIfExpr <em>expr
@@ -308,7 +310,7 @@ similaires.</li>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="SetEnvIfNoCase" id="SetEnvIfNoCase">SetEnvIfNoCase</a> <a name="setenvifnocase" id="setenvifnocase">Directive</a></h2>
+<div class="directive-section"><h2><a name="setenvifnocase" id="setenvifnocase">Directive</a> <a name="SetEnvIfNoCase" id="SetEnvIfNoCase">SetEnvIfNoCase</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit des variables d'environnement en fonction des
 attributs de la requête sans tenir compte de la casse</td></tr>
@@ -360,7 +362,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_setenvif.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2011 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2011 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -26,13 +26,32 @@ my $indent = 2;
 
 my $warnings;
 my $errors;
+my $supressed; # whitelisted problems
 my $file;
 my $dir=".";
 my $wlist;
+my $windows_os = $^O eq 'MSWin32' || $^O eq 'msys' || $^O eq 'cygwin';
+
+my %whitelist;
+
+sub readwhitelist {
+    open(W, "<$dir/checksrc.whitelist");
+    my @all=<W>;
+    for(@all) {
+        $windows_os ? $_ =~ s/\r?\n$// : chomp;
+        $whitelist{$_}=1;
+    }
+    close(W);
+}
 
 sub checkwarn {
     my ($num, $col, $file, $line, $msg, $error) = @_;
 
+    if($whitelist{$line}) {
+        $supressed++;
+        return;
+    }
+    
     my $w=$error?"error":"warning";
 
     if($w) {
@@ -78,6 +97,8 @@ if(!$file) {
     exit;
 }
 
+readwhitelist();
+
 do {
     if("$wlist" !~ / $file /) {
         my $fullname = $file;
@@ -100,7 +121,7 @@ sub scanfile {
     my $copyright=0;
 
     while(<R>) {
-        chomp;
+        $windows_os ? $_ =~ s/\r?\n$// : chomp;
         my $l = $_;
         my $column = 0;
 
@@ -144,6 +165,49 @@ sub scanfile {
             }
         }
 
+        # check for "return(" without space
+        if($l =~ /^(.*)return\(/) {
+            if($1 =~ / *\#/) {
+                # this is a #if, treat it differently
+            }
+            else {
+                checkwarn($line, length($1)+6, $file, $l,
+                          "return without space before paren");
+            }
+        }
+
+        # check for comma without space
+        if($l =~ /^(.*),[^ \n]/) {
+            my $pref=$1;
+            my $ign=0;
+            if($pref =~ / *\#/) {
+                # this is a #if, treat it differently
+                $ign=1;
+            }
+            elsif($pref =~ /\/\*/) {
+                # this is a comment
+                $ign=1;
+            }
+            elsif($pref =~ /[\"\']/) {
+                $ign = 1;
+                # There is a quote here, figure out whether the comma is
+                # within a string or '' or not.
+                if($pref =~ /\"/) {
+                    # withing a string
+                }
+                elsif($pref =~ /\'$/) {
+                    # a single letter
+                }
+                else {
+                    $ign = 0;
+                }
+            }
+            if(!$ign) {
+                checkwarn($line, length($pref)+1, $file, $l,
+                          "comma without following space");
+            }
+        }
+        
         # check for "} else"
         if($l =~ /^(.*)\} *else/) {
             checkwarn($line, length($1), $file, $l, "else after closing brace on same line");
@@ -153,10 +217,24 @@ sub scanfile {
             checkwarn($line, length($1)+1, $file, $l, "missing space after close paren");
         }
 
+        # check for space before the semicolon last in a line
+        if($l =~ /^(.*[^ ].*) ;$/) {
+            checkwarn($line, length($1), $file, $l, "space before last semicolon");
+        }
+
         # scan for use of banned functions
         if($l =~ /^(.*\W)(sprintf|vsprintf|strcat|strncat|gets)\s*\(/) {
             checkwarn($line, length($1), $file, $l,
                       "use of $2 is banned");
+        }
+
+        # scan for use of non-binary fopen without the macro
+        if($l =~ /^(.*\W)fopen\s*\([^"]*\"([^"]*)/) {
+            my $mode = $2;
+            if($mode !~ /b/) {
+                checkwarn($line, length($1), $file, $l,
+                          "use of non-binary fopen without FOPEN_* macro");
+            }
         }
 
         # check for open brace first on line but not first column

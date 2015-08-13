@@ -288,7 +288,7 @@ loser:
 SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreate(SecCmsEnvelopedDataRef envd, SecCertificateRef cert)
 {
-    /* TODO: we might want to prefer subjkeyid */
+    /* TODO: We might want to prefer subjkeyid */
 #if 0
     SecCmsRecipientInfoRef info = SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(envd, cert);
 

@@ -4,15 +4,20 @@
 <title>CURLOPT_SSH_KEYFUNCTION man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,37 +52,42 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_SSH_KEYFUNCTION - callback for known host matching logic <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0"><pre>
-<p class="level0">#include &lt;curl/curl.h&gt;
- <p class="level0">enum curl_khstat {
- &nbsp; CURLKHSTAT_FINE_ADD_TO_FILE,
- &nbsp; CURLKHSTAT_FINE,
- &nbsp; CURLKHSTAT_REJECT, /* reject the connection, return an error */
- &nbsp; CURLKHSTAT_DEFER,  /* do not accept it, but we can't answer right
- &nbsp;                       now so this causes a CURLE_DEFER error but
- &nbsp;                       otherwise the connection will be left intact
- &nbsp;                       etc */
- };
- <p class="level0">enum curl_khmatch {
- &nbsp; CURLKHMATCH_OK,       /* match */
- &nbsp; CURLKHMATCH_MISMATCH, /* host found, key mismatch! */
- &nbsp; CURLKHMATCH_MISSING,  /* no matching host/key found */
- };
- <p class="level0">struct curl_khkey {
- &nbsp; const char *key; /* points to a zero-terminated string encoded with
- &nbsp;                     base64 if len is zero, otherwise to the "raw"
- &nbsp;                     data */
- &nbsp; size_t len;
- &nbsp; enum curl_khtype keytype;
- };
- <p class="level0">int ssh_keycallback(CURL *easy,
- &nbsp;                   const struct curl_khkey *knownkey,
- &nbsp;                   const struct curl_khkey *foundkey,
- &nbsp;                   enum curl_khmatch,
- &nbsp;                   void *clientp);
- <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSH_KEYFUNCTION,
- &nbsp;                         ssh_keycallback);
- </pre>
+<p class="level0"><pre class="level0">
+&#35;include &lt;curl/curl.h&gt;
+&nbsp;
+enum curl_khstat {
+&nbsp; CURLKHSTAT_FINE_ADD_TO_FILE,
+&nbsp; CURLKHSTAT_FINE,
+&nbsp; CURLKHSTAT_REJECT, /* reject the connection, return an error */
+&nbsp; CURLKHSTAT_DEFER,  /* do not accept it, but we can't answer right
+&nbsp;                       now so this causes a CURLE_DEFER error but
+&nbsp;                       otherwise the connection will be left intact
+&nbsp;                       etc */
+};
+&nbsp;
+enum curl_khmatch {
+&nbsp; CURLKHMATCH_OK,       /* match */
+&nbsp; CURLKHMATCH_MISMATCH, /* host found, key mismatch! */
+&nbsp; CURLKHMATCH_MISSING,  /* no matching host/key found */
+};
+&nbsp;
+struct curl_khkey {
+&nbsp; const char *key; /* points to a zero-terminated string encoded with
+&nbsp;                     base64 if len is zero, otherwise to the "raw"
+&nbsp;                     data */
+&nbsp; size_t len;
+&nbsp; enum curl_khtype keytype;
+};
+&nbsp;
+int ssh_keycallback(CURL *easy,
+&nbsp;                   const struct curl_khkey *knownkey,
+&nbsp;                   const struct curl_khkey *foundkey,
+&nbsp;                   enum curl_khmatch,
+&nbsp;                   void *clientp);
+&nbsp;
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSH_KEYFUNCTION,
+&nbsp;                         ssh_keycallback);
+</pre>
 <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a pointer to your callback function, which should match the prototype shown above. 
 <p class="level0">It gets called when the known_host matching has been done, to allow the application to act and decide for libcurl how to proceed. The callback will only be called if <a Class="emphasis" href="./CURLOPT_SSH_KNOWNHOSTS.html">CURLOPT_SSH_KNOWNHOSTS</a> is also set. 
@@ -96,6 +106,6 @@ p.roffit {
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Added in 7.19.6 <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_SSH_KEYDATA.html">CURLOPT_SSH_KEYDATA</a> <a Class="manpage" href="./CURLOPT_SSH_KNOWNHOSTS.html">CURLOPT_SSH_KNOWNHOSTS</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_SSH_KEYDATA.html">CURLOPT_SSH_KEYDATA</a>, <a Class="manpage" href="./CURLOPT_SSH_KNOWNHOSTS.html">CURLOPT_SSH_KNOWNHOSTS</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

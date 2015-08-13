@@ -27,7 +27,7 @@ ZLIB_PATH = ..\..\zlib-1.2.8
 
 # Edit the path below to point to the base of your OpenSSL package.
 !ifndef OPENSSL_PATH
-OPENSSL_PATH = ..\..\openssl-0.9.8y
+OPENSSL_PATH = ..\..\openssl-1.0.2a
 !endif
 
 # Set libcurl static lib, dll and import lib
@@ -74,7 +74,7 @@ LINKLIB  = $(LINKLIB) $(ZLIB_PATH)\zlib.lib
 
 # SSL support is enabled setting WITH_SSL=1
 !ifdef WITH_SSL
-DEFINES  = $(DEFINES) -DUSE_SSLEAY
+DEFINES  = $(DEFINES) -DUSE_OPENSSL
 INCDIRS  = $(INCDIRS);$(OPENSSL_PATH)\inc32;$(OPENSSL_PATH)\inc32\openssl
 LINKLIB  = $(LINKLIB) $(OPENSSL_PATH)\out32\ssleay32.lib $(OPENSSL_PATH)\out32\libeay32.lib
 !endif

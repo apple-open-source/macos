@@ -4,15 +4,20 @@
 <title>CURLOPT_XFERINFOFUNCTION man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,7 +52,7 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_XFERINFOFUNCTION - callback to progress meter function <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0">#include &lt;curl/curl.h&gt; 
+<p class="level0">&#35;include &lt;curl/curl.h&gt; 
 <p class="level0">int progress_callback(void *clientp, &nbsp;                     curl_off_t dltotal, &nbsp;                     curl_off_t dlnow, &nbsp;                     curl_off_t ultotal, &nbsp;                     curl_off_t ulnow); 
 <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_XFERINFOFUNCTION, progress_callback); <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a pointer to your callback function, which should match the prototype shown above. 
@@ -63,6 +68,6 @@ p.roffit {
 <p class="level0"><a href="http://curl.haxx.se/libcurl/c/progressfunc.html">http://curl.haxx.se/libcurl/c/progressfunc.html</a> <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Added in 7.32.0. This callback replaces <a Class="emphasis" href="./CURLOPT_PROGRESSFUNCTION.html">CURLOPT_PROGRESSFUNCTION</a> <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_XFERINFODATA.html">CURLOPT_XFERINFODATA</a> <a Class="manpage" href="./CURLOPT_NOPROGRESS.html">CURLOPT_NOPROGRESS</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_XFERINFODATA.html">CURLOPT_XFERINFODATA</a>, <a Class="manpage" href="./CURLOPT_NOPROGRESS.html">CURLOPT_NOPROGRESS</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

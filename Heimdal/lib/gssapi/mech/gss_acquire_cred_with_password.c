@@ -60,7 +60,7 @@ gss_acquire_cred_with_password(OM_uint32 *minor_status,
 	size_t i;
 	struct _gss_cred *new_cred;
 
-	new_cred = calloc(1, sizeof(*new_cred));
+	new_cred = _gss_mg_alloc_cred();
 	if (new_cred == NULL) {
 	    *minor_status = ENOMEM;
 	    return GSS_S_FAILURE;

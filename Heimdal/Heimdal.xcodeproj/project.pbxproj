@@ -141,6 +141,7 @@
 				EB2C2D8D14DCB3A600FAB8D7 /* PBXTargetDependency */,
 				EB312E5317B2EC2D00BD74D9 /* PBXTargetDependency */,
 				EB2C2D9314DCB3CA00FAB8D7 /* PBXTargetDependency */,
+				EB0B5A391B4E277400B6C385 /* PBXTargetDependency */,
 				EB2C2D8514DCB33D00FAB8D7 /* PBXTargetDependency */,
 				EB3CC91914DE1993008E9787 /* PBXTargetDependency */,
 			);
@@ -1878,6 +1879,7 @@
 		EB6B1FC713AC19E7001CB8AD /* GSSCredentialSelector.m in Sources */ = {isa = PBXBuildFile; fileRef = EB6B1FC513AC19E7001CB8AD /* GSSCredentialSelector.m */; };
 		EB6B1FC813AC19FC001CB8AD /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
 		EB6B1FC913AC19FC001CB8AD /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
+		EB6BF41D1B45BBE800831E60 /* ntlm.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6BF41C1B45BBE800831E60 /* ntlm.c */; };
 		EB6D31BC14DCC12E00184292 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
 		EB6D31BD14DCC13A00184292 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
 		EB6D31BE14DCC13B00184292 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
@@ -4108,6 +4110,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = EB081E090FD5FE5E00F8373D;
 			remoteInfo = "slc-yacc";
+		};
+		EB0B5A381B4E277400B6C385 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EB9204CF1762C6A7005BE5B6 /* GSSTestApp.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = EB90C5691B4DE63F00C5090D;
+			remoteInfo = GSSCFHTTPServerTests;
+		};
+		EB0B5A3B1B4E277400B6C385 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EB9204CF1762C6A7005BE5B6 /* GSSTestApp.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = EB90C56A1B4DE63F00C5090D;
+			remoteInfo = GSSCFHTTPServerTests;
 		};
 		EB0F9BDF111E3A7F00744852 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -8172,6 +8188,7 @@
 		EB6B1FC413AC19E7001CB8AD /* GSSCredentialSelector-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GSSCredentialSelector-Info.plist"; path = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist"; sourceTree = "<group>"; };
 		EB6B1FC513AC19E7001CB8AD /* GSSCredentialSelector.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GSSCredentialSelector.m; path = plugins/GSSCredentialSelector/GSSCredentialSelector.m; sourceTree = "<group>"; };
 		EB6B1FD113AC218B001CB8AD /* gssapi_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_plugin.h; path = GSS/gssapi_plugin.h; sourceTree = "<group>"; };
+		EB6BF41C1B45BBE800831E60 /* ntlm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntlm.c; path = lib/gssapi/cf/ntlm.c; sourceTree = "<group>"; };
 		EB6DD05F127CFAE8002DE784 /* ccdigest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ccdigest.c; path = lib/hcrypto/ccdigest.c; sourceTree = "<group>"; };
 		EB6FC9D410A4AA2300D80A61 /* kadmind.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = kadmind.sb; path = packages/mac/kadmind.sb; sourceTree = "<group>"; };
 		EB6FC9D510A4AA2300D80A61 /* kpasswdd.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = kpasswdd.sb; path = packages/mac/kpasswdd.sb; sourceTree = "<group>"; };
@@ -11795,6 +11812,7 @@
 			children = (
 				EB9204D51762C6A7005BE5B6 /* GSSTestApp.app */,
 				EB9204D71762C6A7005BE5B6 /* GSSTestApp.app */,
+				EB0B5A3C1B4E277400B6C385 /* GSSCFHTTPServerTests */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -12228,6 +12246,7 @@
 				EBC7F5A9145F4E9200FD16BA /* credential.c */,
 				EBC17DD9143E01B4007C9072 /* GSSItem.h */,
 				EBC17DDA143E01B4007C9072 /* item.c */,
+				EB6BF41C1B45BBE800831E60 /* ntlm.c */,
 				EBC17DFC143F0BB4007C9072 /* test_gsscf.c */,
 			);
 			name = cf;
@@ -18010,6 +18029,13 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
+		EB0B5A3C1B4E277400B6C385 /* GSSCFHTTPServerTests */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = GSSCFHTTPServerTests;
+			remoteRef = EB0B5A3B1B4E277400B6C385 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 		EB9204D51762C6A7005BE5B6 /* GSSTestApp.app */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.application;
@@ -19625,6 +19651,7 @@
 			files = (
 				EB0F9C3A111E400500744852 /* sym_gss.c in Sources */,
 				EBC17DDC143E01B4007C9072 /* item.c in Sources */,
+				EB6BF41D1B45BBE800831E60 /* ntlm.c in Sources */,
 				EBC7F5AA145F500E00FD16BA /* credential.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -19930,6 +19957,11 @@
 			isa = PBXTargetDependency;
 			target = EB081E090FD5FE5E00F8373D /* slc-yacc */;
 			targetProxy = EB081E120FD5FED700F8373D /* PBXContainerItemProxy */;
+		};
+		EB0B5A391B4E277400B6C385 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = GSSCFHTTPServerTests;
+			targetProxy = EB0B5A381B4E277400B6C385 /* PBXContainerItemProxy */;
 		};
 		EB0F9BE0111E3A7F00744852 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

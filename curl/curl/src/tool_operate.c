@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -151,7 +151,7 @@ static curl_off_t vms_realfilesize(const char * name,
   int ret_stat;
   FILE * file;
 
-  file = fopen(name, "r");
+  file = fopen(name, "r"); /* VMS */
   if(file == NULL) {
     return 0;
   }
@@ -202,7 +202,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
   CURL *curl = config->easy;
   char *httpgetfields = NULL;
 
-  CURLcode res = CURLE_OK;
+  CURLcode result = CURLE_OK;
   unsigned long li;
 
   /* Save the values of noprogress and isatty to restore them later on */
@@ -226,7 +226,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
   /* Check we have a url */
   if(!config->url_list || !config->url_list->url) {
     helpf(global->errors, "no URL specified!\n");
-    res = CURLE_FAILED_INIT;
+    result = CURLE_FAILED_INIT;
     goto quit_curl;
   }
 
@@ -249,7 +249,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
       if(!config->cacert) {
         curl_free(env);
         helpf(global->errors, "out of memory\n");
-        res = CURLE_OUT_OF_MEMORY;
+        result = CURLE_OUT_OF_MEMORY;
         goto quit_curl;
       }
     }
@@ -260,7 +260,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
         if(!config->capath) {
           curl_free(env);
           helpf(global->errors, "out of memory\n");
-          res = CURLE_OUT_OF_MEMORY;
+          result = CURLE_OUT_OF_MEMORY;
           goto quit_curl;
         }
       }
@@ -271,7 +271,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
           if(!config->cacert) {
             curl_free(env);
             helpf(global->errors, "out of memory\n");
-            res = CURLE_OUT_OF_MEMORY;
+            result = CURLE_OUT_OF_MEMORY;
             goto quit_curl;
           }
         }
@@ -282,8 +282,8 @@ static CURLcode operate_do(struct GlobalConfig *global,
       curl_free(env);
 #ifdef WIN32
     else {
-      res = FindWin32CACert(config, "curl-ca-bundle.crt");
-      if(res)
+      result = FindWin32CACert(config, "curl-ca-bundle.crt");
+      if(result)
         goto quit_curl;
     }
 #endif
@@ -296,19 +296,19 @@ static CURLcode operate_do(struct GlobalConfig *global,
       Curl_safefree(config->postfields);
       if(!httpgetfields) {
         helpf(global->errors, "out of memory\n");
-        res = CURLE_OUT_OF_MEMORY;
+        result = CURLE_OUT_OF_MEMORY;
         goto quit_curl;
       }
       if(SetHTTPrequest(config,
                         (config->no_body?HTTPREQ_HEAD:HTTPREQ_GET),
                         &config->httpreq)) {
-        res = CURLE_FAILED_INIT;
+        result = CURLE_FAILED_INIT;
         goto quit_curl;
       }
     }
     else {
       if(SetHTTPrequest(config, HTTPREQ_SIMPLEPOST, &config->httpreq)) {
-        res = CURLE_FAILED_INIT;
+        result = CURLE_FAILED_INIT;
         goto quit_curl;
       }
     }
@@ -320,8 +320,8 @@ static CURLcode operate_do(struct GlobalConfig *global,
     if(!curlx_strequal(config->headerfile, "-")) {
       FILE *newfile = fopen(config->headerfile, "wb");
       if(!newfile) {
-        warnf(config, "Failed to open %s\n", config->headerfile);
-        res = CURLE_WRITE_ERROR;
+        warnf(config->global, "Failed to open %s\n", config->headerfile);
+        result = CURLE_WRITE_ERROR;
         goto quit_curl;
       }
       else {
@@ -389,7 +389,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
       outfiles = strdup(urlnode->outfile);
       if(!outfiles) {
         helpf(global->errors, "out of memory\n");
-        res = CURLE_OUT_OF_MEMORY;
+        result = CURLE_OUT_OF_MEMORY;
         break;
       }
     }
@@ -398,9 +398,9 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
     if(!config->globoff && infiles) {
       /* Unless explicitly shut off */
-      res = (CURLcode) glob_url(&inglob, infiles, &infilenum,
-                     global->showerror?global->errors:NULL);
-      if(res) {
+      result = glob_url(&inglob, infiles, &infilenum,
+                        global->showerror?global->errors:NULL);
+      if(result) {
         Curl_safefree(outfiles);
         break;
       }
@@ -423,15 +423,15 @@ static CURLcode operate_do(struct GlobalConfig *global,
         Curl_nop_stmt;
       else {
         if(inglob) {
-          res = (CURLcode) glob_next_url(&uploadfile, inglob);
-          if(res == CURLE_OUT_OF_MEMORY)
+          result = glob_next_url(&uploadfile, inglob);
+          if(result == CURLE_OUT_OF_MEMORY)
             helpf(global->errors, "out of memory\n");
         }
         else if(!up) {
           uploadfile = strdup(infiles);
           if(!uploadfile) {
             helpf(global->errors, "out of memory\n");
-            res = CURLE_OUT_OF_MEMORY;
+            result = CURLE_OUT_OF_MEMORY;
           }
         }
         else
@@ -449,9 +449,9 @@ static CURLcode operate_do(struct GlobalConfig *global,
       if(!config->globoff) {
         /* Unless explicitly shut off, we expand '{...}' and '[...]'
            expressions and return total number of URLs in pattern set */
-        res = (CURLcode) glob_url(&urls, urlnode->url, &urlnum,
-                       global->showerror?global->errors:NULL);
-        if(res) {
+        result = glob_url(&urls, urlnode->url, &urlnum,
+                          global->showerror?global->errors:NULL);
+        if(result) {
           Curl_safefree(uploadfile);
           break;
         }
@@ -493,25 +493,25 @@ static CURLcode operate_do(struct GlobalConfig *global,
              filename. */
           outfile = strdup(mlfile->filename);
           if(!outfile) {
-            res = CURLE_OUT_OF_MEMORY;
+            result = CURLE_OUT_OF_MEMORY;
             goto show_error;
           }
           this_url = strdup(mlres->url);
           if(!this_url) {
-            res = CURLE_OUT_OF_MEMORY;
+            result = CURLE_OUT_OF_MEMORY;
             goto show_error;
           }
         }
         else {
           if(urls) {
-            res = (CURLcode) glob_next_url(&this_url, urls);
-            if(res)
+            result = glob_next_url(&this_url, urls);
+            if(result)
               goto show_error;
           }
           else if(!li) {
             this_url = strdup(urlnode->url);
             if(!this_url) {
-              res = CURLE_OUT_OF_MEMORY;
+              result = CURLE_OUT_OF_MEMORY;
               goto show_error;
             }
           }
@@ -523,7 +523,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
           if(outfiles) {
             outfile = strdup(outfiles);
             if(!outfile) {
-              res = CURLE_OUT_OF_MEMORY;
+              result = CURLE_OUT_OF_MEMORY;
               goto show_error;
             }
           }
@@ -540,12 +540,12 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
           if(!outfile) {
             /* extract the file name from the URL */
-            res = get_url_file_name(&outfile, this_url);
-            if(res)
+            result = get_url_file_name(&outfile, this_url);
+            if(result)
               goto show_error;
-            if((!outfile || !*outfile) && !config->content_disposition) {
+            if(!*outfile && !config->content_disposition) {
               helpf(global->errors, "Remote file name has no length!\n");
-              res = CURLE_WRITE_ERROR;
+              result = CURLE_WRITE_ERROR;
               goto quit_urls;
             }
 #if defined(MSDOS) || defined(WIN32)
@@ -553,7 +553,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
                bad characters in the file name before using it */
             outfile = sanitize_dos_name(outfile);
             if(!outfile) {
-              res = CURLE_OUT_OF_MEMORY;
+              result = CURLE_OUT_OF_MEMORY;
               goto show_error;
             }
 #endif /* MSDOS || WIN32 */
@@ -561,11 +561,11 @@ static CURLcode operate_do(struct GlobalConfig *global,
           else if(urls) {
             /* fill '#1' ... '#9' terms from URL pattern */
             char *storefile = outfile;
-            res = (CURLcode) glob_match_url(&outfile, storefile, urls);
+            result = glob_match_url(&outfile, storefile, urls);
             Curl_safefree(storefile);
-            if(res) {
+            if(result) {
               /* bad globbing */
-              warnf(config, "bad output glob!\n");
+              warnf(config->global, "bad output glob!\n");
               goto quit_urls;
             }
           }
@@ -574,11 +574,11 @@ static CURLcode operate_do(struct GlobalConfig *global,
              file output call */
 
           if(config->create_dirs || metalink) {
-            res = create_dir_hierarchy(outfile, global->errors);
+            result = create_dir_hierarchy(outfile, global->errors);
             /* create_dir_hierarchy shows error upon CURLE_WRITE_ERROR */
-            if(res == CURLE_WRITE_ERROR)
+            if(result == CURLE_WRITE_ERROR)
               goto quit_urls;
-            if(res) {
+            if(result) {
               goto show_error;
             }
           }
@@ -614,7 +614,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
 #endif
             if(!file) {
               helpf(global->errors, "Can't open '%s'!\n", outfile);
-              res = CURLE_WRITE_ERROR;
+              result = CURLE_WRITE_ERROR;
               goto quit_urls;
             }
             outs.fopened = TRUE;
@@ -636,7 +636,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
           this_url = add_file_name_to_url(curl, this_url, uploadfile);
           if(!this_url) {
-            res = CURLE_OUT_OF_MEMORY;
+            result = CURLE_OUT_OF_MEMORY;
             goto show_error;
           }
           /* VMS Note:
@@ -680,7 +680,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
               close(infd);
               infd = STDIN_FILENO;
             }
-            res = CURLE_READ_ERROR;
+            result = CURLE_READ_ERROR;
             goto quit_urls;
           }
           infdopen = TRUE;
@@ -710,7 +710,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
            * we should warn him/her.
            */
           if(config->proxyanyauth || (authbits>1)) {
-            warnf(config,
+            warnf(config->global,
                   "Using --anyauth or --proxy-anyauth with upload from stdin"
                   " involves a big risk of it not working. Use a temporary"
                   " file or a fixed auth type instead!\n");
@@ -722,7 +722,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
           set_binmode(stdin);
           if(curlx_strequal(uploadfile, ".")) {
             if(curlx_nonblock((curl_socket_t)infd, TRUE) < 0)
-              warnf(config,
+              warnf(config->global,
                     "fcntl failed on fd=%d: %s\n", infd, strerror(errno));
           }
         }
@@ -780,7 +780,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
             urlbuffer = aprintf("%s/?%s", this_url, httpgetfields);
 
           if(!urlbuffer) {
-            res = CURLE_OUT_OF_MEMORY;
+            result = CURLE_OUT_OF_MEMORY;
             goto show_error;
           }
 
@@ -998,10 +998,6 @@ static CURLcode operate_do(struct GlobalConfig *global,
         else
           my_setopt(curl, CURLOPT_RESUME_FROM_LARGE, CURL_OFF_T_C(0));
 
-        my_setopt_str(curl, CURLOPT_SSLCERT, config->cert);
-        my_setopt_str(curl, CURLOPT_SSLCERTTYPE, config->cert_type);
-        my_setopt_str(curl, CURLOPT_SSLKEY, config->key);
-        my_setopt_str(curl, CURLOPT_SSLKEYTYPE, config->key_type);
         my_setopt_str(curl, CURLOPT_KEYPASSWD, config->key_passwd);
 
         if(built_in_protos & (CURLPROTO_SCP|CURLPROTO_SFTP)) {
@@ -1025,7 +1021,15 @@ static CURLcode operate_do(struct GlobalConfig *global,
         if(config->crlfile)
           my_setopt_str(curl, CURLOPT_CRLFILE, config->crlfile);
 
+        if(config->pinnedpubkey)
+          my_setopt_str(curl, CURLOPT_PINNEDPUBLICKEY, config->pinnedpubkey);
+
         if(curlinfo->features & CURL_VERSION_SSL) {
+          my_setopt_str(curl, CURLOPT_SSLCERT, config->cert);
+          my_setopt_str(curl, CURLOPT_SSLCERTTYPE, config->cert_type);
+          my_setopt_str(curl, CURLOPT_SSLKEY, config->key);
+          my_setopt_str(curl, CURLOPT_SSLKEYTYPE, config->key_type);
+
           if(config->insecure_ok) {
             my_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
             my_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
@@ -1035,27 +1039,37 @@ static CURLcode operate_do(struct GlobalConfig *global,
             /* libcurl default is strict verifyhost -> 2L   */
             /* my_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L); */
           }
+
+          if(config->verifystatus)
+            my_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 1L);
+
+          if(config->falsestart)
+            my_setopt(curl, CURLOPT_SSL_FALSESTART, 1L);
+
+          my_setopt_enum(curl, CURLOPT_SSLVERSION, config->ssl_version);
         }
+        if(config->path_as_is)
+          my_setopt(curl, CURLOPT_PATH_AS_IS, 1L);
 
         if(built_in_protos & (CURLPROTO_SCP|CURLPROTO_SFTP)) {
           if(!config->insecure_ok) {
             char *home;
             char *file;
-            res = CURLE_OUT_OF_MEMORY;
+            result = CURLE_OUT_OF_MEMORY;
             home = homedir();
             if(home) {
               file = aprintf("%s/%sssh/known_hosts", home, DOT_CHAR);
               if(file) {
                 /* new in curl 7.19.6 */
-                res = res_setopt_str(curl, CURLOPT_SSH_KNOWNHOSTS, file);
+                result = res_setopt_str(curl, CURLOPT_SSH_KNOWNHOSTS, file);
                 curl_free(file);
-                if(res == CURLE_UNKNOWN_OPTION)
+                if(result == CURLE_UNKNOWN_OPTION)
                   /* libssh2 version older than 1.1.1 */
-                  res = CURLE_OK;
+                  result = CURLE_OK;
               }
               Curl_safefree(home);
             }
-            if(res)
+            if(result)
               goto show_error;
           }
         }
@@ -1085,13 +1099,12 @@ static CURLcode operate_do(struct GlobalConfig *global,
         my_setopt(curl, CURLOPT_COOKIESESSION, config->cookiesession?1L:0L);
 #else
         if(config->cookie || config->cookiefile || config->cookiejar) {
-          warnf(config, "cookie option(s) used even though cookie support "
-                "is disabled!\n");
+          warnf(config->global, "cookie option(s) used even though cookie "
+                "support is disabled!\n");
           return CURLE_NOT_BUILT_IN;
         }
 #endif
 
-        my_setopt_enum(curl, CURLOPT_SSLVERSION, config->ssl_version);
         my_setopt_enum(curl, CURLOPT_TIMECONDITION, (long)config->timecond);
         my_setopt(curl, CURLOPT_TIMEVALUE, (long)config->condtime);
         my_setopt_str(curl, CURLOPT_CUSTOMREQUEST, config->customrequest);
@@ -1152,8 +1165,8 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
         /* new in curl 7.9.3 */
         if(config->engine) {
-          res = res_setopt_str(curl, CURLOPT_SSLENGINE, config->engine);
-          if(res)
+          result = res_setopt_str(curl, CURLOPT_SSLENGINE, config->engine);
+          if(result)
             goto show_error;
           my_setopt(curl, CURLOPT_SSLENGINE_DEFAULT, 1L);
         }
@@ -1204,6 +1217,17 @@ static CURLcode operate_do(struct GlobalConfig *global,
           if(config->socks5_gssapi_nec)
             my_setopt_str(curl, CURLOPT_SOCKS5_GSSAPI_NEC,
                           config->socks5_gssapi_nec);
+
+          /* new in curl 7.43.0 */
+          if(config->proxy_service_name)
+            my_setopt_str(curl, CURLOPT_PROXY_SERVICE_NAME,
+                          config->proxy_service_name);
+
+          /* new in curl 7.43.0 */
+          if(config->service_name)
+            my_setopt_str(curl, CURLOPT_SERVICE_NAME,
+                          config->service_name);
+
         }
 #endif
         /* curl 7.13.0 */
@@ -1244,8 +1268,8 @@ static CURLcode operate_do(struct GlobalConfig *global,
           my_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
           if(config->alivetime != 0) {
 #if !defined(TCP_KEEPIDLE) || !defined(TCP_KEEPINTVL)
-            warnf(config, "Keep-alive functionality somewhat crippled due to "
-                "missing support in your operating system!\n");
+            warnf(config->global, "Keep-alive functionality somewhat crippled "
+                "due to missing support in your operating system!\n");
 #endif
             my_setopt(curl, CURLOPT_TCP_KEEPIDLE, config->alivetime);
             my_setopt(curl, CURLOPT_TCP_KEEPINTVL, config->alivetime);
@@ -1328,6 +1352,11 @@ static CURLcode operate_do(struct GlobalConfig *global,
           my_setopt(curl, CURLOPT_SSL_ENABLE_ALPN, 0L);
         }
 
+        /* new in 7.40.0 */
+        if(config->unix_socket_path)
+          my_setopt_str(curl, CURLOPT_UNIX_SOCKET_PATH,
+                        config->unix_socket_path);
+
         /* initialize retry vars for loop below */
         retry_sleep_default = (config->retry_delay) ?
           config->retry_delay*1000L : RETRY_SLEEP_DEFAULT; /* ms */
@@ -1337,8 +1366,8 @@ static CURLcode operate_do(struct GlobalConfig *global,
         retrystart = tvnow();
 
 #ifndef CURL_DISABLE_LIBCURL_OPTION
-        res = easysrc_perform();
-        if(res) {
+        result = easysrc_perform();
+        if(result) {
           goto show_error;
         }
 #endif
@@ -1351,7 +1380,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
               metalink_parser_context_delete(outs.metalink_parser);
             outs.metalink_parser = metalink_parser_context_new();
             if(outs.metalink_parser == NULL) {
-              res = CURLE_OUT_OF_MEMORY;
+              result = CURLE_OUT_OF_MEMORY;
               goto show_error;
             }
             fprintf(config->global->errors,
@@ -1365,10 +1394,22 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
 #ifdef CURLDEBUG
           if(config->test_event_based)
-            res = curl_easy_perform_ev(curl);
+            result = curl_easy_perform_ev(curl);
           else
 #endif
-          res = curl_easy_perform(curl);
+          result = curl_easy_perform(curl);
+
+          if(!result && !outs.stream && !outs.bytes) {
+            /* we have received no data despite the transfer was successful
+               ==> force cration of an empty output file (if an output file
+               was specified) */
+            long cond_unmet = 0L;
+            /* do not create (or even overwrite) the file in case we get no
+               data because of unmet condition */
+            curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &cond_unmet);
+            if(!cond_unmet && !tool_create_output_file(&outs))
+              result = CURLE_WRITE_ERROR;
+          }
 
           if(outs.is_cd_filename && outs.stream && !global->mute &&
              outs.filename)
@@ -1388,15 +1429,15 @@ static CURLcode operate_do(struct GlobalConfig *global,
               RETRY_LAST /* not used */
             } retry = RETRY_NO;
             long response;
-            if((CURLE_OPERATION_TIMEDOUT == res) ||
-               (CURLE_COULDNT_RESOLVE_HOST == res) ||
-               (CURLE_COULDNT_RESOLVE_PROXY == res) ||
-               (CURLE_FTP_ACCEPT_TIMEOUT == res))
+            if((CURLE_OPERATION_TIMEDOUT == result) ||
+               (CURLE_COULDNT_RESOLVE_HOST == result) ||
+               (CURLE_COULDNT_RESOLVE_PROXY == result) ||
+               (CURLE_FTP_ACCEPT_TIMEOUT == result))
               /* retry timeout always */
               retry = RETRY_TIMEOUT;
-            else if((CURLE_OK == res) ||
+            else if((CURLE_OK == result) ||
                     (config->failonerror &&
-                     (CURLE_HTTP_RETURNED_ERROR == res))) {
+                     (CURLE_HTTP_RETURNED_ERROR == result))) {
               /* If it returned OK. _or_ failonerror was enabled and it
                  returned due to such an error, check for HTTP transient
                  errors to retry on. */
@@ -1427,7 +1468,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
                 }
               }
             } /* if CURLE_OK */
-            else if(res) {
+            else if(result) {
               curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
 
               if(response/100 == 4)
@@ -1443,7 +1484,8 @@ static CURLcode operate_do(struct GlobalConfig *global,
               static const char * const m[]={
                 NULL, "timeout", "HTTP error", "FTP error"
               };
-              warnf(config, "Transient problem: %s "
+
+              warnf(config->global, "Transient problem: %s "
                     "Will retry in %ld seconds. "
                     "%ld retries left.\n",
                     m[retry], retry_sleep/1000L, retry_numretries);
@@ -1455,7 +1497,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
                 if(retry_sleep > RETRY_SLEEP_MAX)
                   retry_sleep = RETRY_SLEEP_MAX;
               }
-              if(outs.bytes && outs.filename) {
+              if(outs.bytes && outs.filename && outs.stream) {
                 /* We have written data to a output file, we truncate file
                  */
                 if(!global->mute)
@@ -1471,7 +1513,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
                   if(!global->mute)
                     fprintf(global->errors,
                             "failed to truncate, exiting\n");
-                  res = CURLE_WRITE_ERROR;
+                  result = CURLE_WRITE_ERROR;
                   goto quit_urls;
                 }
                 /* now seek to the end of the file, the position where we
@@ -1494,7 +1536,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
                not. Basically, we want to try the next resource if
                download was not successful. */
             long response;
-            if(CURLE_OK == res) {
+            if(CURLE_OK == result) {
               /* TODO We want to try next resource when download was
                  not successful. How to know that? */
               char *effective_url = NULL;
@@ -1518,7 +1560,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
                       "Metalink: fetching (%s) from (%s) FAILED (%s)\n",
                       mlfile->filename, this_url,
                       (errorbuffer[0]) ?
-                      errorbuffer : curl_easy_strerror((CURLcode)res));
+                      errorbuffer : curl_easy_strerror(result));
             }
           }
           if(metalink && !metalink_next_res)
@@ -1559,10 +1601,10 @@ static CURLcode operate_do(struct GlobalConfig *global,
         }
         else
 #endif
-        if(res && global->showerror) {
-          fprintf(global->errors, "curl: (%d) %s\n", res, (errorbuffer[0]) ?
-                  errorbuffer : curl_easy_strerror((CURLcode)res));
-          if(res == CURLE_SSL_CACERT)
+        if(result && global->showerror) {
+          fprintf(global->errors, "curl: (%d) %s\n", result, (errorbuffer[0]) ?
+                  errorbuffer : curl_easy_strerror(result));
+          if(result == CURLE_SSL_CACERT)
             fprintf(global->errors, "%s%s",
                     CURL_CA_CERT_ERRORMSG1, CURL_CA_CERT_ERRORMSG2);
         }
@@ -1583,34 +1625,34 @@ static CURLcode operate_do(struct GlobalConfig *global,
         quit_urls:
 
         /* Set file extended attributes */
-        if(!res && config->xattr && outs.fopened && outs.stream) {
+        if(!result && config->xattr && outs.fopened && outs.stream) {
           int rc = fwrite_xattr(curl, fileno(outs.stream));
           if(rc)
-            warnf(config, "Error setting extended attributes: %s\n",
+            warnf(config->global, "Error setting extended attributes: %s\n",
                   strerror(errno));
         }
 
         /* Close the file */
         if(outs.fopened && outs.stream) {
           int rc = fclose(outs.stream);
-          if(!res && rc) {
+          if(!result && rc) {
             /* something went wrong in the writing process */
-            res = CURLE_WRITE_ERROR;
-            fprintf(global->errors, "(%d) Failed writing body\n", res);
+            result = CURLE_WRITE_ERROR;
+            fprintf(global->errors, "(%d) Failed writing body\n", result);
           }
         }
         else if(!outs.s_isreg && outs.stream) {
           /* Dump standard stream buffered data */
           int rc = fflush(outs.stream);
-          if(!res && rc) {
+          if(!result && rc) {
             /* something went wrong in the writing process */
-            res = CURLE_WRITE_ERROR;
-            fprintf(global->errors, "(%d) Failed writing body\n", res);
+            result = CURLE_WRITE_ERROR;
+            fprintf(global->errors, "(%d) Failed writing body\n", result);
           }
         }
 
 #ifdef __AMIGA__
-        if(!res && outs.s_isreg && outs.filename) {
+        if(!result && outs.s_isreg && outs.filename) {
           /* Set the url (up to 80 chars) as comment for the file */
           if(strlen(url) > 78)
             url[79] = '\0';
@@ -1620,7 +1662,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
 #ifdef HAVE_UTIME
         /* File time can only be set _after_ the file has been closed */
-        if(!res && config->remote_time && outs.s_isreg && outs.filename) {
+        if(!result && config->remote_time && outs.s_isreg && outs.filename) {
           /* Ask libcurl if we got a remote file time */
           long filetime = -1;
           curl_easy_getinfo(curl, CURLINFO_FILETIME, &filetime);
@@ -1634,7 +1676,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
 #endif
 
 #ifdef USE_METALINK
-        if(!metalink && config->use_metalink && res == CURLE_OK) {
+        if(!metalink && config->use_metalink && result == CURLE_OK) {
           int rv = parse_metalink(config, &outs, this_url);
           if(rv == 0)
             fprintf(config->global->errors, "Metalink: parsing (%s) OK\n",
@@ -1643,7 +1685,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
             fprintf(config->global->errors, "Metalink: parsing (%s) FAILED\n",
                     this_url);
         }
-        else if(metalink && res == CURLE_OK && !metalink_next_res) {
+        else if(metalink && result == CURLE_OK && !metalink_next_res) {
           int rv = metalink_check_hash(global, mlfile, outs.filename);
           if(rv == 0) {
             metalink_next_res = 1;
@@ -1671,7 +1713,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
         if(metalink) {
           /* Should exit if error is fatal. */
-          if(is_fatal_error(res)) {
+          if(is_fatal_error(result)) {
             break;
           }
           if(!metalink_next_res)
@@ -1686,10 +1728,10 @@ static CURLcode operate_do(struct GlobalConfig *global,
         else
         if(urlnum > 1) {
           /* when url globbing, exit loop upon critical error */
-          if(is_fatal_error(res))
+          if(is_fatal_error(result))
             break;
         }
-        else if(res)
+        else if(result)
           /* when not url globbing, exit loop upon any error */
           break;
 
@@ -1707,10 +1749,10 @@ static CURLcode operate_do(struct GlobalConfig *global,
 
       if(infilenum > 1) {
         /* when file globbing, exit loop upon critical error */
-        if(is_fatal_error(res))
+        if(is_fatal_error(result))
           break;
       }
-      else if(res)
+      else if(result)
         /* when not file globbing, exit loop upon any error */
         break;
 
@@ -1736,7 +1778,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
     /*
     ** Bail out upon critical errors
     */
-    if(is_fatal_error(res))
+    if(is_fatal_error(result))
       goto quit_curl;
 
   } /* for-loop through all URLs */
@@ -1769,7 +1811,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
   /* Release metalink related resources here */
   clean_metalink(config);
 
-  return res;
+  return result;
 }
 
 CURLcode operate(struct GlobalConfig *config, int argc, argv_item_t argv[])

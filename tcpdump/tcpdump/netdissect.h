@@ -356,6 +356,10 @@ extern u_int pcapng_print(struct netdissect_options *,
 extern int ethertype_print(netdissect_options *,u_short, const u_char *,
 			     u_int, u_int);
 
+extern void aodv_print(netdissect_options *, const u_char *, u_int, int);
+
+extern void olsr_print(netdissect_options *, const u_char *, u_int, int);
+
 /* stuff that has not yet been rototiled */
 #if 0
 extern void ascii_print(netdissect_options *,u_int);

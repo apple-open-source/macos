@@ -186,6 +186,7 @@
 		72A31DD912A57DFF0088E971 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
 		72A31DDD12A57F370088E971 /* parse_args.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parse_args.c; sourceTree = "<group>"; };
 		72A31DE212A580080088E971 /* get_pty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = get_pty.c; sourceTree = "<group>"; };
+		FE8160AD1B4DD99800AE44CC /* sudo_lecture */ = {isa = PBXFileReference; lastKnownFileType = text; name = sudo_lecture; path = src/sudo_lecture; sourceTree = "<group>"; };
 		FE9495C216C732EE00AE40BD /* toke_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = toke_util.c; sourceTree = "<group>"; };
 		FE9495C516C7337700AE40BD /* secure_path.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = secure_path.c; sourceTree = "<group>"; };
 		FE9495C616C733A500AE40BD /* logwrap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = logwrap.c; sourceTree = "<group>"; };
@@ -310,6 +311,7 @@
 		1C35E9AD0F40B623006E8642 /* Config Files */ = {
 			isa = PBXGroup;
 			children = (
+				FE8160AD1B4DD99800AE44CC /* sudo_lecture */,
 				1C35E9420F40B56C006E8642 /* sudoers */,
 			);
 			name = "Config Files";
@@ -384,7 +386,7 @@
 			buildPhases = (
 				8DD76FAB0486AB0100D96B5E /* Sources */,
 				8DD76FAD0486AB0100D96B5E /* Frameworks */,
-				1C9A54DC0F4258C0005378C8 /* Install sudoers */,
+				1C9A54DC0F4258C0005378C8 /* Install /etc files */,
 				1C9A54CC0F425192005378C8 /* Install manpages */,
 				1C9A54DA0F425811005378C8 /* Install pam module */,
 				1C9A54CE0F425224005378C8 /* Install Open Source License */,
@@ -475,19 +477,19 @@
 			shellScript = "\npamd=\"$DSTROOT/private/etc/pam.d\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$pamd\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/pam.d/sudo\" \"$pamd/sudo\"";
 			showEnvVarsInLog = 0;
 		};
-		1C9A54DC0F4258C0005378C8 /* Install sudoers */ = {
+		1C9A54DC0F4258C0005378C8 /* Install /etc files */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Install sudoers";
+			name = "Install /etc files";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "\npd=\"$DSTROOT/private/etc/\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$pd\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 440 \"$SRCROOT/src/sudoers\" \"$pd/sudoers\"";
+			shellScript = "\npd=\"$DSTROOT/private/etc/\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$pd\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 440 \"$SRCROOT/src/sudoers\" \"$pd/sudoers\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 440 \"$SRCROOT/src/sudo_lecture\" \"$pd/sudo_lecture\"";
 			showEnvVarsInLog = 0;
 		};
 		1C9A54DE0F4258F2005378C8 /* Install Open Source Version */ = {

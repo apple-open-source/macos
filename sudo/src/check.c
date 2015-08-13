@@ -25,7 +25,6 @@
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/sysctl.h>
 #ifdef __linux__
 # include <sys/vfs.h>
 #endif
@@ -223,11 +222,12 @@ lecture(status)
 	fclose(fp);
     } else {
 	(void) fputs("\n\
-WARNING: Improper use of the sudo command could lead to data loss\n\
-or the deletion of important system files. Please double-check your\n\
-typing when using sudo. Type \"man sudo\" for more information.\n\
+We trust you have received the usual lecture from the local System\n\
+Administrator. It usually boils down to these three things:\n\
 \n\
-To proceed, enter your password, or type Ctrl-C to abort.\n\n",
+    #1) Respect the privacy of others.\n\
+    #2) Think before you type.\n\
+    #3) With great power comes great responsibility.\n\n",
     stderr);
     }
 }

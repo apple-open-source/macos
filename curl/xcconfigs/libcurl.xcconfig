@@ -6,7 +6,7 @@
 CURL_PREPROCESSOR_DEFINITIONS = BUILDING_LIBCURL CURL_HIDDEN_SYMBOLS
 
 OTHER_LDFLAGS = -framework Security -framework CoreFoundation
-OTHER_LDFLAGS[sdk=iphoneos*] = $(inherited)
+OTHER_LDFLAGS[sdk=iphone*] = $(inherited)
 OTHER_LDFLAGS[sdk=macosx*] = $(inherited) -weak_framework LDAP -weak_framework Kerberos
 
 USER_HEADER_SEARCH_PATHS = $(PROJECT_DIR)/curl/lib

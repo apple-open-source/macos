@@ -6395,7 +6395,7 @@ case $host in
   *-solaris2*)
             ap_platform_runtime_link_flag="-R"
                   case `uname -r` in
-        5.567*)
+        5.[567]*)
             ;;
         * )
 
@@ -24885,7 +24885,7 @@ else
 fi
 done
 
-      for ac_func in ENGINE_init ENGINE_load_builtin_engines
+      for ac_func in ENGINE_init ENGINE_load_builtin_engines RAND_egd
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -27870,9 +27870,9 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
+            DSO_MODULES="$DSO_MODULES mpm_event"
             # add default MPM to LoadModule list
             if test event = $default_mpm; then
-                DSO_MODULES="$DSO_MODULES mpm_event"
                 ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_event"
             fi
         fi
@@ -27953,9 +27953,9 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
+            DSO_MODULES="$DSO_MODULES mpm_prefork"
             # add default MPM to LoadModule list
             if test prefork = $default_mpm; then
-                DSO_MODULES="$DSO_MODULES mpm_prefork"
                 ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_prefork"
             fi
         fi
@@ -28025,9 +28025,9 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
+            DSO_MODULES="$DSO_MODULES mpm_winnt"
             # add default MPM to LoadModule list
             if test winnt = $default_mpm; then
-                DSO_MODULES="$DSO_MODULES mpm_winnt"
                 ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_winnt"
             fi
         fi
@@ -28097,9 +28097,9 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
+            DSO_MODULES="$DSO_MODULES mpm_worker"
             # add default MPM to LoadModule list
             if test worker = $default_mpm; then
-                DSO_MODULES="$DSO_MODULES mpm_worker"
                 ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_worker"
             fi
         fi
@@ -30422,9 +30422,9 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
+            DSO_MODULES="$DSO_MODULES mpm_mpmt_os2"
             # add default MPM to LoadModule list
             if test mpmt_os2 = $default_mpm; then
-                DSO_MODULES="$DSO_MODULES mpm_mpmt_os2"
                 ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_mpmt_os2"
             fi
         fi
@@ -32535,7 +32535,7 @@ if test "${enable_v4_mapped+set}" = set; then :
 else
 
     case $host in
-    *freebsd1234.*)
+    *freebsd[1234].*)
         v4mapped=yes
         ;;
     *freebsd*|*netbsd*|*openbsd*)

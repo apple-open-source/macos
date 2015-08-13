@@ -2,5 +2,4 @@ This project is a copy of the normal Foundation command-line tool, and the diffe
 
 It uses the standard Debug and Release configurations. Currently, command-line tools aren't supported in the Simulator.
 
-
 Thanks!

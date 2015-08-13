@@ -194,6 +194,9 @@ test_libntlm_v1(const char *test_name, int flags,
 
     gss_release_buffer(&min_stat, &output);
 
+    if (!GSSCheckNTLMReflection(type2.challenge))
+	errx(1, "reflection not detected");
+
     type3.flags = type1.flags & type2.flags;
     type3.username = rk_UNCONST(user);
     if (use_server_domain)
@@ -348,6 +351,9 @@ test_libntlm_v2(const char *test_name, int flags,
     ret = heim_ntlm_decode_type2(&data, &type2);
     if (ret)
 	errx(1, "heim_ntlm_decode_type2: %d", ret);
+
+    if (!GSSCheckNTLMReflection(type2.challenge))
+	errx(1, "reflection not detected");
 
     if (type2.targetinfo.length) {
 	struct ntlm_targetinfo ti;

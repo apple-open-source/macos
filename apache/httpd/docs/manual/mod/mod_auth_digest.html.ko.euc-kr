@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="EUC-KR"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+<meta content="text/html; charset=EUC-KR" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -39,7 +41,11 @@
     <p>이 모듈은 HTTP Digest Authentication을 구현한다.
     그러나 많은 테스트를 거치지 않은 실험적인 모듈이다.</p>
 </div>
-<div id="quickview"><h3 class="directives">지시어들</h3>
+<div id="quickview"><h3>주제</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#using">Digest Authentication 사용하기</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#msie">MS Internet Explorer 문제 해결하기</a></li>
+</ul><h3 class="directives">지시어들</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#authdigestalgorithm">AuthDigestAlgorithm</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authdigestdomain">AuthDigestDomain</a></li>
@@ -48,11 +54,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#authdigestqop">AuthDigestQop</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authdigestshmemsize">AuthDigestShmemSize</a></li>
 </ul>
-<h3>주제</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#using">Digest Authentication 사용하기</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#msie">MS Internet Explorer 문제 해결하기</a></li>
-</ul><h3>참고</h3>
+<h3>참고</h3>
 <ul class="seealso">
 <li><code class="directive"><a href="../mod/core.html#authname">AuthName</a></code></li>
 <li><code class="directive"><a href="../mod/core.html#authtype">AuthType</a></code></li>
@@ -306,7 +308,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_auth_digest.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -78,7 +80,12 @@
     their last modified date) to ensure that all visitors are
     receive the corrected content headers.</p>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#multipleext">Files with Multiple Extensions</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#contentencoding">Content encoding</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#charset-lang">Character sets and languages</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#addcharset">AddCharset</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#addencoding">AddEncoding</a></li>
@@ -99,12 +106,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#removetype">RemoveType</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#typesconfig">TypesConfig</a></li>
 </ul>
-<h3>Topics</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#multipleext">Files with Multiple Extensions</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#contentencoding">Content encoding</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#charset-lang">Character sets and languages</a></li>
-</ul><h3>See also</h3>
+<h3>See also</h3>
 <ul class="seealso">
 <li><code class="directive"><a href="../mod/mod_mime_magic.html#mimemagicfile">MimeMagicFile</a></code></li>
 <li><code class="directive"><a href="../mod/core.html#adddefaultcharset">AddDefaultCharset</a></code></li>
@@ -157,7 +159,7 @@
     script, but not the file <code>bar.cgi.html</code>, then instead
     of using <code>AddHandler cgi-script .cgi</code>, use</p>
 
-    <div class="example"><h3>Configure handler based on final extension only</h3><pre class="prettyprint lang-config">&lt;FilesMatch \.cgi$&gt;
+    <div class="example"><h3>Configure handler based on final extension only</h3><pre class="prettyprint lang-config">&lt;FilesMatch "[^.]+\.cgi$"&gt;
   SetHandler cgi-script
 &lt;/FilesMatch&gt;</pre>
 </div>
@@ -513,19 +515,19 @@ responses from the server</td></tr>
 
     <pre class="prettyprint lang-config"># Effective filter "DEFLATE"
 AddOutputFilter DEFLATE shtml
-&lt;Location /foo&gt;
+&lt;Location "/foo"&gt;
   # Effective filter "INCLUDES", replacing "DEFLATE"
   AddOutputFilter INCLUDES shtml
 &lt;/Location&gt;
-&lt;Location /bar&gt;
+&lt;Location "/bar"&gt;
   # Effective filter "INCLUDES;DEFLATE", replacing "DEFLATE"
   AddOutputFilter INCLUDES;DEFLATE shtml
 &lt;/Location&gt;
-&lt;Location /bar/baz&gt;
+&lt;Location "/bar/baz"&gt;
   # Effective filter "BUFFER", replacing "INCLUDES;DEFLATE"
   AddOutputFilter BUFFER shtml
 &lt;/Location&gt;
-&lt;Location /bar/baz/buz&gt;
+&lt;Location "/bar/baz/buz"&gt;
   # No effective filter, replacing "BUFFER"
   RemoveOutputFilter shtml
 &lt;/Location&gt;</pre>
@@ -592,6 +594,29 @@ type</td></tr>
     static files served out of the filesystem.  For resources other than
     static files, where the generator of the response typically specifies
     a Content-Type, this directive has no effect.</p>
+
+
+    <div class="note"><h3>Note</h3>
+    <p>If no handler is explicitly set for a request, the specified content
+    type will also be used as the handler name. </p>
+
+    <p>When explicit directives such as
+    <code class="directive"><a href="../mod/core.html#sethandler">SetHandler</a></code> or
+    <code class="directive"><a href="#addhandler">AddHandler</a></code> do not apply
+    to the current request, the internal handler name normally set by those
+    directives is instead set to the content type specified by this directive.
+    </p>
+    <p>
+    This is a historical behavior that may be used by some third-party modules
+    (such as mod_php) for taking responsibility for the matching request.
+    </p>
+
+    <p>Configurations that rely on such "synthetic" types should be avoided.
+    Additionally, configurations that restrict access to
+    <code class="directive"><a href="../mod/core.html#sethandler">SetHandler</a></code> or
+    <code class="directive"><a href="#addhandler">AddHandler</a></code> should
+    restrict access to this directive as well.</p>
+    </div>
 
 
 <h3>See also</h3>
@@ -777,7 +802,7 @@ extensions</td></tr>
 
     <div class="example"><h3>/foo/.htaccess:</h3><pre class="prettyprint lang-config">AddEncoding x-gzip .gz
 AddType text/plain .asc
-&lt;Files *.gz.asc&gt;
+&lt;Files "*.gz.asc"&gt;
     RemoveEncoding .gz
 &lt;/Files&gt;</pre>
 </div>
@@ -1026,7 +1051,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_mime.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

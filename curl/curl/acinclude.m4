@@ -2452,23 +2452,6 @@ AC_DEFUN([CURL_CHECK_FUNC_SELECT], [
 ])
 
 
-# This is only a temporary fix. This macro is here to replace the broken one
-# delivered by the automake project (including the 1.9.6 release). As soon as
-# they ship a working version we SHOULD remove this work-around.
-
-AC_DEFUN([AM_MISSING_HAS_RUN],
-[AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
-test x"${MISSING+set}" = xset || MISSING="\${SHELL} \"$am_aux_dir/missing\""
-# Use eval to expand $SHELL
-if eval "$MISSING --run true"; then
-  am_missing_run="$MISSING --run "
-else
-  am_missing_run=
-  AC_MSG_WARN([`missing' script is too old or missing])
-fi
-])
-
-
 dnl CURL_VERIFY_RUNTIMELIBS
 dnl -------------------------------------------------
 dnl Verify that the shared libs found so far can be used when running
@@ -2607,15 +2590,16 @@ AC_HELP_STRING([--without-ca-path], [Don't use a default CA path]),
   if test "x$want_ca" != "xno" -a "x$want_ca" != "xunset" -a \
           "x$want_capath" != "xno" -a "x$want_capath" != "xunset"; then
     dnl both given
-    AC_MSG_ERROR([Can't specify both --with-ca-bundle and --with-ca-path.])
+    ca="$want_ca"
+    capath="$want_capath"
   elif test "x$want_ca" != "xno" -a "x$want_ca" != "xunset"; then
     dnl --with-ca-bundle given
     ca="$want_ca"
     capath="no"
   elif test "x$want_capath" != "xno" -a "x$want_capath" != "xunset"; then
     dnl --with-ca-path given
-    if test "x$OPENSSL_ENABLED" != "x1"; then
-      AC_MSG_ERROR([--with-ca-path only works with openSSL])
+    if test "x$OPENSSL_ENABLED" != "x1" -a "x$GNUTLS_ENABLED" != "x1" -a "x$POLARSSL_ENABLED" != "x1"; then
+      AC_MSG_ERROR([--with-ca-path only works with OpenSSL, GnuTLS or PolarSSL])
     fi
     capath="$want_capath"
     ca="no"
@@ -2669,11 +2653,13 @@ AC_HELP_STRING([--without-ca-path], [Don't use a default CA path]),
     AC_DEFINE_UNQUOTED(CURL_CA_BUNDLE, "$ca", [Location of default ca bundle])
     AC_SUBST(CURL_CA_BUNDLE)
     AC_MSG_RESULT([$ca])
-  elif test "x$capath" != "xno"; then
+  fi
+  if test "x$capath" != "xno"; then
     CURL_CA_PATH="\"$capath\""
     AC_DEFINE_UNQUOTED(CURL_CA_PATH, "$capath", [Location of default ca path])
     AC_MSG_RESULT([$capath (capath)])
-  else
+  fi
+  if test "x$ca" = "xno" && test "x$capath" = "xno"; then
     AC_MSG_RESULT([no])
   fi
 ])

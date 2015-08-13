@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.7.6
+VERSION = 2.7.10
 
 PWD := $(shell pwd)
 
@@ -93,16 +93,13 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/distutils/tests/test_build_ext.py < $(FIX)/Lib_distutils_tests_test_build_ext.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/logging/handlers.py < $(FIX)/Lib_logging_handlers.py.ed && \
-	ed - $(PROJECT)/Lib/_osx_support.py < $(FIX)/Lib__osx_support.py.ed && \
 	ed - $(PROJECT)/Lib/plat-mac/bundlebuilder.py < $(FIX)/bundlebuilder.py.ed && \
 	ed - $(PROJECT)/Lib/platform.py < $(FIX)/Lib_platform.py.ed && \
 	ed - $(PROJECT)/Lib/pydoc.py < $(FIX)/pydoc.py.ed && \
 	ed - $(PROJECT)/Lib/rlcompleter.py < $(FIX)/rlcompleter.py.ed && \
 	ed - $(PROJECT)/Lib/site.py < $(FIX)/site.py.ed && \
 	ed - $(PROJECT)/Lib/test/test__locale.py < $(FIX)/Lib_test_test__locale.py.ed && \
-	ed - $(PROJECT)/Lib/test/test__osx_support.py < $(FIX)/Lib_test_test__osx_support.py.ed && \
 	ed - $(PROJECT)/Lib/test/test_httpservers.py < $(FIX)/Lib_test_test_httpservers.py.ed && \
-	ed - $(PROJECT)/Lib/test/test_posix.py < $(FIX)/Lib_test_test_posix.py.ed && \
 	patch $(PROJECT)/Mac/Modules/cf/_CFmodule.c $(FIX)/_CFmodule.c.patch && \
 	ed - $(PROJECT)/Makefile.pre.in < $(FIX)/Makefile.pre.in.ed && \
 	patch $(PROJECT)/Misc/python.man $(FIX)/python.man.patch && \
@@ -119,6 +116,8 @@ $(OBJROOT)/$(PROJECT):
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
+	patch $(PROJECT)/setup.py $(FIX)/setup.py.patch && \
+	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \

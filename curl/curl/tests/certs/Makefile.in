@@ -78,8 +78,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = tests/certs
-DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(top_srcdir)/mkinstalldirs
+DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/m4/curl-confopts.m4 \
@@ -100,7 +99,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
@@ -218,6 +217,7 @@ CURL_DISABLE_LDAPS = @CURL_DISABLE_LDAPS@
 CURL_DISABLE_POP3 = @CURL_DISABLE_POP3@
 CURL_DISABLE_PROXY = @CURL_DISABLE_PROXY@
 CURL_DISABLE_RTSP = @CURL_DISABLE_RTSP@
+CURL_DISABLE_SMB = @CURL_DISABLE_SMB@
 CURL_DISABLE_SMTP = @CURL_DISABLE_SMTP@
 CURL_DISABLE_TELNET = @CURL_DISABLE_TELNET@
 CURL_DISABLE_TFTP = @CURL_DISABLE_TFTP@
@@ -242,7 +242,7 @@ GREP = @GREP@
 HAVE_GNUTLS_SRP = @HAVE_GNUTLS_SRP@
 HAVE_LDAP_SSL = @HAVE_LDAP_SSL@
 HAVE_LIBZ = @HAVE_LIBZ@
-HAVE_SSLEAY_SRP = @HAVE_SSLEAY_SRP@
+HAVE_OPENSSL_SRP = @HAVE_OPENSSL_SRP@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -270,6 +270,7 @@ MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
 NROFF = @NROFF@
+NSS_LIBS = @NSS_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -294,6 +295,7 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 SSL_ENABLED = @SSL_ENABLED@
+SSL_LIBS = @SSL_LIBS@
 STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
@@ -310,7 +312,7 @@ USE_NSS = @USE_NSS@
 USE_OPENLDAP = @USE_OPENLDAP@
 USE_POLARSSL = @USE_POLARSSL@
 USE_SCHANNEL = @USE_SCHANNEL@
-USE_SSLEAY = @USE_SSLEAY@
+USE_UNIX_SOCKETS = @USE_UNIX_SOCKETS@
 USE_WINDOWS_SSPI = @USE_WINDOWS_SSPI@
 VERSION = @VERSION@
 VERSIONNUM = @VERSIONNUM@
@@ -393,23 +395,28 @@ top_srcdir = @top_srcdir@
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign
 SUBDIRS = scripts
-CERTFILES = \
-  EdelCurlRoot-ca.cacert \
+CERTCONFIGS = \
+  EdelCurlRoot-ca.prm \
   EdelCurlRoot-ca.cnf \
+  Server-localhost-sv.prm \
+  Server-localhost.nn-sv.prm \
+  Server-localhost0h-sv.prm
+
+GENERATEDCERTS = \
+  EdelCurlRoot-ca.cacert \
   EdelCurlRoot-ca.crt \
   EdelCurlRoot-ca.csr \
   EdelCurlRoot-ca.der \
   EdelCurlRoot-ca.key \
-  EdelCurlRoot-ca.prm \
   Server-localhost-sv.crl \
   Server-localhost-sv.crt \
   Server-localhost-sv.csr \
   Server-localhost-sv.der \
   Server-localhost-sv.dhp \
   Server-localhost-sv.key \
-  Server-localhost-sv.p12 \
   Server-localhost-sv.pem \
-  Server-localhost-sv.prm \
+  Server-localhost-sv.pub.der \
+  Server-localhost-sv.pub.pem \
   Server-localhost.nn-sv.crl \
   Server-localhost.nn-sv.crt \
   Server-localhost.nn-sv.csr \
@@ -417,22 +424,23 @@ CERTFILES = \
   Server-localhost.nn-sv.dhp \
   Server-localhost.nn-sv.key \
   Server-localhost.nn-sv.pem \
-  Server-localhost.nn-sv.prm \
+  Server-localhost.nn-sv.pub.der \
+  Server-localhost.nn-sv.pub.pem \
   Server-localhost0h-sv.crl \
   Server-localhost0h-sv.crt \
   Server-localhost0h-sv.csr \
   Server-localhost0h-sv.der \
   Server-localhost0h-sv.dhp \
   Server-localhost0h-sv.key \
-  Server-localhost0h-sv.p12 \
   Server-localhost0h-sv.pem \
-  Server-localhost0h-sv.prm
+  Server-localhost0h-sv.pub.der \
+  Server-localhost0h-sv.pub.pem
 
 SRPFILES = \
   srp-verifier-conf \
   srp-verifier-db
 
-EXTRA_DIST = $(CERTFILES) $(SRPFILES)
+EXTRA_DIST = $(CERTCONFIGS) $(GENERATEDCERTS) $(SRPFILES)
 all: all-recursive
 
 .SUFFIXES:
@@ -743,6 +751,26 @@ uninstall-am:
 	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
 	ps ps-am tags tags-am uninstall uninstall-am
 
+
+# Rebuild the certificates
+
+clean-certs:
+	cd $(srcdir); rm -f $(GENERATEDCERTS)
+
+build-certs: $(srcdir)/EdelCurlRoot-ca.cacert $(srcdir)/Server-localhost-sv.pem \
+	$(srcdir)/Server-localhost.nn-sv.pem $(srcdir)/Server-localhost0h-sv.pem
+
+$(srcdir)/EdelCurlRoot-ca.cacert:
+	cd $(srcdir); scripts/genroot.sh EdelCurlRoot
+
+$(srcdir)/Server-localhost-sv.pem: $(srcdir)/EdelCurlRoot-ca.cacert
+	cd $(srcdir); scripts/genserv.sh Server-localhost EdelCurlRoot
+
+$(srcdir)/Server-localhost.nn-sv.pem: $(srcdir)/EdelCurlRoot-ca.cacert
+	cd $(srcdir); scripts/genserv.sh Server-localhost.nn EdelCurlRoot
+
+$(srcdir)/Server-localhost0h-sv.pem: $(srcdir)/EdelCurlRoot-ca.cacert
+	cd $(srcdir); scripts/genserv.sh Server-localhost0h EdelCurlRoot
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

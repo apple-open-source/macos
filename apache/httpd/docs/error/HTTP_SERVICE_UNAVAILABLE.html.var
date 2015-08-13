@@ -43,13 +43,12 @@ Body:----------en--
 Content-language: es
 Content-type: text/html
 Body:----------es--
-<!--#set var="TITLE" value="Servicio no disponible!" -->
+<!--#set var="TITLE" value="&iexcl;Servicio no disponible!" -->
 <!--#include virtual="include/top.html" -->
 
-   Por el momento el servidor no puede atender su solicitud
-   debido a que est&aacute; en mantenimiento o a que tiene
-   problemas de capacidad. Por favor intente nuevamente
-   m&aacute;s tarde.
+    El servidor no puede procesar su solicitud en este momento
+    debido a tareas de mantenimiento o a problemas de capacidad.
+    Por favor, int&eacute;ntelo de nuevo m&aacute;s tarde.
 
 <!--#include virtual="include/bottom.html" -->
 ----------es--
@@ -137,6 +136,19 @@ Body:----------nl--
 
 <!--#include virtual="include/bottom.html" -->
 ----------nl--
+
+Content-language: nb
+Content-type: text/html; charset=UTF-8
+Body:----------nb--
+<!--#set var="CONTENT_LANGUAGE" value="nb"
+--><!--#set var="TITLE" value="Tjenesten er ikke tilgjengelig!"
+--><!--#include virtual="include/top.html" -->
+
+    Serveren er midlertidig ikke i stand til å utføre din
+    forespørsel. Vennligst prøv igjen senere.
+
+<!--#include virtual="include/bottom.html" -->
+----------nb--
 
 Content-language: pl
 Content-type: text/html; charset=UTF-8

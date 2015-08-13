@@ -4,15 +4,20 @@
 <title>CURLOPT_CHUNK_END_FUNCTION man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,12 +52,14 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_CHUNK_END_FUNCTION - callback after a transfer with FTP wildcardmatch <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0"><pre>
-<p class="level0">#include &lt;curl/curl.h&gt;
- <p class="level0">long chunk_end_callback(void *ptr);
- <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_CHUNK_END_FUNCTION,
- &nbsp;                         chunk_end_callback);
- </pre>
+<p class="level0"><pre class="level0">
+&#35;include &lt;curl/curl.h&gt;
+&nbsp;
+long chunk_end_callback(void *ptr);
+&nbsp;
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_CHUNK_END_FUNCTION,
+&nbsp;                         chunk_end_callback);
+</pre>
 <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a pointer to your callback function, which should match the prototype shown above. 
 <p class="level0">This function gets called by libcurl as soon as a part of the stream has been transferred (or skipped). 
@@ -62,6 +69,6 @@ p.roffit {
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Added in 7.21.0 <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_WILDCARDMATCH.html">CURLOPT_WILDCARDMATCH</a> <a Class="manpage" href="./CURLOPT_CHUNK_BGN_FUNCTION.html">CURLOPT_CHUNK_BGN_FUNCTION</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_WILDCARDMATCH.html">CURLOPT_WILDCARDMATCH</a>, <a Class="manpage" href="./CURLOPT_CHUNK_BGN_FUNCTION.html">CURLOPT_CHUNK_BGN_FUNCTION</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

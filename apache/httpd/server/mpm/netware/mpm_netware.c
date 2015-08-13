@@ -942,7 +942,7 @@ static int netware_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
             "caught SIGTERM, shutting down");
 
         while (worker_thread_count > 0) {
-            printf ("\rShutdown pending. Waiting for %u thread(s) to terminate...",
+            printf ("\rShutdown pending. Waiting for %lu thread(s) to terminate...",
                     worker_thread_count);
             apr_thread_yield();
         }
@@ -963,7 +963,7 @@ static int netware_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
 
         /* Wait for all of the threads to terminate before initiating the restart */
         while (worker_thread_count > 0) {
-            printf ("\rRestart pending. Waiting for %u thread(s) to terminate...",
+            printf ("\rRestart pending. Waiting for %lu thread(s) to terminate...",
                     worker_thread_count);
             apr_thread_yield();
         }
@@ -1043,7 +1043,7 @@ static int netware_check_config(apr_pool_t *p, apr_pool_t *plog,
                          APLOGNO(00230) "WARNING: MaxThreads of %d not allowed, "
                          "increasing to 1.", ap_threads_limit);
         } else {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(02661)
                          "MaxThreads of %d not allowed, increasing to 1",
                          ap_threads_limit);
         }

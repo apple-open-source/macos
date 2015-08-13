@@ -1485,6 +1485,12 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 	 * mft records and they must be in the first run, i.e. consecutive on
 	 * disk.
 	 */
+	if (ni->rl.rl == NULL) {
+		ntfs_error(vol->mp, "$MFTMirr run list is NULL.");
+		err = EIO;
+		lck_rw_unlock_shared(&ni->rl.lock);
+		goto unlock;
+	}
 	if (ni->rl.rl->lcn != vol->mftmirr_lcn ||
 			ni->rl.rl->length < (((s64)vol->mftmirr_size <<
 			vol->mft_record_size_shift) +
@@ -1492,8 +1498,9 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 		ntfs_error(vol->mp, "$MFTMirr location mismatch.  Run "
 				"chkdsk.");
 		err = EIO;
-	} else
-		ntfs_debug("Done.");
+		lck_rw_unlock_shared(&ni->rl.lock);
+		goto unlock;
+	}
 	lck_rw_unlock_shared(&ni->rl.lock);
 	lck_rw_unlock_shared(&ni->lock);
 	(void)vnode_put(ni->vn);
@@ -1567,6 +1574,7 @@ unlock:
 	(void)vnode_put(ni->vn);
 err:
 	OSFree(mirr_start, alloc_size, ntfs_malloc_tag);
+	ntfs_debug("Done (error %d).", err);
 	return err;
 unmap:
 	err2 = buf_unmap(buf);

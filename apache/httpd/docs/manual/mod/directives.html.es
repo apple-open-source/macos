@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -199,6 +201,7 @@
 <li><a href="mod_cache.html#cachestoreprivate">CacheStorePrivate</a></li>
 <li><a href="mod_cgid.html#cgidscripttimeout">CGIDScriptTimeout</a></li>
 <li><a href="core.html#cgimapextension">CGIMapExtension</a></li>
+<li><a href="core.html#cgipassauth">CGIPassAuth</a></li>
 <li><a href="mod_charset_lite.html#charsetdefault">CharsetDefault</a></li>
 <li><a href="mod_charset_lite.html#charsetoptions">CharsetOptions</a></li>
 <li><a href="mod_charset_lite.html#charsetsourceenc">CharsetSourceEnc</a></li>
@@ -260,7 +263,7 @@
 <li><a href="core.html#errordocument">ErrorDocument</a></li>
 <li><a href="core.html#errorlog">ErrorLog</a></li>
 <li><a href="core.html#errorlogformat">ErrorLogFormat</a></li>
-<li><a href="mod_example.html#example">Example</a></li>
+<li><a href="mod_example_hooks.html#example">Example</a></li>
 <li><a href="mod_expires.html#expiresactive">ExpiresActive</a></li>
 <li><a href="mod_expires.html#expiresbytype">ExpiresByType</a></li>
 <li><a href="mod_expires.html#expiresdefault">ExpiresDefault</a></li>
@@ -351,6 +354,7 @@
 <li><a href="core.html#location">&lt;Location&gt;</a></li>
 <li><a href="core.html#locationmatch">&lt;LocationMatch&gt;</a></li>
 <li><a href="mod_log_config.html#logformat">LogFormat</a></li>
+<li><a href="mod_logio.html#logiotrackttfb">LogIOTrackTTFB</a></li>
 <li><a href="core.html#loglevel">LogLevel</a></li>
 <li><a href="mod_log_debug.html#logmessage">LogMessage</a></li>
 <li><a href="mod_lua.html#luaauthzprovider">LuaAuthzProvider</a></li>
@@ -384,6 +388,7 @@
 <li><a href="prefork.html#maxspareservers">MaxSpareServers</a></li>
 <li><a href="mpm_common.html#maxsparethreads">MaxSpareThreads</a></li>
 <li><a href="mpm_netware.html#maxthreads">MaxThreads</a></li>
+<li><a href="core.html#mergetrailers">MergeTrailers</a></li>
 <li><a href="mod_cern_meta.html#metadir">MetaDir</a></li>
 <li><a href="mod_cern_meta.html#metafiles">MetaFiles</a></li>
 <li><a href="mod_cern_meta.html#metasuffix">MetaSuffix</a></li>
@@ -596,6 +601,7 @@
 <li><a href="mod_ssl.html#sslsessioncache">SSLSessionCache</a></li>
 <li><a href="mod_ssl.html#sslsessioncachetimeout">SSLSessionCacheTimeout</a></li>
 <li><a href="mod_ssl.html#sslsessionticketkeyfile">SSLSessionTicketKeyFile</a></li>
+<li><a href="mod_ssl.html#sslsessiontickets">SSLSessionTickets</a></li>
 <li><a href="mod_ssl.html#sslsrpunknownuserseed">SSLSRPUnknownUserSeed</a></li>
 <li><a href="mod_ssl.html#sslsrpverifierfile">SSLSRPVerifierFile</a></li>
 <li><a href="mod_ssl.html#sslstaplingcache">SSLStaplingCache</a></li>
@@ -615,6 +621,7 @@
 <li><a href="mpm_common.html#startservers">StartServers</a></li>
 <li><a href="mpm_common.html#startthreads">StartThreads</a></li>
 <li><a href="mod_substitute.html#substitute">Substitute</a></li>
+<li><a href="mod_substitute.html#substitutemaxlinelength">SubstituteMaxLineLength</a></li>
 <li><a href="mod_unixd.html#suexec">Suexec</a></li>
 <li><a href="mod_suexec.html#suexecusergroup">SuexecUserGroup</a></li>
 <li><a href="mpm_common.html#threadlimit" id="T" name="T">ThreadLimit</a></li>
@@ -676,7 +683,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/directives.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa de este sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

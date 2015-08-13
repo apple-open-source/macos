@@ -21,6 +21,7 @@ FAQ
   1.12 I have a problem who can I chat with?
   1.13 curl's ECCN number?
   1.14 How do I submit my patch?
+  1.15 How do I port libcurl to my OS?
 
  2. Install Related Problems
   2.1 configure doesn't find OpenSSL even when it is installed
@@ -80,6 +81,8 @@ FAQ
   4.17 Non-functional connect timeouts on Windows
   4.18 file:// URLs containing drive letters (Windows, NetWare)
   4.19 Why doesn't cURL return an error when the network cable is unplugged?
+  4.20 curl doesn't return error for HTTP non-200 responses!
+  4.21 Why is there a HTTP/1.1 in my HTTP/2 request?
 
  5. libcurl Issues
   5.1 Is libcurl thread-safe?
@@ -133,14 +136,14 @@ FAQ
 
     A free and easy-to-use client-side URL transfer library, supporting DICT,
     FILE, FTP, FTPS, GOPHER, HTTP, HTTPS, IMAP, IMAPS, LDAP, LDAPS, POP3,
-    POP3S, RTMP, RTSP, SCP, SFTP, SMTP, SMTPS, TELNET and TFTP.
+    POP3S, RTMP, RTSP, SCP, SFTP, SMB, SMBS, SMTP, SMTPS, TELNET and TFTP.
 
     libcurl supports HTTPS certificates, HTTP POST, HTTP PUT, FTP uploading,
-    kerberos, HTTP form based upload, proxies, cookies, user+password
+    Kerberos, SPNEGO, HTTP form based upload, proxies, cookies, user+password
     authentication, file transfer resume, http proxy tunneling and more!
 
     libcurl is highly portable, it builds and works identically on numerous
-    platforms, including Solaris, NetBSD, FreeBSD, OpenBSD, Darwin, HPUX,
+    platforms, including Solaris, NetBSD, FreeBSD, OpenBSD, Darwin, HP-UX,
     IRIX, AIX, Tru64, Linux, UnixWare, HURD, Windows, Amiga, OS/2, BeOS, Mac
     OS X, Ultrix, QNX, OpenVMS, RISC OS, Novell NetWare, DOS, Symbian, OSF,
     Android, Minix, IBM TPF and more...
@@ -155,7 +158,10 @@ FAQ
     Since curl uses libcurl, curl supports the same wide range of common
     Internet protocols that libcurl does.
 
-  We pronounce curl and cURL with an initial k sound: [kurl].
+  We pronounce curl with an initial k sound. It rhymes with words like girl
+  and earl. This is a short WAV file to help you:
+
+     http://media.merriam-webster.com/soundc11/c/curl0001.wav
 
   There are numerous sub-projects and related projects that also use the word
   curl in the project names in various combinations, but you should take
@@ -238,10 +244,10 @@ FAQ
   1.6 What do you get for making curl?
 
   Project cURL is entirely free and open. No person gets paid for developing
-  (lib)curl on full or even part time. We do this voluntarily on our spare
-  time. Occasionally companies pay individual developers to work on curl, but
-  that's up to each company and developer. It is not controlled by nor
-  supervised in any way by the project.
+  curl on full time. We do this voluntarily, mostly on spare time.
+  Occasionally companies pay individual developers to work on curl, but that's
+  up to each company and developer. It is not controlled by nor supervised in
+  any way by the project.
 
   We still get help from companies. Haxx provides web site, bandwidth, mailing
   lists etc, sourceforge.net hosts project services we take advantage from,
@@ -346,7 +352,7 @@ FAQ
   cryptography. When doing so, the Export Control Classification Number (ECCN)
   is used to identify the level of export control etc.
 
-  ASF gives a good explanation at http://www.apache.org/dev/crypto.html
+  ASF gives a good explanation at https://www.apache.org/dev/crypto.html
 
   We believe curl's number might be ECCN 5D002, another possibility is
   5D992. It seems necessary to write them, asking to confirm.
@@ -374,6 +380,19 @@ FAQ
     people involved there.
 
   Lots of more details are found in the CONTRIBUTE and INTERNALS docs.
+
+  1.15 How do I port libcurl to my OS?
+
+  Here's a rough step-by-step:
+
+  1. copy a suitable lib/config-*.h file as a start to lib/config-[youros].h
+
+  2. edit lib/config-[youros].h to match your OS and setup
+
+  3. edit lib/curl_setup.h to include config-[youros].h when your OS is
+     detected by the preprocessor, in the style others already exist
+
+  4. compile lib/*.c and make them into a library
 
 
 2. Install Related Problems
@@ -423,7 +442,7 @@ FAQ
 
   curl can be built to use one of the following SSL alternatives: OpenSSL,
   GnuTLS, yassl, NSS, PolarSSL, axTLS, Secure Transport (native iOS/OS X),
-  WinSSL (native Windows) or qssl (native IBM i). They all have their pros
+  WinSSL (native Windows) or GSKit (native IBM i). They all have their pros
   and cons, and we try to maintain a comparison of them here:
   http://curl.haxx.se/docs/ssl-compared.html
 
@@ -760,8 +779,9 @@ FAQ
   request-body in a GET request with something like "curl -X GET -d data
   [URL]"
 
-  Note that -X doesn't change curl's behavior. It only modifies the actual
-  string sent in the request.
+  Note that -X doesn't actually change curl's behavior as it only modifies the
+  actual string sent in the request, but that may of course trigger a
+  different set of events.
 
   Accordingly, by using -XPOST on a command line that for example would follow
   a 303 redirect, you will effectively prevent curl from behaving
@@ -1022,7 +1042,7 @@ FAQ
   timeout is set.
 
   See option TcpMaxConnectRetransmissions on this page:
-  http://support.microsoft.com/?scid=kb%3Ben-us%3B175523&x=6&y=7
+  https://support.microsoft.com/en-us/kb/175523/en-us
 
   Also, even on non-Windows systems there may run a firewall or anti-virus
   software or similar that accepts the connection but does not actually do
@@ -1039,7 +1059,7 @@ FAQ
   You'll find that even if D:\blah.txt does exist, cURL returns a 'file
   not found' error.
 
-  According to RFC 1738 (http://www.faqs.org/rfcs/rfc1738.html),
+  According to RFC 1738 (https://www.ietf.org/rfc/rfc1738.txt),
   file:// URLs must contain a host component, but it is ignored by
   most implementations. In the above example, 'D:' is treated as the
   host component, and is taken away. Thus, cURL tries to open '/blah.txt'.
@@ -1086,7 +1106,41 @@ FAQ
   immediately if its lone network connection goes down.  That can be achieved
   by having the application monitor the network connection on its own using an
   OS-specific mechanism, then signalling libcurl to abort (see also item 5.13).
-  
+
+  4.20 curl doesn't return error for HTTP non-200 responses!
+
+  Correct. Unless you use -f (--fail).
+
+  When doing HTTP transfers, curl will perform exactly what you're asking it
+  to do and if successful it will not return an error. You can use curl to
+  test your web server's "file not found" page (that gets 404 back), you can
+  use it to check your authentication protected web pages (that get a 401
+  back) and so on.
+
+  The specific HTTP response code does not constitute a problem or error for
+  curl. It simply sends and delivers HTTP as you asked and if that worked,
+  everything is fine and dandy. The response code is generally providing more
+  higher level error information that curl doesn't care about. The error was
+  not in the HTTP transfer.
+
+  If you want your command line to treat error codes in the 400 and up range
+  as errors and thus return a non-zero value and possibly show an error
+  message, curl has a dedicated option for that: -f (CURLOPT_FAILONERROR in
+  libcurl speak).
+
+  You can also use the -w option and the variable %{response_code} to extract
+  the exact response code that was return in the response.
+
+  4.21 Why is there a HTTP/1.1 in my HTTP/2 request?
+
+  If you use verbose to see the HTTP request when you send off a HTTP/2
+  request, it will still say 1.1.
+
+  The reason for this is that we first generate the request to send using the
+  old 1.1 style and show that request in the verbose output, and then we
+  convert it over to the binary header-compressed HTTP/2 style. The actual
+  "1.1" part from that request is then not actually used in the transfer. The
+  binary HTTP/2 headers are not human readable.
 
 5. libcurl Issues
 
@@ -1109,13 +1163,13 @@ FAQ
   If you use a OpenSSL-powered libcurl in a multi-threaded environment, you
   need to provide one or two locking functions:
 
-    http://www.openssl.org/docs/crypto/threads.html
+    https://www.openssl.org/docs/crypto/threads.html
 
   If you use a GnuTLS-powered libcurl in a multi-threaded environment, you
   need to provide locking function(s) for libgcrypt (which is used by GnuTLS
   for the crypto functions).
 
-    http://www.gnu.org/software/gnutls/manual/html_node/Multi_002dthreaded-applications.html
+    https://web.archive.org/web/20111103083330/http://www.gnu.org/software/gnutls/manual/html_node/Multi_002dthreaded-applications.html
 
   No special locking is needed with a NSS-powered libcurl. NSS is thread-safe.
 
@@ -1246,7 +1300,7 @@ FAQ
   you want to change name resolver function you must rebuild libcurl and tell
   it to use a different function.
 
-  - The non-ipv6 resolver that can use one out of four host name resolve calls
+  - The non-IPv6 resolver that can use one out of four host name resolve calls
     (depending on what your system supports):
 
       A - gethostbyname()
@@ -1254,15 +1308,15 @@ FAQ
       C - gethostbyname_r() with 5 arguments
       D - gethostbyname_r() with 6 arguments
 
-  - The ipv6-resolver that uses getaddrinfo()
+  - The IPv6-resolver that uses getaddrinfo()
 
   - The c-ares based name resolver that uses the c-ares library for resolves.
     Using this offers asynchronous name resolves.
 
   - The threaded resolver (default option on Windows). It uses:
 
-      A - gethostbyname() on plain ipv4 hosts
-      B - getaddrinfo() on ipv6-enabled hosts
+      A - gethostbyname() on plain IPv4 hosts
+      B - getaddrinfo() on IPv6 enabled hosts
 
   Also note that libcurl never resolves or reverse-lookups addresses given as
   pure numbers, such as 127.0.0.1 or ::1.
@@ -1291,7 +1345,7 @@ FAQ
   Also note that on many networks NATs or other IP-munging techniques are used
   that makes you see and use a different IP address locally than what the
   remote server will see you coming from. You may also consider using
-  http://www.torproject.org .
+  https://www.torproject.org/ .
 
   5.13 How do I stop an ongoing transfer?
 

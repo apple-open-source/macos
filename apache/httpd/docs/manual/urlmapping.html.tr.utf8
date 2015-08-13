@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -108,7 +110,7 @@
       altında göstermek için <code class="directive"><a href="./mod/mod_alias.html#alias">Alias</a></code>
       yönergesi de kullanılabilir. Örneğin,</p>
 
-    <pre class="prettyprint lang-config">Alias /belgeler /var/http</pre>
+    <pre class="prettyprint lang-config">Alias "/belgeler" "/var/http"</pre>
 
 
     <p>yapılandırması ile
@@ -121,7 +123,7 @@
       üzere <code class="directive"><a href="./mod/mod_alias.html#aliasmatch">AliasMatch</a></code> ve <code class="directive"><a href="./mod/mod_alias.html#scriptaliasmatch">ScriptAliasMatch</a></code> yönergelerinin gücünden
       yararlanılabilir. Örneğin,</p>
 
-    <pre class="prettyprint lang-config">ScriptAliasMatch ^/~([a-zA-Z0-9]+)/cgi-bin/(.+) /home/$1/cgi-bin/$2</pre>
+    <pre class="prettyprint lang-config">ScriptAliasMatch "^/~([a-zA-Z0-9]+)/cgi-bin/(.+)" "/home/$1/cgi-bin/$2"</pre>
 
 
     <p>satırı sayesinde <code>http://example.com/~user/cgi-bin/betik.cgi</code>
@@ -163,7 +165,7 @@
       eşlemek için <code>AliasMatch</code> yönergesi şöyle
       kullanılabilirdi:</p>
 
-    <pre class="prettyprint lang-config">AliasMatch ^/sayfalar/([a-zA-Z0-9]+)(/(.*))?$ /home/$1/public_html/$3</pre>
+    <pre class="prettyprint lang-config">AliasMatch "^/sayfalar/([a-zA-Z0-9]+)(/(.*))?$" "/home/$1/public_html/$3"</pre>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -180,7 +182,7 @@
       adında yeni bir dizine taşınması halinde istemciye yeni konumun
       bildirilmesi şöyle sağlanabilirdi:</p>
 
-    <pre class="prettyprint lang-config">Redirect permanent /foo/ http://example.com/bar/</pre>
+    <pre class="prettyprint lang-config">Redirect permanent "/foo/" "http://example.com/bar/"</pre>
 
 
     <p>Bu atama sayesinde <code>/foo/</code> ile başlayan URL yolları
@@ -195,13 +197,13 @@
       ayrı olarak farklı bir siteye yönlendirmek için yönergeyi şöyle
       kullanabilirsiniz:</p>
 
-    <pre class="prettyprint lang-config">RedirectMatch permanent ^/$ http://example.com/ilksayfa.html</pre>
+    <pre class="prettyprint lang-config">RedirectMatch permanent "^/$" "http://example.com/ilksayfa.html"</pre>
 
 
     <p>Bundan başka, bir sitedeki tüm sayfalara yapılan istekleri başka bir
       siteye geçici olarak yönlendirmek için şöyle bir şey yapabilirsiniz:</p>
 
-    <pre class="prettyprint lang-config">RedirectMatch temp .* http://mesela.example.com/ilksayfa.html</pre>
+    <pre class="prettyprint lang-config">RedirectMatch temp ".*" "http://mesela.example.com/ilksayfa.html"</pre>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -220,10 +222,10 @@
       üzerindeki <code>/bar/</code> dizininden alıp istemciye yerel sunucudan
       geliyormuş gibi sunmaktadır:</p>
 
-    <pre class="prettyprint lang-config">ProxyPass /foo/ http://dahili.example.com/bar/
-ProxyPassReverse /foo/ http://dahili.example.com/bar/
+    <pre class="prettyprint lang-config">ProxyPass "/foo/" "http://dahili.example.com/bar/"
+ProxyPassReverse "/foo/" "http://dahili.example.com/bar/"
 ProxyPassReverseCookieDomain dahili.example.com harici.example.com
-ProxyPassReverseCookiePath /foo/ /bar/</pre>
+ProxyPassReverseCookiePath "/foo/" "/bar/"</pre>
 
 
     <p><code class="directive"><a href="./mod/mod_proxy.html#proxypass">ProxyPass</a></code> sunucuyu uygun
@@ -241,7 +243,7 @@ ProxyPassReverseCookiePath /foo/ /bar/</pre>
       bağları (ve diğer içeriği) <code class="module"><a href="./mod/mod_substitute.html">mod_substitute</a></code> modülü
       kullanılarak istemciye sunuluyormuşçasına değiştirebilirsiniz.</p>
 
-    <pre class="prettyprint lang-config">Substitute s/dahili\.example\.com/harici.example.com/i</pre>
+    <pre class="prettyprint lang-config">Substitute "s/dahili\.example\.com/harici.example.com/i"</pre>
 
 
      <p>HTML ve XHTML’de hiperbağları daha bilgece yeniden yazabilen
@@ -354,7 +356,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/urlmapping.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

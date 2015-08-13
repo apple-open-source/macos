@@ -6,8 +6,8 @@
 	<true/>
 	<key>Label</key>
 	<string>org.net-snmp.snmpd</string>
-	<key>OnDemand</key>
-	<false/>
+	<key>KeepAlive</key>
+	<true/>
 	<key>Program</key>
 	<string>/usr/sbin/snmpd</string>
 	<key>ProgramArguments</key>
@@ -15,7 +15,7 @@
 		<string>snmpd</string>
 		<string>-f</string>
 	</array>
-	<key>ServiceIPC</key>
-	<false/>
+	<key>ProcessType</key>
+	<string>Background</string>
 </dict>
 </plist>

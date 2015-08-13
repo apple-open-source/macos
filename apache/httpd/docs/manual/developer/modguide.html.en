@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -201,7 +203,7 @@ definition will look like this:</p>
 
 
 
-<p>This lets the server know that we are not interesting in anything fancy, we 
+<p>This lets the server know that we are not interested in anything fancy, we 
 just want to hook onto the requests and possibly handle some of them. </p> 
 
 <p> The reference in our example declaration, <code>register_hooks</code> 
@@ -484,9 +486,9 @@ apr_pool_t *p, const char *fmt, ...)</code>: Similar to <code>sprintf</code>, ex
 
 <pre class="prettyprint lang-c">static int example_handler(request_rec *r)
 {
-    const char* original = "You can't edit this!";
-    char* copy;
-    int* integers;
+    const char *original = "You can't edit this!";
+    char *copy;
+    int *integers;
     
     /* Allocate space for 10 integer values and set them all to zero. */
     integers = apr_pcalloc(r-&gt;pool, sizeof(int)*10); 
@@ -726,8 +728,8 @@ telling an individual module (or a set of modules) how to behave, such as
 these directives control how <code>mod_rewrite</code> works:
 </p>
 <pre class="prettyprint lang-config">RewriteEngine On
-RewriteCond %{REQUEST_URI} ^/foo/bar
-RewriteRule ^/foo/bar/(.*)$ /foobar?page=$1</pre>
+RewriteCond "%{REQUEST_URI}" "^/foo/bar"
+RewriteRule "^/foo/bar/(.*)$" "/foobar?page=$1"</pre>
 
 <p>
 Each of these configuration directives are handled by a separate function, 
@@ -800,7 +802,7 @@ module AP_MODULE_DECLARE_DATA   example_module =
 So far so good. To access our new handler, we could add the following to 
 our configuration:
 </p>
-<pre class="prettyprint lang-config">&lt;Location /example&gt;
+<pre class="prettyprint lang-config">&lt;Location "/example"&gt;
     SetHandler example-handler
 &lt;/Location&gt;</pre>
 
@@ -905,7 +907,7 @@ const char *example_set_path(cmd_parms *cmd, void *cfg, const char *arg)
 /* Handler for the "exampleAction" directive */
 /* Let's pretend this one takes one argument (file or db), and a second (deny or allow), */
 /* and we store it in a bit-wise manner. */
-const char *example_set_action(cmd_parms *cmd, void *cfg, const char *arg1, const char* arg2)
+const char *example_set_action(cmd_parms *cmd, void *cfg, const char *arg1, const char *arg2)
 {
     if(!strcasecmp(arg1, "file")) config.typeOfAction = 0x01;
     else config.typeOfAction = 0x02;
@@ -974,7 +976,7 @@ const char *example_set_path(cmd_parms *cmd, void *cfg, const char *arg)
 /* Handler for the "exampleAction" directive */
 /* Let's pretend this one takes one argument (file or db), and a second (deny or allow), */
 /* and we store it in a bit-wise manner. */
-const char *example_set_action(cmd_parms *cmd, void *cfg, const char *arg1, const char* arg2)
+const char *example_set_action(cmd_parms *cmd, void *cfg, const char *arg1, const char *arg2)
 {
     if(!strcasecmp(arg1, "file")) config.typeOfAction = 0x01;
     else config.typeOfAction = 0x02;
@@ -1069,11 +1071,11 @@ within which modules must operate. For example, let's assume you have this
 configuration set up for mod_rewrite:
 </p>
 <pre class="prettyprint lang-config">&lt;Directory "/var/www"&gt;
-    RewriteCond %{HTTP_HOST} ^example.com$
-    RewriteRule (.*) http://www.example.com/$1
+    RewriteCond "%{HTTP_HOST}" "^example.com$"
+    RewriteRule "(.*)" "http://www.example.com/$1"
 &lt;/Directory&gt;
 &lt;Directory "/var/www/sub"&gt;
-    RewriteRule ^foobar$ index.php?foobar=true
+    RewriteRule "^foobar$" "index.php?foobar=true"
 &lt;/Directory&gt;</pre>
 
 <p>
@@ -1210,12 +1212,12 @@ our first step is to make a function for creating new, blank
 configurations. We do so by creating the function we just referenced in 
 our name tag as the Per-directory configuration handler:</p>
 
-<pre class="prettyprint lang-c">void* create_dir_conf(apr_pool_t* pool, char* context) {
+<pre class="prettyprint lang-c">void *create_dir_conf(apr_pool_t *pool, char *context) {
     context = context ? context : "(undefined context)";
     example_config *cfg = apr_pcalloc(pool, sizeof(example_config));
     if(cfg) {
         /* Set some default values */
-        strcpy(cfg-&gt;context, x);
+        strcpy(cfg-&gt;context, context);
         cfg-&gt;enabled = 0;
         cfg-&gt;path = "/foo/bar";
         cfg-&gt;typeOfAction = 0x11;
@@ -1236,7 +1238,7 @@ where you have a parent configuration and a child, such as the following:
 </p>
 <pre class="prettyprint lang-config">&lt;Directory "/var/www"&gt;
     ExampleEnabled On
-    ExamplePath /foo/bar
+    ExamplePath "/foo/bar"
     ExampleAction file allow
 &lt;/Directory&gt;
 &lt;Directory "/var/www/subdir"&gt;
@@ -1264,10 +1266,10 @@ two configurations and decide how they are to be merged:</p>
 
 
 
-<pre class="prettyprint lang-c">void* merge_dir_conf(apr_pool_t* pool, void* BASE, void* ADD) {
-    example_config* base = (example_config *) BASE ; /* This is what was set in the parent context */
-    example_config* add = (example_config *) ADD ;   /* This is what is set in the new context */
-    example_config* conf = (example_config *) create_dir_conf(pool, "Merged configuration"); /* This will be the merged configuration */
+<pre class="prettyprint lang-c">void *merge_dir_conf(apr_pool_t *pool, void *BASE, void *ADD) {
+    example_config *base = (example_config *) BASE ; /* This is what was set in the parent context */
+    example_config *add = (example_config *) ADD ;   /* This is what is set in the new context */
+    example_config *conf = (example_config *) create_dir_conf(pool, "Merged configuration"); /* This will be the merged configuration */
     
     /* Merge configurations */
     conf-&gt;enabled = ( add-&gt;enabled == 0 ) ? base-&gt;enabled : add-&gt;enabled ;
@@ -1564,18 +1566,18 @@ or check out the rest of our documentation for further tips.
 
 
 <pre class="prettyprint lang-c">typedef struct {
-    const char* key;
-    const char* value;
+    const char *key;
+    const char *value;
 } keyValuePair;
 
-keyValuePair* readPost(request_rec* r) {
+keyValuePair *readPost(request_rec *r) {
     apr_array_header_t *pairs = NULL;
     apr_off_t len;
     apr_size_t size;
     int res;
     int i = 0;
     char *buffer;
-    keyValuePair* kvp;
+    keyValuePair *kvp;
 
     res = ap_parse_form_data(r, NULL, &amp;pairs, -1, HUGE_STRING_LEN);
     if (res != OK || !pairs) return NULL; /* Return NULL if we failed or if there are is no POST data */
@@ -1597,7 +1599,7 @@ keyValuePair* readPost(request_rec* r) {
 static int example_handler(request_rec *r)
 {
     /*~~~~~~~~~~~~~~~~~~~~~~*/
-    keyValuePair* formData;
+    keyValuePair *formData;
     /*~~~~~~~~~~~~~~~~~~~~~~*/
 
     formData = readPost(r);
@@ -1687,7 +1689,7 @@ static int example_handler(request_rec *r)
     return(rc);
 }
 
-static int example_handler(request_rec* r) 
+static int example_handler(request_rec *r) 
 {
     /*~~~~~~~~~~~~~~~~*/
     apr_off_t   size;
@@ -1727,7 +1729,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/developer/modguide.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

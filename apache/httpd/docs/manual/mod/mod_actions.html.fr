@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -58,7 +60,7 @@ d'Apache httpd</a></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="Action" id="Action">Action</a> <a name="action" id="action">Directive</a></h2>
+<div class="directive-section"><h2><a name="action" id="action">Directive</a> <a name="Action" id="Action">Action</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Active un script CGI pour un gestionnaire ou un type de
 contenu particulier</td></tr>
@@ -94,7 +96,7 @@ Action image/gif /cgi-bin/images.cgi</pre>
 
     <div class="example"><h3>Example: File extension</h3><pre class="prettyprint lang-config"># Files of a particular file extension
 AddHandler my-file-type .xyz
-Action my-file-type /cgi-bin/program.cgi</pre>
+Action my-file-type "/cgi-bin/program.cgi"</pre>
 </div>
     <p>Dans cet exemple, les requêtes pour des fichiers possédant
     l'extension <code>.xyz</code> seront traitées par
@@ -106,9 +108,9 @@ Action my-file-type /cgi-bin/program.cgi</pre>
     directive <code class="directive">Action</code> pour des localisations
     virtuelles.</p>
 
-    <pre class="prettyprint lang-config">&lt;Location /news&gt;
+    <pre class="prettyprint lang-config">&lt;Location "/news"&gt;
     SetHandler news-handler
-    Action news-handler /cgi-bin/news.cgi virtual
+    Action news-handler "/cgi-bin/news.cgi" virtual
 &lt;/Location&gt;</pre>
 
 
@@ -118,7 +120,7 @@ Action my-file-type /cgi-bin/program.cgi</pre>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="Script" id="Script">Script</a> <a name="script" id="script">Directive</a></h2>
+<div class="directive-section"><h2><a name="script" id="script">Directive</a> <a name="Script" id="Script">Script</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Active un script CGI dans le cas d'une méthode de requête
 particulière.</td></tr>
@@ -153,10 +155,10 @@ particulière.</td></tr>
     normalement.</p>
 
     <pre class="prettyprint lang-config"># All GET requests go here
-Script GET /cgi-bin/search
+Script GET "/cgi-bin/search"
 
 # A CGI PUT handler
-Script PUT /~bob/put.cgi</pre>
+Script PUT "/~bob/put.cgi"</pre>
 
 
 </div>
@@ -185,7 +187,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_actions.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

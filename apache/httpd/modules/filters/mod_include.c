@@ -697,7 +697,7 @@ static const char *include_expr_var_fn(ap_expr_eval_ctx_t *eval_ctx,
 {
     const char *res, *name = data;
     include_ctx_t *ctx = eval_ctx->data;
-    if (name[0] == 'e') {
+    if ((name[0] == 'e') || (name[0] == 'E')) {
         /* keep legacy "env" semantics */
         if ((res = apr_table_get(ctx->r->notes, arg)) != NULL)
             return res;
@@ -968,8 +968,8 @@ static APR_INLINE int re_check(include_ctx_t *ctx, const char *string,
 
     compiled = ap_pregcomp(ctx->dpool, rexp, AP_REG_EXTENDED);
     if (!compiled) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, ctx->r, "unable to "
-                      "compile pattern \"%s\"", rexp);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, ctx->r, APLOGNO(02667)
+                      "unable to compile pattern \"%s\"", rexp);
         return -1;
     }
 
@@ -1698,7 +1698,7 @@ static int find_file(request_rec *r, const char *directive, const char *tag,
                                 APR_FILEPATH_NOTABSOLUTE, r->pool);
 
         if (rv != APR_SUCCESS) {
-            error_fmt = "unable to access file \"%s\" "
+            error_fmt = APLOGNO(02668) "unable to access file \"%s\" "
                         "in parsed file %s";
         }
         else {
@@ -1711,13 +1711,13 @@ static int find_file(request_rec *r, const char *directive, const char *tag,
                 if ((rv = apr_stat(finfo, to_send,
                     APR_FINFO_GPROT | APR_FINFO_MIN, rr->pool)) != APR_SUCCESS
                     && rv != APR_INCOMPLETE) {
-                    error_fmt = "unable to get information about \"%s\" "
-                        "in parsed file %s";
+                    error_fmt = APLOGNO(02669) "unable to get information "
+                                "about \"%s\" in parsed file %s";
                 }
             }
             else {
-                error_fmt = "unable to lookup information about \"%s\" "
-                            "in parsed file %s";
+                error_fmt = APLOGNO(02670) "unable to lookup information "
+                            "about \"%s\" in parsed file %s";
             }
         }
 

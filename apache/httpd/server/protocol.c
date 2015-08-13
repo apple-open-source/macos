@@ -555,7 +555,7 @@ static int read_request_line(request_rec *r, apr_bucket_brigade *bb)
     const char *uri;
     const char *pro;
 
-    int major = 1, minor = 0;   /* Assume HTTP/1.0 if non-"HTTP" protocol */
+    unsigned int major = 1, minor = 0;   /* Assume HTTP/1.0 if non-"HTTP" protocol */
     char http[5];
     apr_size_t len;
     int num_blank_lines = 0;
@@ -599,8 +599,6 @@ static int read_request_line(request_rec *r, apr_bucket_brigade *bb)
              */
             if (APR_STATUS_IS_ENOSPC(rv)) {
                 r->status    = HTTP_REQUEST_URI_TOO_LARGE;
-                r->proto_num = HTTP_VERSION(1,0);
-                r->protocol  = apr_pstrdup(r->pool, "HTTP/1.0");
             }
             else if (APR_STATUS_IS_TIMEUP(rv)) {
                 r->status = HTTP_REQUEST_TIME_OUT;
@@ -608,6 +606,8 @@ static int read_request_line(request_rec *r, apr_bucket_brigade *bb)
             else if (APR_STATUS_IS_EINVAL(rv)) {
                 r->status = HTTP_BAD_REQUEST;
             }
+            r->proto_num = HTTP_VERSION(1,0);
+            r->protocol  = apr_pstrdup(r->pool, "HTTP/1.0");
             return 0;
         }
     } while ((len <= 0) && (++num_blank_lines < max_blank_lines));
@@ -718,6 +718,8 @@ AP_DECLARE(void) ap_get_mime_headers_core(request_rec *r, apr_bucket_brigade *bb
                 r->status = HTTP_REQUEST_TIME_OUT;
             }
             else {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r, 
+                              "Failed to read request header line %s", field);
                 r->status = HTTP_BAD_REQUEST;
             }
 
@@ -727,7 +729,7 @@ AP_DECLARE(void) ap_get_mime_headers_core(request_rec *r, apr_bucket_brigade *bb
              */
             if (rv == APR_ENOSPC) {
                 const char *field_escaped;
-                if (field) {
+                if (field && len) {
                     /* ensure ap_escape_html will terminate correctly */
                     field[len - 1] = '\0';
                     field_escaped = ap_escape_html(r->pool, field);
@@ -763,18 +765,21 @@ AP_DECLARE(void) ap_get_mime_headers_core(request_rec *r, apr_bucket_brigade *bb
                 apr_size_t fold_len = last_len + len + 1; /* trailing null */
 
                 if (fold_len >= (apr_size_t)(r->server->limit_req_fieldsize)) {
+                    const char *field_escaped;
+
                     r->status = HTTP_BAD_REQUEST;
                     /* report what we have accumulated so far before the
                      * overflow (last_field) as the field with the problem
                      */
+                    field_escaped = ap_escape_html(r->pool, last_field);
                     apr_table_setn(r->notes, "error-notes",
                                    apr_psprintf(r->pool,
                                                "Size of a request header field "
                                                "after folding "
                                                "exceeds server limit.<br />\n"
                                                "<pre>\n%.*s\n</pre>\n", 
-                                               field_name_len(last_field), 
-                                               ap_escape_html(r->pool, last_field)));
+                                               field_name_len(field_escaped), 
+                                               field_escaped));
                     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(00562)
                                   "Request header exceeds LimitRequestFieldSize "
                                   "after folding: %.*s",
@@ -917,9 +922,11 @@ request_rec *ap_read_request(conn_rec *conn)
     r->allowed_methods = ap_make_method_list(p, 2);
 
     r->headers_in      = apr_table_make(r->pool, 25);
+    r->trailers_in     = apr_table_make(r->pool, 5);
     r->subprocess_env  = apr_table_make(r->pool, 25);
     r->headers_out     = apr_table_make(r->pool, 12);
     r->err_headers_out = apr_table_make(r->pool, 5);
+    r->trailers_out    = apr_table_make(r->pool, 5);
     r->notes           = apr_table_make(r->pool, 5);
 
     r->request_config  = ap_create_request_config(r->pool);
@@ -965,9 +972,12 @@ request_rec *ap_read_request(conn_rec *conn)
                 ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(00566)
                               "request failed: invalid characters in URI");
             }
-            ap_send_error_response(r, 0);
+            access_status = r->status;
+            r->status = HTTP_OK;
+            ap_die(access_status, r);
             ap_update_child_status(conn->sbh, SERVER_BUSY_LOG, r);
             ap_run_log_transaction(r);
+            r = NULL;
             apr_brigade_destroy(tmp_bb);
             goto traceout;
         }
@@ -1185,6 +1195,7 @@ AP_DECLARE(void) ap_set_sub_req_protocol(request_rec *rnew,
     rnew->status          = HTTP_OK;
 
     rnew->headers_in      = apr_table_copy(rnew->pool, r->headers_in);
+    rnew->trailers_in     = apr_table_copy(rnew->pool, r->trailers_in);
 
     /* did the original request have a body?  (e.g. POST w/SSI tags)
      * if so, make sure the subrequest doesn't inherit body headers
@@ -1196,6 +1207,7 @@ AP_DECLARE(void) ap_set_sub_req_protocol(request_rec *rnew,
     rnew->subprocess_env  = apr_table_copy(rnew->pool, r->subprocess_env);
     rnew->headers_out     = apr_table_make(rnew->pool, 5);
     rnew->err_headers_out = apr_table_make(rnew->pool, 5);
+    rnew->trailers_out    = apr_table_make(rnew->pool, 5);
     rnew->notes           = apr_table_make(rnew->pool, 5);
 
     rnew->expecting_100   = r->expecting_100;
@@ -1250,8 +1262,8 @@ AP_DECLARE(void) ap_note_auth_failure(request_rec *r)
         ap_run_note_auth_failure(r, type);
     }
     else {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR,
-                      0, r, APLOGNO(00571) "need AuthType to note auth failure: %s", r->uri);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00571)
+                      "need AuthType to note auth failure: %s", r->uri);
     }
 }
 
@@ -1277,8 +1289,8 @@ AP_DECLARE(int) ap_get_basic_auth_pw(request_rec *r, const char **pw)
         return DECLINED;
 
     if (!ap_auth_name(r)) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR,
-                      0, r, APLOGNO(00572) "need AuthName: %s", r->uri);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00572) 
+                      "need AuthName: %s", r->uri);
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 

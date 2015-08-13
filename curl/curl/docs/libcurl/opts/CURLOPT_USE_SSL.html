@@ -4,15 +4,20 @@
 <title>CURLOPT_USE_SSL man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,7 +52,7 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_USE_SSL - request using SSL / TLS for the transfer <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0">#include &lt;curl/curl.h&gt; 
+<p class="level0">&#35;include &lt;curl/curl.h&gt; 
 <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_USE_SSL, long level); <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a long using one of the values from below, to make libcurl use your desired <span Class="emphasis">level</span> of SSL for the transfer. 
 <p class="level0">These are all protocols that start out plain text and get "upgraded" to SSL using the STARTTLS command. 
@@ -62,9 +67,22 @@ p.roffit {
 <p class="level1">Require SSL for all communication or fail with <span Class="emphasis">CURLE_USE_SSL_FAILED</span>. <a name="DEFAULT"></a><h2 class="nroffsh">DEFAULT</h2>
 <p class="level0">CURLUSESSL_NONE <a name="PROTOCOLS"></a><h2 class="nroffsh">PROTOCOLS</h2>
 <p class="level0">FTP, SMTP, POP3, IMAP <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>
+<p class="level0"><pre class="level0">
+CURL *curl = curl_easy_init();
+if(curl) {
+&nbsp; curl_easy_setopt(curl, CURLOPT_URL, "<a href="ftp://example.com/dir/file.ext">ftp://example.com/dir/file.ext</a>");
+&nbsp;
+&nbsp; /* require use of SSL for this, or fail */
+&nbsp; curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
+&nbsp;
+&nbsp; /* Perform the request */
+&nbsp; curl_easy_perform(curl);
+}
+</pre>
+
 <p class="level0"><a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Added in 7.11.0. This option was known as CURLOPT_FTP_SSL up to 7.16.4, and the constants were known as CURLFTPSSL_* <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_SSLVERSION.html">CURLOPT_SSLVERSION</a> <a Class="manpage" href="./CURLOPT_SSL_OPTIONS.html">CURLOPT_SSL_OPTIONS</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_SSLVERSION.html">CURLOPT_SSLVERSION</a>, <a Class="manpage" href="./CURLOPT_SSL_OPTIONS.html">CURLOPT_SSL_OPTIONS</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

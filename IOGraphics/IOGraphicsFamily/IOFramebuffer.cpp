@@ -2062,14 +2062,13 @@ IOReturn IOFramebuffer::extSetCLUTWithEntries(
 
     if (inst == gIOFBConsoleFramebuffer)
     {
-        UInt32 count = index + dataLen / sizeof(IOColorEntry);
-        if (count > 256)
-            count = 256;
-        for (; index < count; index++)
+        UInt32 inIdx, count = index + dataLen / sizeof(IOColorEntry);
+        if (count > 256) count = 256;
+        for (inIdx = 0; index < count; index++, inIdx++)
         {
-            appleClut8[index * 3 + 0] = colors[index].red   >> 8;
-            appleClut8[index * 3 + 1] = colors[index].green >> 8;
-            appleClut8[index * 3 + 2] = colors[index].blue  >> 8;
+            appleClut8[index * 3 + 0] = colors[inIdx].red   >> 8;
+            appleClut8[index * 3 + 1] = colors[inIdx].green >> 8;
+            appleClut8[index * 3 + 2] = colors[inIdx].blue  >> 8;
         }
     }
 
@@ -2150,13 +2149,15 @@ IOReturn IOFramebuffer::createSharedCursor(
 {
     StdFBShmem_t *      shmem;
     UInt32              shmemVersion;
-    IOByteCount         size, maxImageSize, maxWaitImageSize;
+    size_t              size, maxImageSize, maxWaitImageSize;
     UInt32              numCursorFrames;
 
     DEBG(thisName, " vers = %08x, %d x %d\n",
          version, maxWidth, maxWaitWidth);
 
     shmemVersion = version & kIOFBShmemVersionMask;
+
+    if ((maxWidth > 1024) || (maxWaitWidth > 1024)) return (kIOReturnNoMemory);
 
     if (shmemVersion == kIOFBTenPtTwoShmemVersion)
     {
@@ -3582,6 +3583,8 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
         return (false);
 
     assert( frame < __private->numCursorFrames );
+
+    if (frame >= __private->numCursorFrames) return (false);
 
     if (__private->cursorBytesPerPixel == 4)
     {
@@ -7736,6 +7739,10 @@ IOReturn IOFramebuffer::extSetAttribute(
             }
 			err = inst->extSetMirrorOne(value, other);
             break;
+
+        case kIOCursorControlAttribute:
+			err = kIOReturnBadArgument;
+			break;
 
         default:
             err = inst->setAttribute( attribute, value );

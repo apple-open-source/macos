@@ -140,6 +140,8 @@ AP_DECLARE(void) ap_add_common_vars(request_rec *r)
     apr_table_t *e;
     server_rec *s = r->server;
     conn_rec *c = r->connection;
+    core_dir_config *conf =
+        (core_dir_config *)ap_get_core_module_config(r->per_dir_config);
     const char *env_temp;
     const apr_array_header_t *hdrs_arr = apr_table_elts(r->headers_in);
     const apr_table_entry_t *hdrs = (const apr_table_entry_t *) hdrs_arr->elts;
@@ -188,7 +190,9 @@ AP_DECLARE(void) ap_add_common_vars(request_rec *r)
 #ifndef SECURITY_HOLE_PASS_AUTHORIZATION
         else if (!strcasecmp(hdrs[i].key, "Authorization")
                  || !strcasecmp(hdrs[i].key, "Proxy-Authorization")) {
-            continue;
+            if (conf->cgi_pass_auth == AP_CGI_PASS_AUTH_ON) {
+                add_unless_null(e, http2env(r, hdrs[i].key), hdrs[i].val);
+            }
         }
 #endif
         else
@@ -543,7 +547,8 @@ AP_DECLARE(int) ap_scan_script_header_err_core_ex(request_rec *r, char *buffer,
             }
             if (maybeASCII > maybeEBCDIC) {
                 ap_log_error(SCRIPT_LOG_MARK, APLOG_ERR, 0, r->server,
-                             "CGI Interface Error: Script headers apparently ASCII: (CGI = %s)",
+                             APLOGNO(02660) "CGI Interface Error: "
+                             "Script headers apparently ASCII: (CGI = %s)",
                              r->filename);
                 inbytes_left = outbytes_left = cp - w;
                 apr_xlate_conv_buffer(ap_hdrs_from_ascii,
@@ -704,8 +709,7 @@ static int getsfunc_BRIGADE(char *buf, int len, void *arg)
             apr_bucket_split(e, src - bucket_data);
         }
         next = APR_BUCKET_NEXT(e);
-        APR_BUCKET_REMOVE(e);
-        apr_bucket_destroy(e);
+        apr_bucket_delete(e);
         e = next;
     }
     *dst = 0;

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -58,10 +60,7 @@
       large.</p>
     </div>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
-<p>This module provides no
-            directives.</p>
-<h3>Topics</h3>
+<div id="quickview"><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#scheduler">Load balancer scheduler algorithm</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#stickyness">Load balancer stickyness</a></li>
@@ -70,7 +69,10 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#balancer_manager">Enabling Balancer Manager Support</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#stickyness_implementation">Details on load balancer stickyness</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#stickyness_troubleshooting">Troubleshooting load balancer stickyness</a></li>
-</ul><h3>See also</h3>
+</ul><h3 class="directives">Directives</h3>
+<p>This module provides no
+            directives.</p>
+<h3>See also</h3>
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
@@ -110,12 +112,12 @@
     load balancing between two back-end servers:
     </p>
 
-    <pre class="prettyprint lang-config">&lt;Proxy balancer://mycluster&gt;
-    BalancerMember http://192.168.1.50:80
-    BalancerMember http://192.168.1.51:80
+    <pre class="prettyprint lang-config">&lt;Proxy "balancer://mycluster"&gt;
+    BalancerMember "http://192.168.1.50:80"
+    BalancerMember "http://192.168.1.51:80"
 &lt;/Proxy&gt;
-ProxyPass /test balancer://mycluster
-ProxyPassReverse /test balancer://mycluster</pre>
+ProxyPass "/test" "balancer://mycluster"
+ProxyPassReverse "/test" "balancer://mycluster"</pre>
 
 
     <p>Another example of how to provide load balancing with stickyness
@@ -124,13 +126,13 @@ ProxyPassReverse /test balancer://mycluster</pre>
     </p>
 
     <pre class="prettyprint lang-config">Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED
-&lt;Proxy balancer://mycluster&gt;
-    BalancerMember http://192.168.1.50:80 route=1
-    BalancerMember http://192.168.1.51:80 route=2
+&lt;Proxy "balancer://mycluster"&gt;
+    BalancerMember "http://192.168.1.50:80" route=1
+    BalancerMember "http://192.168.1.51:80" route=2
     ProxySet stickysession=ROUTEID
 &lt;/Proxy&gt;
-ProxyPass /test balancer://mycluster
-ProxyPassReverse /test balancer://mycluster</pre>
+ProxyPass "/test" "balancer://mycluster"
+ProxyPassReverse "/test" "balancer://mycluster"</pre>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -193,7 +195,7 @@ ProxyPassReverse /test balancer://mycluster</pre>
     <code class="module"><a href="../mod/mod_status.html">mod_status</a></code>.
     Balancer manager enables dynamic update of balancer
     members. You can use balancer manager to change the balance
-    factor or a particular member, or put it in the off line
+    factor of a particular member, or put it in the off line
     mode.
     </p>
 
@@ -204,7 +206,7 @@ ProxyPassReverse /test balancer://mycluster</pre>
     <p>To enable load balancer management for browsers from the example.com
     domain add this code to your <code>httpd.conf</code>
     configuration file</p>
-<pre class="prettyprint lang-config">&lt;Location /balancer-manager&gt;
+<pre class="prettyprint lang-config">&lt;Location "/balancer-manager"&gt;
     SetHandler balancer-manager
     Require host example.com
 &lt;/Location&gt;</pre>
@@ -264,10 +266,10 @@ ProxyPassReverse /test balancer://mycluster</pre>
     <p>Finally you can support cookies and URL encoding at the same time, by
     configuring the name of the cookie and the name of the URL parameter
     separated by a vertical bar (<code>|</code>) as in the following example:</p>
-    <pre class="prettyprint lang-config">ProxyPass /test balancer://mycluster stickysession=JSESSIONID|jsessionid scolonpathdelim=On
-&lt;Proxy balancer://mycluster&gt;
-    BalancerMember http://192.168.1.50:80 route=node1
-    BalancerMember http://192.168.1.51:80 route=node2
+    <pre class="prettyprint lang-config">ProxyPass "/test" "balancer://mycluster" stickysession=JSESSIONID|jsessionid scolonpathdelim=On
+&lt;Proxy "balancer://mycluster"&gt;
+    BalancerMember "http://192.168.1.50:80" route=node1
+    BalancerMember "http://192.168.1.51:80" route=node2
 &lt;/Proxy&gt;</pre>
 
     <p>If the cookie and the request parameter both provide routing information
@@ -339,7 +341,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_proxy_balanc
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

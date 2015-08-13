@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1994-1996, 1998-2005, 2007-2012
+.\" Copyright (c) 1994-1996, 1998-2005, 2007-2014
 .\" Todd C. Miller <Todd.Miller@courtesan.com>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
@@ -19,7 +19,7 @@
 .\" Agency (DARPA) and Air Force Research Laboratory, Air Force
 .\" Materiel Command, USAF, under agreement number F39502-99-1-0512.
 .\"
-.Dd July 16, 2012
+.Dd February 9, 2015
 .Dt SUDOERS @mansectform@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -167,7 +167,7 @@ non-Unix group names and IDs (prefixed with
 and
 .Ql %:#
 respectively) and
-.Li User_Alias Ns No es.
+.Li User_Alias Ns es.
 Each list item may be prefixed with zero or more
 .Ql \&!
 operators.
@@ -237,9 +237,9 @@ is similar to a
 .Li User_List
 except that instead
 of
-.Li User_Alias Ns No es
+.Li User_Alias Ns es
 it can contain
-.Li Runas_Alias Ns No es .
+.Li Runas_Alias Ns es .
 Note that
 user names and groups are matched as strings.
 In other words, two
@@ -459,7 +459,7 @@ may be run as.
 A fully-specified
 .Li Runas_Spec
 consists of two
-.Li Runas_List Ns No s
+.Li Runas_List Ns s
 (as defined above) separated by a colon
 .Pq Ql :\&
 and enclosed in a set of parentheses.
@@ -467,18 +467,18 @@ The first
 .Li Runas_List
 indicates
 which users the command may be run as via
-.Nm sudo Ns No 's
+.Nm sudo Ns 's
 .Fl u
 option.
 The second defines a list of groups that can be specified via
-.Nm sudo Ns No 's
+.Nm sudo Ns 's
 .Fl g
 option.
 If both
-.Li Runas_List Ns No s
+.Li Runas_List Ns s
 are specified, the command may be run with any combination of users
 and groups listed in their respective
-.Li Runas_List Ns No s.
+.Li Runas_List Ns s.
 If only the first is specified, the command may be run as any user
 in the list but no
 .Fl g
@@ -511,7 +511,7 @@ may run
 .Pa /bin/ls ,
 .Pa /bin/kill ,
 and
-.Pa /usr/bin/lprm Ns No \(em Ns but
+.Pa /usr/bin/lprm Ns \(em Ns but
 only as
 .Sy operator .
 E.g.,
@@ -630,7 +630,7 @@ and
 Once a tag is set on a
 .Li Cmnd ,
 subsequent
-.Li Cmnd Ns No s
+.Li Cmnd Ns s
 in the
 .Li Cmnd_Spec_List ,
 inherit the tag unless it is overridden by the opposite tag (in other words,
@@ -839,7 +839,7 @@ it must be
 escaped.
 For example:
 .Bd -literal -offset 4n
-/bin/ls [[\:alpha\:]]*
+/bin/ls [[:\&alpha:\&]]*
 .Ed
 .Pp
 Would match any file name beginning with a letter.
@@ -1105,7 +1105,7 @@ when used as part of a word (e.g.\& a user name or host name):
 .Ql )\& ,
 .Ql \e .
 .Sh SUDOERS OPTIONS
-.Nm sudo Ns No 's
+.Nm sudo Ns 's
 behavior can be modified by
 .Li Default_Entry
 lines, as explained earlier.
@@ -1154,7 +1154,7 @@ This flag is
 by default.
 .It closefrom_override
 If set, the user may use
-.Nm sudo Ns No 's
+.Nm sudo Ns 's
 .Fl C
 option which overrides the default starting point at which
 .Nm sudo
@@ -1299,7 +1299,7 @@ If the system is configured to use the
 file in preference to DNS, the
 .Dq canonical
 host name may not be fully-qualified.
-The order that sources are queried for hosts name resolution
+The order that sources are queried for host name resolution
 is usually specified in the
 .Pa @nsswitch_conf@ ,
 .Pa @netsvc_conf@ ,
@@ -2318,7 +2318,13 @@ The default value is
 .Sy Lists that can be used in a boolean context :
 .Bl -tag -width 16n
 .It env_check
-Environment variables to be removed from the user's environment if
+Environment variables to be removed from the user's environment
+unless they are considered
+.Dq safe .
+For all variables except
+Li TZ ,
+.Dq safe
+means that the variable's value does not contain any
 the variable's value contains
 .Ql %
 or
@@ -2326,6 +2332,26 @@ or
 characters.
 This can be used to guard against printf-style format vulnerabilities
 in poorly-written programs.
+The
+.Li TZ
+variable is considerd unsafe if any of the following are true:
+.Bl -bullet
+.It
+It consists of a fully-qualified path name that does not match
+the location of the
+.Pa zoneinfo
+directory.
+.It
+It contains a
+.Pa ..
+path element.
+.It
+It contains white space or non-printable characters.
+.It
+It is longer than the value of
+.Li PATH_MAX .
+.El
+.Pp
 The argument may be a double-quoted, space-separated list or a
 single value without double-quotes.
 The list can be replaced, added to, deleted from, or disabled by using
@@ -2373,7 +2399,7 @@ Environment variables to be preserved in the user's environment when the
 .Em env_reset
 option is in effect.
 This allows fine-grained control over the environment
-.Nm sudo Ns No -spawned
+.Nm sudo Ns -spawned
 processes will receive.
 The argument may be a double-quoted, space-separated list or a
 single value without double-quotes.
@@ -2809,7 +2835,7 @@ executes a program, that program is free to do whatever
 it pleases, including run other programs.
 This can be a security issue since it is not uncommon for a program to
 allow shell escapes, which lets a user bypass
-.Nm sudo Ns No 's
+.Nm sudo Ns 's
 access control and logging.
 Common programs that permit shell escapes include shells (obviously),
 editors, paginators, mail and terminal programs.
@@ -2835,7 +2861,7 @@ variable (usually
 .Ev LD_PRELOAD )
 to an alternate shared library.
 On such systems,
-.Nm sudo Ns No 's
+.Nm sudo Ns 's
 .Em noexec
 functionality can be used to prevent a program run by
 .Nm sudo

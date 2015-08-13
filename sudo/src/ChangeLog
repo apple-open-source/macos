@@ -1,15 +1,281 @@
+2015-02-10  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* .hgtags:
+	Added tag SUDO_1_7_10p9 for changeset 772c68ed1580
+	[764a5b003c47] [tip] <1.7>
+
+	* sudo.pp:
+	Fix a packaging problem with the sudoedit man page link on Debian.
+	[772c68ed1580] [SUDO_1_7_10p9] <1.7>
+
+	* sudo.pp:
+	Only use the first two digits of the version number. Fixes a problem
+	on RHEL 7 which has version numbers like 7.0.1406
+	[43f6c34f8f1b] <1.7>
+
+	* pp:
+	Remove duplicate Requires: line in generated rpm spec file.
+	[494a0a3df2f3] <1.7>
+
+	* pp:
+	In pp_files_expand() set _target to be empty. Fixes a problem with
+	Solaris sh where simply using typeset doesn't causes the variable to
+	be treated as local so we can inadvertantly inherit a value from a
+	previous call.
+	[27bf77c83d4b] <1.7>
+
+	* pp:
+	For rpm, do not specify a mode in %attr for symbolic links. Avoids
+	the warning "Explicit %attr() mode not applicaple to symlink"
+	[b2e92f5b8ef2] <1.7>
+
+	* pp:
+	Update polypkg from trunk.
+	[77f1d789b356] <1.7>
+
+2015-02-09  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* configure.in:
+	Use -fstack-protector-strong in preference to -fstack-protector-all
+	or -fstack-protector.
+	[8c1a0d87c3fb] <1.7>
+
+	* NEWS, configure.in:
+	On Solaris 11 and higher, tag binaries for ASLR if supported by the
+	linker.
+	[351c860c389d] <1.7>
+
+	* INSTALL, NEWS, TROUBLESHOOTING, aclocal.m4, configure, configure.in:
+	Restrict default creation of PIE binaries (-fPIE and -pie) to Linux.
+	OpenBSD also supports PIE but enables it by default so we don't need
+	to do anything. This fixes problems on systems with a version of GNU
+	ld that accepts -pie but where the run-time linker doesn't actually
+	support PIE. Also verify that a trivial PIE binary works unless PIE
+	is explicitly enabled.
+	[f8df753736ad] <1.7>
+
+	* INSTALL, Makefile.in, NEWS, aclocal.m4, configure, configure.in,
+	env.c, pathnames.h.in, sudoers.cat, sudoers.man.in, sudoers.mdoc.in:
+	Sanity check the TZ environment variable by special casing it in
+	env_check. The --with-tzdir configure option can be used to specify
+	the zoneinfo directory if configure doesn't find it.
+	[33b545d19c03] <1.7>
+
+2014-03-05  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* mkpkg:
+	Update Mac SDK paths.
+	[ccc6a9fa73e9] <1.7>
+
+2014-04-28  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* CONTRIBUTORS, boottime.c:
+	Fix fd leak on Linux when determing boot time. This is usually
+	masked by the closefrom() call in sudo. From Jamie Anderson. Bug
+	#645
+	[6ee258610636] <1.7>
+
+2014-03-05  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* .hgtags:
+	Fix up SUDO_1_7_10p8 tag.
+	[cc328781ad4d] <1.7>
+
+	* .hgtags:
+	Added tag SUDO_1_7_10p8 for changeset dcacf314271c
+	[1d70149c0e64] <1.7>
+
+	* .hgtags:
+	Removed tag SUDO_1_7_10p8
+	[dcacf314271c] [SUDO_1_7_10p8] <1.7>
+
+	* match.c:
+	Need to use MAXHOSTNAMELEN not HOST_NAME_MAX in sudo 1.7.
+	[5480e1c9fe05] <1.7>
+
+	* .hgtags:
+	Added tag SUDO_1_7_10p8 for changeset 0fe6c4ba99be
+	[4cb4dab89a45] <1.7>
+
+	* mkpkg:
+	Sudo 1.7 configure doesn't support --disable-nls
+	[0fe6c4ba99be] <1.7>
+
+	* NEWS, configure, configure.in, sudo.cat, sudoers.cat,
+	sudoers.ldap.cat, sudoreplay.cat, visudo.cat:
+	Update for sudo 1.7.10p8
+	[292166f63198] <1.7>
+
+	* sudo.mdoc.in, sudoers.mdoc.in, sudoreplay.mdoc.in, visudo.mdoc.in:
+	Remove extraneous keeps in SYNOPSIS now that mandoc does implied
+	keeps when converting from mdoc to man.
+	[9a42db195f25] <1.7>
+
+	* Properly escape the : in :alpha:
+	[b7465261fff2] <1.7>
+
+	* sudo.mdoc.in:
+	Replace some uses of .Sy with .Ar, .Ev and .Pa as appropriate. From
+	Jan Stary.
+	[a607bbbb8c0f] <1.7>
+
+	* sudo.mdoc.in, sudoers.ldap.mdoc.in, sudoers.mdoc.in,
+	sudoreplay.mdoc.in, visudo.mdoc.in:
+	Remove some extraneous markup; from Ingo Schwarze
+	 * No need to explicitly end a macro with No before | because | counts
+	as middle punctuation and falls out of the macro, anyway.
+	 * No need to explicitly re-open in-line macros after | because |
+	counts as middle punctuation and the macros resume afterwards,
+	anyway.
+	 * Simplify the mnemonic remarks regarding the option letters, no need
+	for manual font and spacing control with No and Ns.
+	 * Trim Ns No to just Ns, it already implies No.
+	[97a3ed0a6af7] <1.7>
+
+	* sudo.mdoc.in:
+	Use .Ar macro instead of "file ..." Use ".Cm -" instead of ".Li -"
+	for the default login class. From Ingo Schwarze.
+	[2d629e5eb3a8] <1.7>
+
+	* visudo.c:
+	Only warn once when we are unable to open the sudoers file.
+	[dc72aab7d2ec] <1.7>
+
+	* match.c:
+	Check for illegal characters in the NIS domain name. RHEL (and
+	perhaps other Linux distros) use the string "(none)" instead of an
+	empty string when there is no actual NIS-style domain name. Bug #596
+	[a0abfb3c9fb1] <1.7>
+
+	* exec_pty.c:
+	Bump I/O buffer size to 32K
+	[57cb2ca078be] <1.7>
+
+	* match.c:
+	Mac OS X has netgroup functions in netdb.h.
+	[a142f4a05c97] <1.7>
+
+2014-02-28  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* env.c:
+	Fix logic inversion when checking environment variables on the
+	command line against the blacklist. This is only a problem when
+	env_reset is disabled.
+	[748cefb49422] <1.7>
+
+	* ttyname.c:
+	Merge from sudo trunk:
+
+	Ignore EOVERFLOW from pstat_getproc(). The HP-UX kernel appears to
+	return this in certain situations but it appears to be harmless at
+	least insofar as retrieving the tty goes.
+
+	Handle d_type == DT_UNKNOWN when resolving the device to a name.
+
+	Don't check the tty of the parent process. Now that we get the
+	controlling tty device number from the kernel there is no need. If
+	the process has really disassociated from the tty then reporting
+	"unknown" is appropriate.
+
+	AIX may have a 64-bit pr_ttydev that we need to convert to 32-bit
+	before we try to match it against st_rdev.
+
+	Break out of the loop if sudo_ttyname_scan() returns non-NULL. Fixes
+	a problem finding the tty name when it is not in /dev/pts.
+	[d25075b84783] <1.7>
+
+	* closefrom.c:
+	We need limits.h here.
+	[666ccb402703] <1.7>
+
+	* closefrom.c:
+	Use /dev/fd in closefrom() on FreeBSD < 8.0 and Mac OS X.
+	[048a1bc31eda] <1.7>
+
+	* closefrom.c:
+	Avoid a crash on Mac OS X 10.8 (at least) when we close
+	libdispatch's fds out from under it before executing the command.
+	Switch to just setting the close on exec flag instead.
+	[ffde2a363f92] <1.7>
+
+2013-12-08  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* sudo.cat, sudo.man.in, sudo.mdoc.in:
+	Make -c option description more accurate (merged from sudo 1.8).
+	[1a5d062cb5e5] <1.7>
+
+	* CONTRIBUTORS, sudo.c:
+	When checking whether a user may change the login class, just check
+	pw_uid of the runas user, which was passed in to set_loginclass().
+	[756123dd2f7d] <1.7>
+
+2013-11-22  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* exec.c:
+	Fix compilation when --without-iologdir configure option is
+	specified. Based on an apple patch via Kyle J. McKay
+	[8668320bdb12] <1.7>
+
+2013-11-07  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* sudoers.mdoc.in:
+	Fix typo.
+	[2f287d9e5e70] <1.7>
+
+	* exec.c:
+	Add missing call to restore_signals() in the !dowait case.
+	[e32022624e64] <1.7>
+
+2013-08-12  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* lbuf.c:
+	Fix realloc loop() in lbuf_append_quoted(); from Daniel Kopecek
+	[be4d8b83d203] <1.7>
+
+2013-03-05  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* toke.c, toke.l:
+	Fix potential double free in an error path.
+	[4ab4be23fe0f] <1.7>
+
+2013-03-01  Todd C. Miller  <Todd.Miller@courtesan.com>
+
+	* closefrom.c:
+	Use pst_highestfd from pstat_getproc() on HP-UX.
+	[96dd84a97530] <1.7>
+
+	* config.h.in, configure, configure.in, ttyname.c:
+	Use pstat() on HP-UX to determine the tty device.
+	[7783149eafa7] <1.7>
+
+	* sudo.c:
+	Fix exit value if check_user() returns -1.
+	[6c2f9b2c095c] <1.7>
+
+	* .hgtags:
+	re-tag SUDO_1_7_10p7
+	[d861ac6bbc05] <1.7>
+
+	* .hgtags:
+	Added tag SUDO_1_7_10p7 for changeset d95631aa92d9
+	[5ceb9112d9af] <1.7>
+
+	* NEWS, configure, configure.in:
+	Sudo 1.7.10p7
+	[d95631aa92d9] [SUDO_1_7_10p7] <1.7>
+
 2013-02-25  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* .hgtags:
 	Added tag SUDO_1_7_10p7 for changeset ddf399e3e306
-	[23db6a503c5c] [tip] <1.7>
+	[23db6a503c5c] <1.7>
 
 2013-02-21  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* check.c:
 	Completely ignore time stamp file if it is set to the epoch,
 	regardless of what gettimeofday() returns.
-	[ddf399e3e306] [SUDO_1_7_10p7] <1.7>
+	[ddf399e3e306] <1.7>
 
 2013-02-19  Todd C. Miller  <Todd.Miller@courtesan.com>
 
@@ -129,9 +395,8 @@
 
 	* exec_pty.c:
 	No need to restore default signal handler for SIGSTOP as it is not
-	catchable. Attempting to do so is harmless but sigaction() will
-	fail and set errno to EINVAL which makes it looks like there is an
-	error.
+	catchable. Attempting to do so is harmless but sigaction() will fail
+	and set errno to EINVAL which makes it looks like there is an error.
 	[1d5359733f70] <1.7>
 
 	* configure, configure.in:
@@ -294,14 +559,13 @@
 
 	* exec.c:
 	Shells typically change their process group when they start up so
-	that they can implement job control. Most well-behaved shells
-	change the pgrp back to its original value before suspending so we
-	must not try to restore in that case, lest we race with the child
-	upon resume, potentially stopping sudo with SIGTTOU while the
-	command continues to run. Some shells, such as pdksh, just suspend
-	the shell by sending SIGSTOP to themselves without restoring the
-	pgrp. In this case we need to change the pgrp back for them. Should
-	fix bug #568
+	that they can implement job control. Most well-behaved shells change
+	the pgrp back to its original value before suspending so we must not
+	try to restore in that case, lest we race with the child upon
+	resume, potentially stopping sudo with SIGTTOU while the command
+	continues to run. Some shells, such as pdksh, just suspend the shell
+	by sending SIGSTOP to themselves without restoring the pgrp. In this
+	case we need to change the pgrp back for them. Should fix bug #568
 	[0d4cfce9e3cd] <1.7>
 
 2012-08-24  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -338,9 +602,9 @@
 	call audit_failure() for us.
 
 	This subtly changes logging for commands that are denied by sudoers
-	but where the user failed to enter the correct password.
-	Previously, these would be logged as "N incorrect password attempts"
-	but now are logged as "command not allowed". Fixes bug #563
+	but where the user failed to enter the correct password. Previously,
+	these would be logged as "N incorrect password attempts" but now are
+	logged as "command not allowed". Fixes bug #563
 	[c2cc2f97b204] <1.7>
 
 2012-08-21  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -727,8 +991,7 @@
 
 	* sudoreplay.c:
 	Instead of doing extra write()s when replaying stdout, build up a
-	vector for writev() instead. This results in far fewer system
-	calls.
+	vector for writev() instead. This results in far fewer system calls.
 	[7b86f7809f62] <1.7>
 
 2012-05-25  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -844,9 +1107,9 @@
 	Rototill code to determine the tty. For Linux, we now look up the
 	tty device in /proc/pid/stat instead of trying to open
 	/proc/pid/fd/[0-2]. The sudo_ttyname_dev() function maps the given
-	device number to a string. On BSD, we can use devname(). On
-	Solaris, _ttyname_dev() does what we want. For others we do a
-	breadth-first search of /dev.
+	device number to a string. On BSD, we can use devname(). On Solaris,
+	_ttyname_dev() does what we want. For others we do a breadth-first
+	search of /dev.
 	[632f8e028191] <1.7>
 
 	* ttyname.c:
@@ -854,8 +1117,8 @@
 	[5e7f50737a16] <1.7>
 
 	* config.h.in, configure, configure.in, ttyname.c:
-	Prefer KERN_PROC2 over KERN_PROC. Fixes compilation on some
-	versions of OpenBSD versions that have KERN_PROC2 but not KERN_PROC.
+	Prefer KERN_PROC2 over KERN_PROC. Fixes compilation on some versions
+	of OpenBSD versions that have KERN_PROC2 but not KERN_PROC.
 	[87c505c4fa33] <1.7>
 
 	* sudoreplay.pod:
@@ -1207,8 +1470,8 @@
 
 	* Makefile.in:
 	Got back to using "install-sh -M" for files installed as non-
-	readable by owner. This fixes "make install" as non-root for
-	package building.
+	readable by owner. This fixes "make install" as non-root for package
+	building.
 	[27f790e5129d] <1.7>
 
 2012-02-09  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -1513,8 +1776,8 @@
 
 	* sudo.pp:
 	Mark libexec files as optional. If there is no support for noexec,
-	sudo will not build sudo_noexec.so. Fixes a packaging problem on
-	AIX 4.3
+	sudo will not build sudo_noexec.so. Fixes a packaging problem on AIX
+	4.3
 	[b3b80e0ebeb2] <1.7>
 
 2011-10-26  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -2142,14 +2405,13 @@
 
 	* exec_pty.c:
 	Save the controlling tty process group before suspending in pty
-	mode. Previously, we assumed that the child pgrp == child pid
-	(which is usually, but not always, the case).
+	mode. Previously, we assumed that the child pgrp == child pid (which
+	is usually, but not always, the case).
 	[670657004784] <1.7>
 
 	* ldap.c, sudoers.ldap.pod:
-	Add support for sudoers_search_filter setting in ldap.conf. This
-	can be used to restrict the set of records returned by the LDAP
-	query.
+	Add support for sudoers_search_filter setting in ldap.conf. This can
+	be used to restrict the set of records returned by the LDAP query.
 	[c941bb5f68f2] <1.7>
 
 2011-03-17  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -2608,8 +2870,8 @@
 
 	* ldap.c:
 	Stash pointer to user group vector in LDAP handle and only reuse the
-	query if it has not changed. We always allocate a new buffer when
-	we reset the group vector so a simple pointer check is sufficient.
+	query if it has not changed. We always allocate a new buffer when we
+	reset the group vector so a simple pointer check is sufficient.
 	[c129d1acf7d6] <1.7>
 
 	* sudo_nss.c:
@@ -2720,8 +2982,8 @@
 2010-12-21  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* term.c:
-	Clear OPOST from c_oflag like we used to. Fixes screen-based
-	editors such as vi.
+	Clear OPOST from c_oflag like we used to. Fixes screen-based editors
+	such as vi.
 	[e26055d17b72] <1.7>
 
 	* sudoers.pod:
@@ -3214,8 +3476,8 @@
 	* match.c:
 	When matching the runas user and runas group (-u and -g command line
 	options), keep track of runas group and runas user matches
-	separately. Only return a positive match if we have a match for
-	both runas user and runas group (if specified).
+	separately. Only return a positive match if we have a match for both
+	runas user and runas group (if specified).
 	[68d30216c13a] <1.7>
 
 2010-09-04  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -3416,8 +3678,8 @@
 
 	* check.c, get_pty.c, glob.c, ldap.c, match.c, pwutil.c, sudo.c,
 	sudo.h:
-	Reference count cached passwd and group structs. The cache holds
-	one reference itself and another is added by sudo_getgr{gid,nam} and
+	Reference count cached passwd and group structs. The cache holds one
+	reference itself and another is added by sudo_getgr{gid,nam} and
 	sudo_getpw{uid,nam}. The final ref on the runas and user passwd and
 	group structs are persistent for now.
 	[e414c67e11fd] <1.7>
@@ -3563,8 +3825,8 @@
 
 	* sudoreplay.c:
 	Add setlocale() so the command line arguments that use floating
-	point work in different locales. Since sudo now logs the timing
-	data in the C locale we must Parse the seconds in the timing file
+	point work in different locales. Since sudo now logs the timing data
+	in the C locale we must Parse the seconds in the timing file
 	manually instead of using strtod(). Furthermore, sudo 1.7.3 logged
 	the number of seconds with the user's locale so if the decimal point
 	is not '.' try using the locale-specific version.
@@ -3729,8 +3991,8 @@
 
 	* aix.c:
 	setauthdb() only sets the "old" registry if it was set by a previous
-	call to setauthdb(). To restore the original value, passing NULL
-	(or an empty string) to setauthdb() is sufficient.
+	call to setauthdb(). To restore the original value, passing NULL (or
+	an empty string) to setauthdb() is sufficient.
 	[d956fd763521] <1.7>
 
 2010-07-19  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -4158,8 +4420,8 @@
 	* env.c, sudo.c, sudo.h:
 	If env_init() was called implicitly via getenv(), setenv() or
 	putenv() just use the specified envp instead of mallocing a new
-	copy. This prevents an infinite loop on OpenBSD which calls
-	getenv() from malloc() to get MALLOC_OPTIONS.
+	copy. This prevents an infinite loop on OpenBSD which calls getenv()
+	from malloc() to get MALLOC_OPTIONS.
 	[8e82ce63f774] <1.7>
 
 	* ldap.c:
@@ -4486,8 +4748,8 @@
 
 	* toke.c, toke.l:
 	A comment character may not be part of a command line argument
-	unless it is quoted with a backslash. Fixes parsing of:
-	testuser ALL=NOPASSWD: /usr/bin/wl #comment foo bar closes bz #441
+	unless it is quoted with a backslash. Fixes parsing of: testuser
+	ALL=NOPASSWD: /usr/bin/wl #comment foo bar closes bz #441
 	[2a0c82ffedde] <1.7>
 
 	* sudo.cat, sudo.man.in, sudoers.cat, sudoers.man.in:
@@ -4553,9 +4815,9 @@
 	[b518225cafba] <1.7>
 
 	* compat.h:
-	Add definition of WCOREDUMP for systems without it. This is known
-	to work on AIX and SunOS 4, but may be incorrect on other systems
-	that lack WCOREDUMP.
+	Add definition of WCOREDUMP for systems without it. This is known to
+	work on AIX and SunOS 4, but may be incorrect on other systems that
+	lack WCOREDUMP.
 	[365e56db7cd5] <1.7>
 
 	* check.c, compat.h, config.h.in, configure, configure.in, iolog.c,
@@ -4566,8 +4828,8 @@
 
 	* toke.c, toke.l:
 	If a file in a #includedir has improper permissions or owner just
-	skip it. This prevents packages that incorrectly install a file
-	into /etc/sudoers.d from breaking sudo so easily. Syntax errors in
+	skip it. This prevents packages that incorrectly install a file into
+	/etc/sudoers.d from breaking sudo so easily. Syntax errors in
 	#includedir files still result in a parse error (for now).
 	[b7fb75eddb77] <1.7>
 
@@ -4606,8 +4868,8 @@
 	* Makefile.in, configure, configure.in, exec.c, exec_pty.c, iolog.c,
 	selinux.c, sudo.c, sudo.h, sudo_edit.c:
 	Split exec.c into exec.c and exec_pty.c Pass a flag in to
-	sudo_execve to indicate whether we need to wait for the command
-	to finish (fork + execve vs. execve).
+	sudo_execve to indicate whether we need to wait for the command to
+	finish (fork + execve vs. execve).
 	[b197515585db] <1.7>
 
 	* Makefile.in, configure, configure.in, get_pty.c, pty.c:
@@ -4932,6 +5194,12 @@
 	Remove CVS $Sudo$ tags.
 	[de683a8b31f5]
 
+2010-01-18  convert-repo  <convert-repo>
+
+	* .hgtags:
+	update tags
+	[9b7aa44ae436]
+
 2009-12-26  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* sudo_usage.h.in:
@@ -5082,8 +5350,8 @@
 
 	* match.c:
 	cmnd_matches() already deals with negation so _cmndlist_matches()
-	does not need to do so itself. Fixes a bug with negated entries in
-	a Cmnd_List.
+	does not need to do so itself. Fixes a bug with negated entries in a
+	Cmnd_List.
 	[71c845f6ce73]
 
 2009-11-22  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -5127,9 +5395,9 @@
 	allows the parent to distinguish between signals it has been sent
 	directly and signals the command has received. It also means the
 	parent can once again print the signal notifications to the tty so
-	all writes to the pty master occur in the parent. The command is
-	now always started in background mode with tty signals handled by
-	the parent.
+	all writes to the pty master occur in the parent. The command is now
+	always started in background mode with tty signals handled by the
+	parent.
 	[c6790b82986d]
 
 2009-11-04  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -5389,9 +5657,8 @@
 	[85f590a03275]
 
 	* script.c:
-	Don't set stdout to blocking mode when flushing remaining output.
-	It can cause us to hang when trying to exit. Need to investigate
-	why.
+	Don't set stdout to blocking mode when flushing remaining output. It
+	can cause us to hang when trying to exit. Need to investigate why.
 	[6f803a3e33ca]
 
 	* script.c:
@@ -5916,9 +6183,9 @@
 	configure.in, def_data.c, def_data.h, def_data.in, gram.c, gram.h,
 	gram.y, parse.c, parse.h, pathnames.h.in, sudo.c, sudo.h, term.c,
 	tgetpass.c:
-	First cut at session logging for sudo. Still need to write
-	get_pty() for Unix 98 and old-style BSD ptys. Also needs
-	documentation and general cleanup.
+	First cut at session logging for sudo. Still need to write get_pty()
+	for Unix 98 and old-style BSD ptys. Also needs documentation and
+	general cleanup.
 	[77e3f5e25738]
 
 2009-08-05  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -6003,7 +6270,7 @@
 	[752eb75bf007]
 
 	* sudoers.pod:
-	Make it clear that env_delete only works when !env_reset. From Lo??c
+	Make it clear that env_delete only works when !env_reset. From LoÃ¯c
 	Minier
 	[3bd3f8e351ba]
 
@@ -6434,10 +6701,10 @@
 	[2bcbbb45d389]
 
 	* auth/pam.c:
-	Make sure def_prompt is always defined. This is a workaround for
-	pam configs that prompt for a password in the session but don't have
-	an auth line. A better fix is to expand the sudo prompt earlier and
-	set def_prompt to that when initializing.
+	Make sure def_prompt is always defined. This is a workaround for pam
+	configs that prompt for a password in the session but don't have an
+	auth line. A better fix is to expand the sudo prompt earlier and set
+	def_prompt to that when initializing.
 	[ee073c04aec3]
 
 	* sudo.pod:
@@ -7588,8 +7855,8 @@
 
 	* INSTALL, configure, configure.in:
 	Disable use of gss_krb5_ccache_name() by default and add
-	--enable-gss-krb5-ccache-name configure option to enable it. It
-	seems that gss_krb5_ccache_name() doesn't work properly with some
+	--enable-gss-krb5-ccache-name configure option to enable it. It seems
+	that gss_krb5_ccache_name() doesn't work properly with some
 	combinations of Heimdal and OpenLDAP.
 	[f61ebd3b19bd]
 
@@ -7659,9 +7926,8 @@
 
 	* Makefile.in, sudo.pod, sudoers.ldap.pod, sudoers.pod, visudo.pod:
 	Remove the =cut on the first line (above the copyright notice) to
-	quiet pod2man. Also remove the hackery in the FILES section and
-	just deal with the fact that there will a newline between each
-	pathname.
+	quiet pod2man. Also remove the hackery in the FILES section and just
+	deal with the fact that there will a newline between each pathname.
 	[2ac1ab191835]
 
 2008-02-17  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -7725,29 +7991,26 @@
 	* sudo.c, sudo.cat, sudo.h, sudo.man.in, sudo.pod, sudo_usage.h.in,
 	sudoers.ldap.cat, sudoers.ldap.man.in, sudoers.ldap.pod,
 	testsudoers.c, toke.c, toke.l:
-	Add support for SELinux RBAC. Sudoers entries may specify a role
-	and type. There are also role and type defaults that may be used.
-	To make sure a transition occurs, when using RBAC commands are
-	executed via the new sesh binary. Based on initial changes from Dan
-	Walsh.
+	Add support for SELinux RBAC. Sudoers entries may specify a role and
+	type. There are also role and type defaults that may be used. To
+	make sure a transition occurs, when using RBAC commands are executed
+	via the new sesh binary. Based on initial changes from Dan Walsh.
 	[1d4abfe2c004]
 
 	* sesh.c:
-	Add support for SELinux RBAC. Sudoers entries may specify a role
-	and type. There are also role and type defaults that may be used.
-	To make sure a transition occurs, when using RBAC commands are
-	executed via the new sesh binary. Based on initial changes from Dan
-	Walsh.
+	Add support for SELinux RBAC. Sudoers entries may specify a role and
+	type. There are also role and type defaults that may be used. To
+	make sure a transition occurs, when using RBAC commands are executed
+	via the new sesh binary. Based on initial changes from Dan Walsh.
 	[1e3b395ce049]
 
 	* Makefile.in, config.h.in, configure.in, def_data.c, def_data.h,
 	def_data.in, gram.c, gram.h, gram.y, ldap.c, parse.c, parse.h,
 	pathnames.h.in, selinux.c:
-	Add support for SELinux RBAC. Sudoers entries may specify a role
-	and type. There are also role and type defaults that may be used.
-	To make sure a transition occurs, when using RBAC commands are
-	executed via the new sesh binary. Based on initial changes from Dan
-	Walsh.
+	Add support for SELinux RBAC. Sudoers entries may specify a role and
+	type. There are also role and type defaults that may be used. To
+	make sure a transition occurs, when using RBAC commands are executed
+	via the new sesh binary. Based on initial changes from Dan Walsh.
 	[6b421948286e]
 
 2008-02-08  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -7778,9 +8041,9 @@
 	* sudo.c:
 	Unlimit nproc on Linux systems where calling the setuid() family of
 	syscalls causes the nroc resource limit to be checked. The limits
-	will be reset by pam_limits.so when PAM is used. In the non-PAM
-	case the nproc limit will remain unlimited but there doesn't seem to
-	be a way around that other than having sudo parse
+	will be reset by pam_limits.so when PAM is used. In the non-PAM case
+	the nproc limit will remain unlimited but there doesn't seem to be a
+	way around that other than having sudo parse
 	/etc/security/limits.conf directly.
 	[df024b415a8d]
 
@@ -7876,9 +8139,9 @@
 
 	* pwutil.c:
 	When copying gr_mem we must guarantee that the storage space for
-	gr_mem is properly aligned. The simplest way to do this is to
-	simply store gr_mem directly after struct group. This is not a
-	problem for gr_passwd or gr_name as they are simple strings.
+	gr_mem is properly aligned. The simplest way to do this is to simply
+	store gr_mem directly after struct group. This is not a problem for
+	gr_passwd or gr_name as they are simple strings.
 	[af58fc76f1ed]
 
 	* ldap.c:
@@ -8226,8 +8489,8 @@
 2007-12-21  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* env.c, pathnames.h.in, sudo.c, sudo.h:
-	Add support for reading and /etc/environment file. Still needs to
-	be documented and should probably only applies to OSes that have it
+	Add support for reading and /etc/environment file. Still needs to be
+	documented and should probably only applies to OSes that have it
 	(AIX and Linux, maybe others).
 	[15d3edae27e4]
 
@@ -8459,8 +8722,8 @@
 	[e486024574a1]
 
 	* ldap.c:
-	Make sudo ALL imply setenv. Note that unlike with file-based
-	sudoers this does affect all the commands in the sudoRole.
+	Make sudo ALL imply setenv. Note that unlike with file-based sudoers
+	this does affect all the commands in the sudoRole.
 	[bc12f54321d1]
 
 	* gram.c, gram.y, parse.c, parse.h:
@@ -8561,8 +8824,8 @@
 
 	* tgetpass.c:
 	Avoid printing the prompt if we are already backgrounded. E.g. if
-	the user runs "sudo foo &" from the shell. In this case, the call
-	to tcsetattr() will cause SIGTTOU to be delivered.
+	the user runs "sudo foo &" from the shell. In this case, the call to
+	tcsetattr() will cause SIGTTOU to be delivered.
 	[db2139a8d8b8]
 
 2007-09-15  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -8773,10 +9036,10 @@
 
 	* match.c, parse.c, testsudoers.c:
 	Use LH_FOREACH_REV when checking permission and short-circuit on the
-	first non-UNSPEC hit we get for the command. This means that
-	instead of cycling through the all the parsed sudoers entries we
-	start at the end and work backwards and quit after the first
-	positive or negative match.
+	first non-UNSPEC hit we get for the command. This means that instead
+	of cycling through the all the parsed sudoers entries we start at
+	the end and work backwards and quit after the first positive or
+	negative match.
 	[881474532f3e]
 
 	* gram.c:
@@ -8807,9 +9070,9 @@
 	* alias.c, defaults.c, gram.y, match.c, parse.c, parse.h,
 	testsudoers.c, visudo.c:
 	Use a list head struct when storing the semi-circular lists and
-	convert to tail queues in the process. This will allow us to
-	reverse foreach loops more easily and it makes it clearer which
-	functions expect a list as opposed to a single member.
+	convert to tail queues in the process. This will allow us to reverse
+	foreach loops more easily and it makes it clearer which functions
+	expect a list as opposed to a single member.
 
 	Add macros for manipulating lists. Some of these should become
 	functions.
@@ -8933,9 +9196,9 @@
 
 	* toke.l:
 	Require that the first character after a comment not be a digit or a
-	dash. This allows us to remove the GOTRUNAS state and treat
-	uid/gids similar to other words. It also means that we can now
-	specify uids in User_Lists and a User_Spec may now contain a uid.
+	dash. This allows us to remove the GOTRUNAS state and treat uid/gids
+	similar to other words. It also means that we can now specify uids
+	in User_Lists and a User_Spec may now contain a uid.
 	[461fe01f8392]
 
 	* gram.y, toke.l:
@@ -9492,7 +9755,7 @@
 
 	* mon_systrace.c:
 	Redo setting of user_args. We now build up a private copy of argv
-	first and then replace the NULs?with spaces.
+	first and then replace the NULs with spaces.
 	[ccbba72ea112]
 
 	* mon_systrace.c:
@@ -9750,9 +10013,8 @@
 
 	* auth/kerb5.c:
 	If we cannot get a valid service key using the default keytab it is
-	a fatal error. Fixes a bug where sudo could be tricked into
-	allowing access when it should not by a fake KDC. From Thor Lancelot
-	Simon.
+	a fatal error. Fixes a bug where sudo could be tricked into allowing
+	access when it should not by a fake KDC. From Thor Lancelot Simon.
 	[a3ae6a47cb23]
 
 2007-05-12  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -9834,8 +10096,8 @@
 
 	* env.c:
 	Add NOEXEC support for AIX 5.3 which supports LDR_PRELOAD and
-	LDR_PRELOAD64. The 64-bit version is not currently supported.
-	Remove zero_env() prototype as it no longer exists.
+	LDR_PRELOAD64. The 64-bit version is not currently supported. Remove
+	zero_env() prototype as it no longer exists.
 	[b4fe65027fb6]
 
 2006-12-11  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -10220,11 +10482,10 @@
 	[1dfc2e8c9f2b]
 
 	* ldap.c:
-	Reorganize LDAP code to better match normal sudoers parsing.
-	Instead of storing strings for later printing in -l mode we do
-	another query since the authenticating user and the user being
-	listed may not be the same (the new -U flag). Also add support for
-	"sudo -l command".
+	Reorganize LDAP code to better match normal sudoers parsing. Instead
+	of storing strings for later printing in -l mode we do another query
+	since the authenticating user and the user being listed may not be
+	the same (the new -U flag). Also add support for "sudo -l command".
 
 	There is still a fair bit if duplicated code that can probably be
 	refactored.
@@ -10554,7 +10815,7 @@
 	[91fbaa98f02e]
 
 	* toke.c, toke.l:
-	Cast?argument to ctype functions to unsigned char.
+	Cast argument to ctype functions to unsigned char.
 	[e096b4d65796]
 
 2005-02-08  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -10809,8 +11070,8 @@
 
 	* match.c, testsudoers.c, visudo.c:
 	Only check group vector in usergr_matches() if we are matching the
-	invoking or list user. Always check the group members, even if
-	there was a group vector.
+	invoking or list user. Always check the group members, even if there
+	was a group vector.
 	[d0c7ceb2a041]
 
 2004-12-17  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -10885,9 +11146,8 @@
 	[d69959681c87]
 
 	* getspwuid.c:
-	Check rbinsert() return value. In the case of faked up entries
-	there is usually a negative response cached that we need to
-	overwrite.
+	Check rbinsert() return value. In the case of faked up entries there
+	is usually a negative response cached that we need to overwrite.
 
 	In pwfree() don't try to zero out a NULL pw_passwd pointer.
 	[00b32d1a48c1]
@@ -10979,8 +11239,8 @@
 	[e56fe33db916]
 
 	* ldap.c, parse.c, sudo.c, sudo.h:
-	Remove the FLAG_NOPASS, FLAG_NOEXEC and FLAG_MONITOR flags.
-	Instead, we just set the approriate defaults variable.
+	Remove the FLAG_NOPASS, FLAG_NOEXEC and FLAG_MONITOR flags. Instead,
+	we just set the approriate defaults variable.
 	[756eeecc1d86]
 
 	* sample.sudoers, sudoers.cat, sudoers.man.in, sudoers.pod:
@@ -10996,8 +11256,8 @@
 	* defaults.c, match.c, parse.c, parse.h, testsudoers.c:
 	Change an occurence of user_matches() -> runas_matches() missed
 	previously runas_matches(), host_matches() and cmnd_matches() only
-	really need to pass in a list of members. user_matches() still
-	needs to pass in a passwd struct because of "sudo -l"
+	really need to pass in a list of members. user_matches() still needs
+	to pass in a passwd struct because of "sudo -l"
 	[833b22fc6fa0]
 
 	* parse.c:
@@ -11305,8 +11565,8 @@
 	[ad462ede3094]
 
 	* testsudoers.c:
-	Rewrite for the new parser. Now supports a -d flag (dump) and adds
-	a -h flag (host). It now defaults to the local hostname unless
+	Rewrite for the new parser. Now supports a -d flag (dump) and adds a
+	-h flag (host). It now defaults to the local hostname unless
 	otherwise specified.
 	[1b69685cc601]
 
@@ -11488,8 +11748,8 @@
 2004-10-05  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* mon_systrace.c:
-	Just return if STRIOCINJECT or STRIOCREPLACE fail. It probably
-	means we are out of space in the stack gap...
+	Just return if STRIOCINJECT or STRIOCREPLACE fail. It probably means
+	we are out of space in the stack gap...
 	[5b02b702021e]
 
 	* CHANGES:
@@ -11635,10 +11895,10 @@
 	[ba481d9ed1aa]
 
 	* visudo.c:
-	Overhaul visudo for editing multiple files: o visudo has been
-	broken out into functions (more work needed here) o each file is
-	now edited before sudoers is re-parsed o if a #include line is
-	added that file will be edited too
+	Overhaul visudo for editing multiple files: o visudo has been broken
+	out into functions (more work needed here) o each file is now edited
+	before sudoers is re-parsed o if a #include line is added that file
+	will be edited too
 
 	TODO: o cleanup temp files when exiting via err() or errx() o
 	continue breaking things out into separate functions
@@ -11694,9 +11954,9 @@
 
 	* parse.c, parse.h, parse.lex, parse.yacc:
 	More scaffolding for dealing with multiple sudoers files: o
-	init_parser() now takes a path used to populate the sudoers global
-	o the sudoers global is used to print the correct file in yyerror()
-	o when switching to a new sudoers file, perserve old file name and
+	init_parser() now takes a path used to populate the sudoers global o
+	the sudoers global is used to print the correct file in yyerror() o
+	when switching to a new sudoers file, perserve old file name and
 	line number
 	[d9be4970b8bd]
 
@@ -11780,8 +12040,8 @@
 
 	* getspwuid.c:
 	Add flag to sudo_pwdup that indicates whether or not to lookup the
-	shadow password. Will be used to a struct passwd that has the
-	shadow password already filled in.
+	shadow password. Will be used to a struct passwd that has the shadow
+	password already filled in.
 	[e19d43dd7238]
 
 	* mon_systrace.c:
@@ -11831,11 +12091,10 @@
 	[1703fd2fdef6]
 
 	* mon_systrace.c:
-	systrace(4) support for sudo. On systems with the systrace(4)
-	kernel facility (OpenBSD, NetBSD, Linux w/ patches) sudo can
-	intercept exec calls and check the exec args against the sudoers
-	file. In other words, sudo can now control subcommands and shell
-	escapes.
+	systrace(4) support for sudo. On systems with the systrace(4) kernel
+	facility (OpenBSD, NetBSD, Linux w/ patches) sudo can intercept exec
+	calls and check the exec args against the sudoers file. In other
+	words, sudo can now control subcommands and shell escapes.
 	[928c9217c386]
 
 	* sudo.c, sudo.h:
@@ -12744,8 +13003,8 @@
 2004-05-29  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* INSTALL, README.LDAP, config.h.in, configure.in:
-	o --with-ldap now takes an optional dir as a parameter o added
-	check for ldap_initialize() and start_tls_s()
+	o --with-ldap now takes an optional dir as a parameter o added check
+	for ldap_initialize() and start_tls_s()
 	[2b846c7974c6]
 
 	* README.LDAP:
@@ -12811,8 +13070,8 @@
 	* parse.c:
 	In sudoers_lookup() return VALIDATE_NOT_OK if the runas user was
 	explicitly denied and the command matched. This fixes a long-
-	standing bug and makes: foo machine = (ALL) /usr/bin/blah
-	foo machine = (!bar) /usr/bin/blah
+	standing bug and makes: foo machine = (ALL) /usr/bin/blah foo
+	machine = (!bar) /usr/bin/blah
 
 	equivalent to: foo machine = (ALL, !bar) /usr/bin/blah
 	[2f5ee244985a]
@@ -12911,18 +13170,18 @@
 	[6058c4cefcec]
 
 	* set_perms.c, sudo.c, tgetpass.c, visudo.c:
-	Preliminary changes to support nsr-tandem-nsk. Based on patches
-	from Tom Bates.
+	Preliminary changes to support nsr-tandem-nsk. Based on patches from
+	Tom Bates.
 	[2e5f81834383]
 
 	* logging.c:
-	Preliminary changes to support nsr-tandem-nsk. Based on patches
-	from Tom Bates.
+	Preliminary changes to support nsr-tandem-nsk. Based on patches from
+	Tom Bates.
 	[934bbe6872b6]
 
 	* check.c, compat.h:
-	Preliminary changes to support nsr-tandem-nsk. Based on patches
-	from Tom Bates.
+	Preliminary changes to support nsr-tandem-nsk. Based on patches from
+	Tom Bates.
 	[390b698b5924]
 
 2004-05-16  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -13270,9 +13529,9 @@
 	[773165eb6057]
 
 	* visudo.c:
-	Use WIFEXITED and WEXITSTATUS macros. If there are systems out
-	there that want to run sudo that still don't support these we can
-	try to deal with that later.
+	Use WIFEXITED and WEXITSTATUS macros. If there are systems out there
+	that want to run sudo that still don't support these we can try to
+	deal with that later.
 	[6af68e4aff60]
 
 	* lex.yy.c:
@@ -13306,27 +13565,25 @@
 	* sudo.h:
 	Add a new flag, -e, that makes it possible to give users the ability
 	to edit files with the editor of their choice as the invoking user,
-	not the runas user. Temporary files are used for the actual edit
-	and the temp file is copied over the original after the editor is
-	done.
+	not the runas user. Temporary files are used for the actual edit and
+	the temp file is copied over the original after the editor is done.
 	[c4051414c1f4]
 
 	* Makefile.in, parse.c, parse.lex, sudo.c, sudo_edit.c:
 	Add a new flag, -e, that makes it possible to give users the ability
 	to edit files with the editor of their choice as the invoking user,
-	not the runas user. Temporary files are used for the actual edit
-	and the temp file is copied over the original after the editor is
-	done.
+	not the runas user. Temporary files are used for the actual edit and
+	the temp file is copied over the original after the editor is done.
 	[37ac05c8ac3c]
 
 	* env.c, sudo.c:
 	If real uid == 0 and the SUDO_USER environment variables is set, use
 	that to determine the invoking user's true identity. That way the
 	proper info gets logged by someone who has done "sudo su" but still
-	uses sudo to as root. We can't do this for non-root users since
-	that would open up a security hole, though perhaps it would be
-	acceptable to use getlogin(2) on OSes where this a system call (and
-	doesn't just look in the utmp file).
+	uses sudo to as root. We can't do this for non-root users since that
+	would open up a security hole, though perhaps it would be acceptable
+	to use getlogin(2) on OSes where this a system call (and doesn't
+	just look in the utmp file).
 	[c2f9198708a1]
 
 	* pathnames.h.in:
@@ -13375,9 +13632,9 @@
 2004-01-17  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* sudo.c:
-	Change euid to runas user before calling find_path().
-	Unfortunately, though runas_user can be modified in sudoers we
-	haven't parsed sudoers yet.
+	Change euid to runas user before calling find_path(). Unfortunately,
+	though runas_user can be modified in sudoers we haven't parsed
+	sudoers yet.
 	[f469fdf2e313]
 
 	* sudoers.man.in, sudoers.pod:
@@ -13386,9 +13643,9 @@
 	[f7bed6e909bf]
 
 	* sudo.c:
-	Fix a bug when set_runaspw() is used as a callback. We don't want
-	to reset the contents of runas_pw if the user specified a user via
-	the -u flag.
+	Fix a bug when set_runaspw() is used as a callback. We don't want to
+	reset the contents of runas_pw if the user specified a user via the
+	-u flag.
 
 	Avoid unnecessary passwd lookups in set_authpw(). In most cases we
 	already have the info in runas_pw.
@@ -13413,8 +13670,8 @@
 	[42aa37050053]
 
 	* sudo.c:
-	Add set_runaspw() function to fill in runas_pw. This will be used
-	as a callback to update runas_pw when the runas user changes.
+	Add set_runaspw() function to fill in runas_pw. This will be used as
+	a callback to update runas_pw when the runas user changes.
 	[e570aa0088d0]
 
 	* env.c, sudo.c:
@@ -13630,8 +13887,8 @@
 	Add support for preloading a shared object containing a dummy
 	execve() function that just sets error and returns -1. This adds a
 	"noexec_file" option to load the filename as well as a "noexec" flag
-	to enable it unconditionally. There is also a NOEXEC tag that can
-	be attached to specific commands and an EXEC tag to disable it.
+	to enable it unconditionally. There is also a NOEXEC tag that can be
+	attached to specific commands and an EXEC tag to disable it.
 	[c8b6712feb91]
 
 	* mkdefaults:
@@ -13768,11 +14025,10 @@
 
 	* auth/pam.c:
 	Fix a core dump on Solaris by preserving the pam_handle_t we used
-	during authentication for pam_prep_user(). If we didn't
-	authenticate (ie: ticket still valid), we call pam_init() from
-	pam_prep_user(). This is something of a hack; it may be better to
-	change the auth API and add an auth_final() function that acts like
-	pam_prep_user().
+	during authentication for pam_prep_user(). If we didn't authenticate
+	(ie: ticket still valid), we call pam_init() from pam_prep_user().
+	This is something of a hack; it may be better to change the auth API
+	and add an auth_final() function that acts like pam_prep_user().
 	[f787de49b175]
 
 2003-06-21  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -13972,9 +14228,9 @@
 	[aba0126f0059]
 
 	* auth/kerb5.c:
-	Replace ETYPE_DES_CBC_MD5 with ENCTYPE_DES_CBC_MD5. The former is
-	no longer defined by MIT kerb5 (though it used to be and indeed
-	remains so in Heimdal).
+	Replace ETYPE_DES_CBC_MD5 with ENCTYPE_DES_CBC_MD5. The former is no
+	longer defined by MIT kerb5 (though it used to be and indeed remains
+	so in Heimdal).
 	[e5a6c64d7cd5]
 
 2003-04-03  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -14517,10 +14773,9 @@
 	[587f8a2df857]
 
 	* parse.lex:
-	Better fix for sudoers files w/o a newline before EOF. It looks
-	like the issue is that yyrestart() does not reset the start
-	condition to INITIAL which is an issue since we parse sudoers
-	multiple times.
+	Better fix for sudoers files w/o a newline before EOF. It looks like
+	the issue is that yyrestart() does not reset the start condition to
+	INITIAL which is an issue since we parse sudoers multiple times.
 	[920f8326968a]
 
 2003-01-06  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -14534,10 +14789,10 @@
 
 	* visudo.c:
 	o The parser needs sudoers to end with a newline but some editors
-	(emacs) may not add one. Check for a missing newline at EOF and
-	add one if needed. o Set quiet flag during initial sudoers parse (to
-	get options) o Move yyrestart() call and always use freopen() to
-	open yyin after initial sudoers parse.
+	(emacs) may not add one. Check for a missing newline at EOF and add
+	one if needed. o Set quiet flag during initial sudoers parse (to get
+	options) o Move yyrestart() call and always use freopen() to open
+	yyin after initial sudoers parse.
 	[12d12f9b07aa]
 
 2002-12-15  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -14754,9 +15009,9 @@
 
 	* env.c:
 	Don't try to pre-compute the size of the new envp, just allocate
-	space up front and realloc as needed. Changes to the new env
-	pointer must all be made through insert_env() which now keeps track
-	of spaced used and allocates as needed.
+	space up front and realloc as needed. Changes to the new env pointer
+	must all be made through insert_env() which now keeps track of
+	spaced used and allocates as needed.
 	[39bc934a9f2c]
 
 2002-04-26  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -14786,8 +15041,8 @@
 
 	* check.c:
 	The the loop used to expand %h and %u, the lastchar variable was not
-	being initialized. This means that if the last char in the prompt
-	is '%' and the first char is 'h' or 'u' a extra copy of the host or
+	being initialized. This means that if the last char in the prompt is
+	'%' and the first char is 'h' or 'u' a extra copy of the host or
 	user name would be copied, for which space had not been allocated.
 	[b2e27197857d]
 
@@ -15207,8 +15462,8 @@
 2002-01-01  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* Makefile.in:
-	o Add DESTDIR support o Use -M, -O, and -G instead of -m, -o, and
-	-g to facilitate non-root installs
+	o Add DESTDIR support o Use -M, -O, and -G instead of -m, -o, and -g
+	to facilitate non-root installs
 	[619216038f56]
 
 	* install-sh:
@@ -15251,9 +15506,9 @@
 	* auth/pam.c:
 	o Add pam_prep_user function to call pam_setcred() for the target
 	user; on Linux this often sets resource limits. o When calling
-	pam_end(), try to convert the auth->result to a PAM_FOO value.
-	This is a hack--we really need to stash the last PAM_FOO value
-	received and use that instead.
+	pam_end(), try to convert the auth->result to a PAM_FOO value. This
+	is a hack--we really need to stash the last PAM_FOO value received
+	and use that instead.
 	[6ad6f340dd2a]
 
 	* set_perms.c, sudo.h:
@@ -15459,8 +15714,8 @@
 	[6fa41c89ab20]
 
 	* sudo.c:
-	XXX - should call find_path() as runas user, not root. Can't do
-	that until the parser changes though.
+	XXX - should call find_path() as runas user, not root. Can't do that
+	until the parser changes though.
 	[f0b4f85651bd]
 
 	* sudo.c:
@@ -15717,9 +15972,9 @@
 
 	* parse.lex:
 	o Use exclusive start conditions to remove some ambiguity in the
-	lexer. Also reorder some things for clarity. o Add support for
-	"+=" and "-=" list operators. o Use the new DEFVAR token to denote
-	a Defaults variable name.
+	lexer. Also reorder some things for clarity. o Add support for "+="
+	and "-=" list operators. o Use the new DEFVAR token to denote a
+	Defaults variable name.
 	[3a2cf8323e26]
 
 	* sudo.h:
@@ -15727,18 +15982,17 @@
 	[b74916469dab]
 
 	* env.c:
-	o Convert environment handling to use lists instead of strings.
-	This greatly simplifies routines that need to do "foreach" type
-	operations. o Add new init_envtables() function to set env_check
-	and env_delete defaults based on initial_badenv_table and
+	o Convert environment handling to use lists instead of strings. This
+	greatly simplifies routines that need to do "foreach" type
+	operations. o Add new init_envtables() function to set env_check and
+	env_delete defaults based on initial_badenv_table and
 	initial_checkenv_table (formerly sudo_badenv_table).
 	[0a8b404658b6]
 
 	* defaults.c, defaults.h:
 	o Add a new LIST type and functions to manipulate it. o This is for
-	use with environment handling variables. o Call new
-	init_envtables() routine inside init_defaults() to initialize the
-	environment lists.
+	use with environment handling variables. o Call new init_envtables()
+	routine inside init_defaults() to initialize the environment lists.
 	[ae73e64f0902]
 
 	* def_data.c, def_data.h, def_data.in:
@@ -16058,8 +16312,8 @@
 
 	* check.c:
 	Use stashed user_gid when checking against exempt gid since sudo
-	sets its gid to a a value that makes sudoers readable. Previously
-	if you used gid 0 as the exempt group everyone would be exempt. From
+	sets its gid to a a value that makes sudoers readable. Previously if
+	you used gid 0 as the exempt group everyone would be exempt. From
 	Paul Kranenburg <pk@cs.few.eur.nl>
 	[0b140cc3a817]
 
@@ -16104,8 +16358,8 @@
 2001-01-17  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* visudo.c:
-	Block all signals in Exit() to avoid a signal race. There is still
-	a tiny window but I'm not going to worry about it.
+	Block all signals in Exit() to avoid a signal race. There is still a
+	tiny window but I'm not going to worry about it.
 	[6661805c0458]
 
 2001-01-07  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -16545,8 +16799,8 @@
 2000-04-15  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* sudo.c:
-	Fix -H flag. runas_homedir is only valid after
-	set_perms(PERM_RUNAS, mode)
+	Fix -H flag. runas_homedir is only valid after set_perms(PERM_RUNAS,
+	mode)
 	[ce9b1c6f68a6]
 
 2000-04-12  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -16596,8 +16850,8 @@
 	sensible error if it does not exist.
 
 	The path to the editor for visudo is now a colon-separated list of
-	allowable editors. If the user has $EDITOR set and it matches one
-	of the allowed editors that editor will be used. If not, the first
+	allowable editors. If the user has $EDITOR set and it matches one of
+	the allowed editors that editor will be used. If not, the first
 	editor in the list that actually exists is used.
 	[cc86eb9f5440]
 
@@ -17055,10 +17309,10 @@
 	[055fa61a7c61]
 
 	* INSTALL, defaults.c, defaults.h, sudo.c, sudo.h, sudoers.pod:
-	Add 'shell_noargs' runtime option back in. We have to defer
-	checking until after the sudoers file has been parsed but since
-	there are now other options that operate that way this one can too.
-	Based on a patch from bguillory@email.com.
+	Add 'shell_noargs' runtime option back in. We have to defer checking
+	until after the sudoers file has been parsed but since there are now
+	other options that operate that way this one can too. Based on a
+	patch from bguillory@email.com.
 	[231db7a007a6]
 
 	* defaults.c, defaults.h, parse.c, sudo.c, sudo.h:
@@ -17183,9 +17437,9 @@
 	* CHANGES, parse.yacc, sudo.tab.c:
 	fix parsing of runas lists: o oprunasuser and runaslist now return a
 	value o in a runasspec, if a runaslist does not return TRUE, set
-	runas_matches to FALSE. Normally, a runaslist only returns FALSE
-	for explicitly denied users. o since runaslist does not modify the
-	stack there is no need for a push/pop in runasalias.
+	runas_matches to FALSE. Normally, a runaslist only returns FALSE for
+	explicitly denied users. o since runaslist does not modify the stack
+	there is no need for a push/pop in runasalias.
 	[82b305b34a8c]
 
 	* check.c, sudo.c:
@@ -17210,10 +17464,9 @@
 	o Kill shell_noargs option, it cannot work since the command needs
 	to be set before sudoers is parsed. o Fix the "set_home" sudoers
 	option (only worked at compile time). o Fix "fqdn" sudoers option.
-	We now set host/shost via set_fqdn which gets called when the
-	"fqdn" option is set in sudoers. o Move the openlog() to
-	store_syslogfac() so this gets overridden correctly from the
-	sudoers file.
+	We now set host/shost via set_fqdn which gets called when the "fqdn"
+	option is set in sudoers. o Move the openlog() to store_syslogfac()
+	so this gets overridden correctly from the sudoers file.
 	[3dca861f0f5d]
 
 	* auth/securid.c:
@@ -17344,8 +17597,8 @@
 
 	* lex.yy.c, parse.lex:
 	Don't need YY_FLUSH_BUFFER after all Move yyrestart() into visudo.c
-	since it might not get called in yywrap if we get a parse error
-	(and we only reread the file on error anyway).
+	since it might not get called in yywrap if we get a parse error (and
+	we only reread the file on error anyway).
 	[37f4b449e28e]
 
 	* lex.yy.c, parse.lex:
@@ -17428,10 +17681,10 @@
 	[e3ed0c1f312b]
 
 	* logging.h:
-	Fix compilation problem when --with-logging=file was specified.
-	This means that syslog is now required to build sudo but that should
-	not be a problem. If it is it can be fixed trivially with a
-	configure check for syslog() or syslog.h.
+	Fix compilation problem when --with-logging=file was specified. This
+	means that syslog is now required to build sudo but that should not
+	be a problem. If it is it can be fixed trivially with a configure
+	check for syslog() or syslog.h.
 	[839a4b069190]
 
 	* tgetpass.c:
@@ -17453,9 +17706,9 @@
 1999-10-16  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* defaults.c:
-	Error out if syslog parameters are given without a value. For
-	Ultrix or 4.2BSD "syslog" is allowed without a value since there are
-	no facilities in the 4.2BSD syslog.
+	Error out if syslog parameters are given without a value. For Ultrix
+	or 4.2BSD "syslog" is allowed without a value since there are no
+	facilities in the 4.2BSD syslog.
 	[69e7a686f5f0]
 
 1999-10-15  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -17561,8 +17814,8 @@
 	getspwuid.c, logging.c, parse.yacc, sudo.c, sudo.tab.c:
 	o Change defaults stuff to put the value right in the struct. o
 	Implement mailer_flags o Store syslog stuff both in int and string
-	form. Setting the string form magically updates the int version.
-	o Add boolean attribute to strings where it makes sense to say !foo
+	form. Setting the string form magically updates the int version. o
+	Add boolean attribute to strings where it makes sense to say !foo
 	[4698953f9a36]
 
 	* tgetpass.c:
@@ -17872,9 +18125,9 @@
 
 	* parse.h, parse.yacc, sudo.tab.c, sudo.tab.h:
 	In "sudo -l" mode, the type of the stored (expanded) alias was not
-	stored with the contents. This could lead to incorrect output if
-	the sudoers file had different alias types with the same name.
-	Normal parsing (ie: not in '-l' mode) is unaffected.
+	stored with the contents. This could lead to incorrect output if the
+	sudoers file had different alias types with the same name. Normal
+	parsing (ie: not in '-l' mode) is unaffected.
 	[823fe2bc4b79]
 
 1999-08-23  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -18056,12 +18309,12 @@
 	* INSTALL, auth/sudo_auth.c, check.c, config.h.in, configure,
 	configure.in, parse.yacc, sudo.tab.c, testsudoers.c, version.c,
 	visudo.c:
-	o Add a "pedentic" flag to the parser. This makes sudo warn in
-	cases where an alias may be used before it is defined. Only turned
-	on for visudo and testsudoers. o Add --disable-authentication option
-	that makes sudo not require authentication by default. The PASSWD
-	tag can be used to require authentication for an entry. We no
-	longer overload --without-passwd.
+	o Add a "pedentic" flag to the parser. This makes sudo warn in cases
+	where an alias may be used before it is defined. Only turned on for
+	visudo and testsudoers. o Add --disable-authentication option that
+	makes sudo not require authentication by default. The PASSWD tag can
+	be used to require authentication for an entry. We no longer
+	overload --without-passwd.
 	[f307e09adf98]
 
 	* lex.yy.c, parse.lex:
@@ -18127,9 +18380,9 @@
 	version.c, visudo.c:
 	o Move lock_file() and touch() into fileops.c so visudo can use them
 	o Visudo now locks the sudoers temp file instead of bailing when the
-	temp file already exists. This fixes the problem of stale temp
-	files but it does *require* that you not try to put the temp file in
-	a world-writable directory. This shoud not be an issue as the temp
+	temp file already exists. This fixes the problem of stale temp files
+	but it does *require* that you not try to put the temp file in a
+	world-writable directory. This shoud not be an issue as the temp
 	file should live in the same dir as sudoers. o Visudo now only
 	installs the temp file as sudoers if it changed.
 	[2517cd06c070]
@@ -18218,11 +18471,11 @@
 	o Add '!' correctly when expanding Aliases. o Add shortcut macros
 	for append() to make things more readable. o The separator in
 	append() is now a string instead of a char. o In append(), only
-	prepend the separator if the last char is not a '!'. This is a
-	hack but it greatly simplifies '!' handling. o In -l mode, Runas
-	lists and NOPASSWD/PASSWD tags are now inherited across entries in
-	a list (matches current behavior). o Fix formatting in -l mode such
-	that items in a list are separated by a space. Greatlt improves
+	prepend the separator if the last char is not a '!'. This is a hack
+	but it greatly simplifies '!' handling. o In -l mode, Runas lists
+	and NOPASSWD/PASSWD tags are now inherited across entries in a list
+	(matches current behavior). o Fix formatting in -l mode such that
+	items in a list are separated by a space. Greatlt improves
 	readability. o Space for name field in struct aliasinfo is now
 	allocated dyanically instead of using a (big) buffer. o In
 	add_alias(), only search the list once (lsearch instead of lfind +
@@ -18243,8 +18496,8 @@
 	set foo_matches in opFOO, not FOO. o Treat 'ALL' as a string since
 	it gets fill()'d in parse.lex--fixes a small memory leak. In the
 	long run it may be better to just fix parse.lex and make ALL back
-	into a token. However, having it be a string is useful since it
-	can be easily passed back to the parent rule if we so desire.
+	into a token. However, having it be a string is useful since it can
+	be easily passed back to the parent rule if we so desire.
 	[b3c64b443018]
 
 	* parse.lex:
@@ -18506,8 +18759,8 @@
 	[db48202df1bb]
 
 	* Makefile.in:
-	BSD-style copyright. Update to reflect reality wrt new files and
-	new auth modules.
+	BSD-style copyright. Update to reflect reality wrt new files and new
+	auth modules.
 	[61a2ca7940fb]
 
 	* INSTALL:
@@ -18545,9 +18798,9 @@
 	user, eg. /var/run/sudo/millert/ttyp1. It is not currently possible
 	to mix tty and non-tty based ticket schemes but this may change in
 	the future (it requires sudo to use a directory instead of a file in
-	the non-tty case). Also, ``sudo -k'' now sets the ticket back to
-	the epoch and ``sudo -K'' really deletes the file. That way you
-	don't get the lecture again just because you killed your ticket in
+	the non-tty case). Also, ``sudo -k'' now sets the ticket back to the
+	epoch and ``sudo -K'' really deletes the file. That way you don't
+	get the lecture again just because you killed your ticket in
 	.logout. BSD-style copyright now.
 	[ec3460f85be8]
 
@@ -18800,8 +19053,8 @@
 	parse.yacc, sudo.c, sudo.tab.c, tgetpass.c:
 	o Replace _PASSWD_LEN braindeath with our own SUDO_MAX_PASS. It
 	turns out the old DES crypt does the right thing with passwords
-	longert than 8 characters. o Fix common typo (necesary ->
-	necessary) o Update TODO list
+	longert than 8 characters. o Fix common typo (necesary -> necessary)
+	o Update TODO list
 	[ad75007a6f13]
 
 1999-05-03  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -19112,9 +19365,9 @@
 1999-03-07  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* CHANGES, lex.yy.c, parse.lex:
-	Fix a bug wrt quoting characters in command args. Stop processing
-	an arg when you hit a backslash so the quoted-character detection
-	can catch it.
+	Fix a bug wrt quoting characters in command args. Stop processing an
+	arg when you hit a backslash so the quoted-character detection can
+	catch it.
 	[2281438d7f41]
 
 1999-02-26  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -19201,8 +19454,8 @@
 
 	* check.c, sudo.h:
 	If the user enters an empty password and really has no password,
-	accept the empty password they entered. Perviously, they could
-	enter anything
+	accept the empty password they entered. Perviously, they could enter
+	anything
 	*but* an empty password. Also, add GETPASS macro that calls either
 	tgetpass() or getpass() depending on how sudo was configured.
 	Problem noted by jdg@maths.qmw.ac.uk
@@ -22241,8 +22494,8 @@
 
 	* sudo.h:
 	added support for NO_PASSWD and runas from garp@opustel.com replaced
-	SUDOERS_OWNER with SUDOERS_UID and SUDOERS_GID and added support
-	fro SUDOERS_MODE
+	SUDOERS_OWNER with SUDOERS_UID and SUDOERS_GID and added support fro
+	SUDOERS_MODE
 	[cea6f26679b7]
 
 	* sudo.c:
@@ -24887,8 +25140,8 @@
 	[044023063eca]
 
 	* aclocal.m4:
-	OS was being set to unknown before non-uname based host checks.
-	This caused no checks to happen since $OS was not zero-length.
+	OS was being set to unknown before non-uname based host checks. This
+	caused no checks to happen since $OS was not zero-length.
 	[335a7267479d]
 
 	* sudo.c:
@@ -25357,8 +25610,7 @@
 	[1194d01fa5c5]
 
 	* visudo.c:
-	whatnow_help was prototyped to be static be was not declared as
-	such
+	whatnow_help was prototyped to be static be was not declared as such
 	[0f85489dd426]
 
 	* configure.in:
@@ -27498,8 +27750,8 @@
 	[34331c7dee90]
 
 	* logging.c:
-	split long log lines. FOr syslog, split into multiple entries, for
-	a log file, indent the extra for readability
+	split long log lines. FOr syslog, split into multiple entries, for a
+	log file, indent the extra for readability
 	[72c9e4cdba6e]
 
 1994-02-27  Todd C. Miller  <Todd.Miller@courtesan.com>
@@ -27521,8 +27773,8 @@
 1994-02-16  Todd C. Miller  <Todd.Miller@courtesan.com>
 
 	* sudo.c:
-	added rmenv() to remove stuff from environ. can now uses execvp()
-	OR execve() becuase of this.
+	added rmenv() to remove stuff from environ. can now uses execvp() OR
+	execve() becuase of this.
 	[e7fc2535bd67]
 
 	* logging.c:
@@ -27820,8 +28072,7 @@
 	[5c4bf716de21]
 
 	* check.c, find_path.c, parse.c, sudo.c:
-	added patches from John_Rouillard directory spec
-	uses EDITOR
+	added patches from John_Rouillard directory spec uses EDITOR
 	[f62a435f8c41]
 
 1993-12-02  Todd C. Miller  <Todd.Miller@courtesan.com>

@@ -203,6 +203,11 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
     
     old_ts = auth_items_get_double(config, "data_ts");
 
+	// <rdar://problem/17484375> SEED: BUG: Fast User Switching Not Working
+	// After Mavericks => Yosemite upgrade install, the new Yosemite rule "system.login.fus" was missing.
+	// Somehow (probably during install) ts < old_ts, even though that should never happen.
+	// Solution: always import plist and update db when time stamps don't match.
+	// After a successful import, old_ts = ts below.
     if (ts != old_ts) {
         LOGV("authdb: %s modified old=%f, new=%f", AUTHDB_DATA, old_ts, ts);
         CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, authURL, &data, NULL, NULL, (SInt32*)&rc);

@@ -135,14 +135,14 @@ term_noecho(fd)
 #ifdef VSTATUS
     term.c_cc[VSTATUS] = _POSIX_VDISABLE;
 #endif
-    for (;;) { 
+    for (;;) {
 	if (tcsetattr(fd, TCSADRAIN|TCSASOFT, &term) == 0) {
 	    changed = 1;
 	    return 1;
 	}
 	if (errno != EINTR)
-	    break;
-    } 
+		break;
+    }
     return 0;
 }
 

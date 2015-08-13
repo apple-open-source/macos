@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -25,6 +27,7 @@
 <a href="./fr/new_features_2_4.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="./tr/new_features_2_4.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
+<div class="outofdate">Bu çeviri güncel olmayabilir. Son değişiklikler için İngilizce sürüm geçerlidir.</div>
 
   <p>Bu belgede Apache HTTP Sunucusunun 2.2 ve 2.4 sürümleri arasındaki
     başlıca farklara değinilmiştir. 2.0 sürümüne göre yeni özellikler için <a href="new_features_2_2.html">Apache 2.2’de Yeni olan Özellikler</a>
@@ -175,6 +178,16 @@
       <dt><code class="module"><a href="./mod/mod_xml2enc.html">mod_xml2enc</a></code></dt>
       <dd>Başta bir üçüncü parti modüldü. libxml2 temelli süzgeç modüllerinde
         i18n'i destekler.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_macro.html">mod_macro</a></code> (2.4.5'den itibaren kullanılabilir)</dt>
+      <dd>Yapılandırma dosyalarında makro kullanımını sağlar.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_proxy_wstunnel.html">mod_proxy_wstunnel</a></code> (2.4.5'den itibaren kullanılabilir)</dt>
+      <dd>Web-socket tünelleri için destek.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_authnz_fcgi.html">mod_authnz_fcgi</a></code> (2.4.10'dan itibaren kullanılabilir)</dt>
+      <dd>Kimlik kanıtlama ve/veya istemcileri yetkilendirmek için FastCGI
+        yetkilendirme uygulamalarını etkinleştirir.</dd>
     </dl>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -199,6 +212,8 @@
       <dd>RSA ve DSA'ya ek olarak EC anahtarları da artık desteklenmektedir.
       </dd>
 
+      <dd>TLS-SRP için destek (2.4.4 itibariyle kullanılabilir).</dd>
+
       <dt><code class="module"><a href="./mod/mod_proxy.html">mod_proxy</a></code></dt>
 
       <dd><code class="directive"><a href="./mod/mod_proxy.html#proxypass">ProxyPass</a></code> yönergesi bir
@@ -210,6 +225,9 @@
 
       <dd>Vekil istekleri için kullanılan kaynak adresi artık
         yapılandırılabilmektedir.</dd>
+
+      <dd>Artalanda Unix alan soketleri için destek (2.4.7 itibariyle
+        kullanılabilir).</dd>
 
       <dt><code class="module"><a href="./mod/mod_proxy_balancer.html">mod_proxy_balancer</a></code></dt>
 
@@ -297,6 +315,10 @@
       <dd><code class="module"><a href="./mod/mod_info.html">mod_info</a></code> önceden çözümlenmiş yapılandırmayı artık
         sunucunun başlatılması sırasında standart çıktıya
         dökümleyebilmektedir.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_auth_basic.html">mod_auth_basic</a></code></dt>
+      <dd>Temel kimlik kanıtlamayı taklit eden yeni temel mekanizma
+        (2.4.5 itibariyle kullanılabilmektedir).</dd>
     </dl>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -320,6 +342,10 @@
         <dt><code class="program"><a href="./programs/rotatelogs.html">rotatelogs</a></code></dt>
         <dd>Artık geçerli günlük dosyasına bir bağ oluşturulabiliyor.</dd>
         <dd>Artık özel bir döndürme sonrası betiği çalıştırılabiliyor.</dd>
+
+      <dt><code class="program"><a href="./programs/htpasswd.html">htpasswd</a></code>, <code class="program"><a href="./programs/htdbm.html">htdbm</a></code></dt>
+      <dd>Bcrypt algoritması için destek (2.4.4 itibariyle
+        kullanılabilmektedir).</dd>
     </dl>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -422,7 +448,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/new_features_2_4.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

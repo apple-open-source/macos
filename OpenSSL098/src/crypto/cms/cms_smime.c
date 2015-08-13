@@ -59,21 +59,30 @@
 #include <openssl/cms.h>
 #include "cms_lcl.h"
 
+static BIO *cms_get_text_bio(BIO *out, unsigned int flags)
+	{
+	BIO *rbio = NULL;
+
+	if (out == NULL)
+		rbio = BIO_new(BIO_s_null());
+	else if (flags & CMS_TEXT)
+		{
+		rbio = BIO_new(BIO_s_mem());
+		BIO_set_mem_eof_return(rbio, 0);
+		}
+	else
+		rbio = out;
+
+	return rbio;
+	}
+
 static int cms_copy_content(BIO *out, BIO *in, unsigned int flags)
 	{
 	unsigned char buf[4096];
 	int r = 0, i;
-	BIO *tmpout = NULL;
+	BIO *tmpout;
 
-	if (out == NULL)
-		tmpout = BIO_new(BIO_s_null());
-	else if (flags & CMS_TEXT)
-		{
-		tmpout = BIO_new(BIO_s_mem());
-		BIO_set_mem_eof_return(tmpout, 0);
-		}
-	else
-		tmpout = out;
+	tmpout = cms_get_text_bio(out, flags);
 
 	if(!tmpout)
 		{
@@ -141,7 +150,7 @@ static void do_free_upto(BIO *f, BIO *upto)
 			BIO_free(f);
 			f = tbio;
 			}
-		while (f != upto);
+		while (f && f != upto);
 		}
 	else
 		BIO_free_all(f);
@@ -328,7 +337,7 @@ int CMS_verify(CMS_ContentInfo *cms, STACK_OF(X509) *certs,
 	STACK_OF(X509_CRL) *crls = NULL;
 	X509 *signer;
 	int i, scount = 0, ret = 0;
-	BIO *cmsbio = NULL, *tmpin = NULL;
+	BIO *cmsbio = NULL, *tmpin = NULL, *tmpout = NULL;
 
 	if (!dcont && !check_content(cms))
 		return 0;
@@ -411,14 +420,49 @@ int CMS_verify(CMS_ContentInfo *cms, STACK_OF(X509) *certs,
 		}
 	else
 		tmpin = dcont;
-		
 
-	cmsbio=CMS_dataInit(cms, tmpin);
-	if (!cmsbio)
+	/* If not binary mode and detached generate digests by *writing*
+	 * through the BIO. That makes it possible to canonicalise the
+	 * input.
+	 */
+	if (!(flags & SMIME_BINARY) && dcont)
+	  {
+	    /* Create output BIO so we can either handle text or to
+	     * ensure included content doesn't override detached content.
+	     */
+	    tmpout = cms_get_text_bio(out, flags);
+	    if(!tmpout)
+	      {
+		CMSerr(CMS_F_CMS_VERIFY,ERR_R_MALLOC_FAILURE);
 		goto err;
+	      }
+	    cmsbio = CMS_dataInit(cms, tmpout);
+	    if (!cmsbio)
+	      goto err;
+	    /* Don't use SMIME_TEXT for verify: it adds headers and
+	     * we want to remove them.
+	     */
+	    SMIME_crlf_copy(dcont, cmsbio, flags & ~SMIME_TEXT);
 
-	if (!cms_copy_content(out, cmsbio, flags))
-		goto err;
+	    if(flags & CMS_TEXT)
+	      {
+		if (!SMIME_text(tmpout, out))
+		  {
+		    CMSerr(CMS_F_CMS_VERIFY,CMS_R_SMIME_TEXT_ERROR);
+		    goto err;
+		  }
+	      }
+	  }
+	else
+	  {
+	    cmsbio=CMS_dataInit(cms, tmpin);
+	    if (!cmsbio)
+	      goto err;
+
+	    if (!cms_copy_content(out, cmsbio, flags))
+	      goto err;
+ 
+	  }
 
 	if (!(flags & CMS_NO_CONTENT_VERIFY))
 		{
@@ -438,10 +482,23 @@ int CMS_verify(CMS_ContentInfo *cms, STACK_OF(X509) *certs,
 
 	err:
 	
-	if (dcont && (tmpin == dcont))
-		do_free_upto(cmsbio, dcont);
+	if (!(flags & SMIME_BINARY) && dcont)
+	  {
+	    do_free_upto(cmsbio, tmpout);
+	    if (tmpin != dcont)
+	      BIO_free(tmpin);
+	  }
 	else
-		BIO_free_all(cmsbio);
+	  {
+
+	    if (dcont && (tmpin == dcont))
+	      do_free_upto(cmsbio, dcont);
+	    else
+	      BIO_free_all(cmsbio);
+	  }
+
+	if (tmpout && out != tmpout)
+	  BIO_free_all(tmpout);
 
 	if (cms_certs)
 		sk_X509_pop_free(cms_certs, X509_free);

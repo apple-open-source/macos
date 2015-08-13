@@ -28,7 +28,8 @@ _krb5_init_creds_set_pku2u
 %ifdef HAVE_KCM
 _krb5_kcm_get_initial_ticket
 _krb5_kcm_get_status
-_krb5_kcm_ntlm_challenge
+krb5_kcm_ntlm_challenge
+krb5_kcm_check_ntlm_challenge
 %endif
 _krb5_pac_sign
 _krb5_plugin_find

@@ -331,14 +331,12 @@ main(argc, argv, envp)
 
     /* This goes after sudoers is parsed since it may have timestamp options. */
     if (sudo_mode == MODE_KILL || sudo_mode == MODE_INVALIDATE) {
-    	/* Not an audit event. */
 	remove_timestamp((sudo_mode == MODE_KILL));
 	goto done;
     }
 
     /* Is root even allowed to run sudo? */
     if (user_uid == 0 && !def_root_sudo) {
-    	/* Not an audit event. */
 	(void) fprintf(stderr,
 	    "Sorry, %s has been configured to not allow root to run it.\n",
 	    getprogname());
@@ -447,7 +445,7 @@ main(argc, argv, envp)
     if (rval != TRUE) {
 	if (!ISSET(validated, VALIDATE_OK))
 	    log_denial(validated, FALSE);
-	goto done;
+	goto bad;
     }
 
     /* If run as root with SUDO_USER set, set sudo_user.pw to that user. */
@@ -605,10 +603,8 @@ init_vars(envp)
     int nohostname;
 
     /* Sanity check command from user. */
-    if (user_cmnd == NULL && strlen(NewArgv[0]) >= PATH_MAX) {
-	audit_failure(NULL, "pathname too long");
+    if (user_cmnd == NULL && strlen(NewArgv[0]) >= PATH_MAX)
 	errorx(1, "%s: File name too long", NewArgv[0]);
-    }
 
 #ifdef HAVE_TZSET
     (void) tzset();		/* set the timezone if applicable */
@@ -748,8 +744,8 @@ init_vars(envp)
 	    for (av = NewArgv; *av != NULL; av++) {
 		for (src = *av; *src != '\0'; src++) {
 		    /* quote potential meta characters */
-		    // if (!isalnum((unsigned char)*src) && *src != '_' && *src != '-')
-			// *dst++ = '\\';
+		    //if (!isalnum((unsigned char)*src) && *src != '_' && *src != '-')
+			//*dst++ = '\\';
 		    *dst++ = *src;
 		}
 		*dst++ = ' ';
@@ -1177,8 +1173,7 @@ set_loginclass(pw)
 	return;
 
     if (login_class && strcmp(login_class, "-") != 0) {
-	if (user_uid != 0 &&
-	    strcmp(runas_user ? runas_user : def_runas_default, "root") != 0)
+	if (user_uid != 0 && pw->pw_uid != 0)
 	    errorx(1, "only root can use -c %s", login_class);
     } else {
 	login_class = pw->pw_class;

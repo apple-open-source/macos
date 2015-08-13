@@ -213,6 +213,7 @@ $(OBJROOT)/$(PROJECT)::
 	ed - $(PROJECT)/perl.c < fix/perl.c.ed && \
 	ed - $(PROJECT)/perlio.c < fix/perlio.c.ed && \
 	ed - $(PROJECT)/pp_sys.c < fix/pp_sys.c.ed && \
+	patch -p0 -F0 $(PROJECT)/regcomp.c fix/CVE-2013-7422.diff && \
 	sed -e 's/@VERSION@/$(VERSION)/g' \
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \

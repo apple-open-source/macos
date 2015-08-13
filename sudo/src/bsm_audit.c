@@ -167,12 +167,6 @@ bsm_audit_failure(char **exec_args, char const *const fmt, va_list ap)
 	if (tok == NULL)
 		error(1, "au_to_subject: failed");
 	au_write(aufd, tok);
-	if (exec_args != NULL) {
-		tok = au_to_exec_args(exec_args);
-		if (tok == NULL)
-			log_error(0, "au_to_exec_args: failed");
-		au_write(aufd, tok);
-	}
 	tok = au_to_exec_args(exec_args);
 	if (tok == NULL)
 		error(1, "au_to_exec_args: failed");

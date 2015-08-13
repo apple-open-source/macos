@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -42,7 +44,8 @@ décommentant la ligne</p>
     <div class="example"><p><code>
       #Include conf/extra/httpd-userdir.conf
     </code></p></div>
-    <p>dans le fichier de configuration par défaut, et en adaptant le
+    <p>dans le fichier de configuration par défaut
+    <code>conf/httpd.conf</code>, et en adaptant le
     fichier <code>httpd-userdir.conf</code> selon vos besoins, ou en
     incluant les directives appropriées dans une section
     <code>Directory</code> du fichier de configuration principal.</p>
@@ -166,7 +169,7 @@ avec le système de fichiers</a></li></ul><ul class="seealso"><li><a href="#comme
    vous pouvez utiliser une section <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> pour activer CGI dans un
    sous-répertoire particulier d'un répertoire home utilisateur.</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /home/*/public_html/cgi-bin/&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/home/*/public_html/cgi-bin/"&gt;
     Options ExecCGI
     SetHandler cgi-script
 &lt;/Directory&gt;</pre>
@@ -221,7 +224,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/public_html.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

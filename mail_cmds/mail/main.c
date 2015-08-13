@@ -132,19 +132,8 @@ main(argc, argv)
 	bcc = NULL;
 	smopts = NULL;
 	subject = NULL;
-	while ((i = getopt(argc, argv, "FEHINT:b:c:edfins:u:v")) != -1) {
+	while ((i = getopt(argc, argv, "FEHIN:b:c:edfins:u:v")) != -1) {
 		switch (i) {
-		case 'T':
-			/*
-			 * Next argument is temp file to write which
-			 * articles have been read/deleted for netnews.
-			 */
-			Tflag = optarg;
-			if ((i = open(Tflag, O_CREAT | O_TRUNC | O_WRONLY,
-			    0600)) < 0)
-				err(1, "%s", Tflag);
-			(void)close(i);
-			break;
 		case 'u':
 			/*
 			 * Next argument is person to pretend to be.
@@ -192,16 +181,10 @@ main(argc, argv)
 			/*
 			 * User is specifying file to "edit" with Mail,
 			 * as opposed to reading system mailbox.
-			 * If no argument is given after -f, we read his
-			 * mbox file.
-			 *
-			 * getopt() can't handle optional arguments, so here
-			 * is an ugly hack to get around it.
+			 * We read his mbox file unless another file
+			 * is specified after the arguments.
 			 */
-			if ((argv[optind] != NULL) && (argv[optind][0] != '-'))
-				ef = argv[optind++];
-			else
-				ef = "&";
+			ef = "&";
 			break;
 		case 'n':
 			/*
@@ -248,26 +231,30 @@ main(argc, argv)
 		case '?':
 			fprintf(stderr, "\
 Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
-       %*s [- sendmail-options ...]\n\
        %s [-EHiInNv] [-F] -f [name]\n\
        %s [-EHiInNv] [-F] [-u user]\n\
        %s -e [-f name]\n\
-       %s -H\n",__progname, (int)strlen(__progname), "",
+       %s -H\n",__progname,
 			    __progname, __progname, __progname, __progname);
 			exit(1);
 		}
 	}
-	for (i = optind; (argv[i] != NULL) && (*argv[i] != '-'); i++)
-		to = cat(to, nalloc(argv[i], GTO));
-	for (; argv[i] != NULL; i++)
-		smopts = cat(smopts, nalloc(argv[i], 0));
+	if (ef != NULL) {
+		/* Check for optional mailbox file name. */
+		if (optind < argc) {
+			ef = argv[optind++];
+			if (optind < argc)
+			    errx(1, "Cannot give -f and people to send to");
+		}
+	} else {
+		for (i = optind; argv[i]; i++)
+			to = cat(to, nalloc(argv[i], GTO));
+	}
 	/*
 	 * Check for inconsistent arguments.
 	 */
 	if (to == NULL && (subject != NULL || cc != NULL || bcc != NULL))
 		errx(1, "You must specify direct recipients with -s, -c, or -b.");
-	if (ef != NULL && to != NULL)
-		errx(1, "Cannot give -f and people to send to.");
 	tinit();
 	setscreensize();
 	input = stdin;

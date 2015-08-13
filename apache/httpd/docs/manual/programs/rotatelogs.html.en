@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -45,6 +47,7 @@
      [ -<strong>L</strong> <var>linkname</var> ]
      [ -<strong>p</strong> <var>program</var> ]
      [ -<strong>f</strong> ]
+     [ -<strong>t</strong> ]
      [ -<strong>v</strong> ]
      [ -<strong>e</strong> ]
      [ -<strong>c</strong> ]
@@ -133,7 +136,7 @@ be sure the log file format has enough granularity to produce
 a different file name each time the logs are rotated.  Otherwise
 rotation will overwrite the same file instead of starting a new
 one.  For example, if <var>logfile</var> was
-<code>/var/logs/errorlog.%Y-%m-%d</code> with log rotation at 5
+<code>/var/log/errorlog.%Y-%m-%d</code> with log rotation at 5
 megabytes, but 5 megabytes was reached twice in the same day, the
 same log file name would be produced and log rotation would keep
 writing to the same file.</p>
@@ -173,32 +176,32 @@ an offset.</dd>
 <h2><a name="examples" id="examples">Examples</a></h2>
 
 <div class="example"><p><code>
-     CustomLog "|bin/rotatelogs /var/logs/logfile 86400" common
+     CustomLog "|bin/rotatelogs /var/log/logfile 86400" common
 </code></p></div>
 
-     <p>This creates the files /var/logs/logfile.nnnn where nnnn  is
+     <p>This creates the files /var/log/logfile.nnnn where nnnn  is
      the system time at which the log nominally starts (this time
      will always be a multiple of the rotation time, so  you  can
      synchronize cron scripts with it).  At the end of each rotation
      time (here after 24 hours) a new log is started.</p>
 
 <div class="example"><p><code>
-     CustomLog "|bin/rotatelogs -l /var/logs/logfile.%Y.%m.%d 86400" common
+     CustomLog "|bin/rotatelogs -l /var/log/logfile.%Y.%m.%d 86400" common
 </code></p></div>
 
-     <p>This creates the files /var/logs/logfile.yyyy.mm.dd where
+     <p>This creates the files /var/log/logfile.yyyy.mm.dd where
      yyyy is the year, mm is the month, and dd is the day of the month.
      Logging will switch to a new file every day at midnight, local time.</p>
 
 <div class="example"><p><code>
-     CustomLog "|bin/rotatelogs /var/logs/logfile 5M" common
+     CustomLog "|bin/rotatelogs /var/log/logfile 5M" common
 </code></p></div>
 
      <p>This configuration will rotate the logfile whenever it reaches
      a size of 5 megabytes.</p>
 
 <div class="example"><p><code>
-     ErrorLog "|bin/rotatelogs /var/logs/errorlog.%Y-%m-%d-%H_%M_%S 5M"
+     ErrorLog "|bin/rotatelogs /var/log/errorlog.%Y-%m-%d-%H_%M_%S 5M"
 </code></p></div>
      <p>This configuration will rotate the error logfile whenever it
      reaches a size of 5 megabytes, and the suffix to the logfile name
@@ -206,10 +209,10 @@ an offset.</dd>
      <code>errorlog.YYYY-mm-dd-HH_MM_SS</code>.</p>
 
 <div class="example"><p><code>
-     CustomLog "|bin/rotatelogs -t /var/logs/logfile 86400" common
+     CustomLog "|bin/rotatelogs -t /var/log/logfile 86400" common
 </code></p></div>
 
-     <p>This creates the file /var/logs/logfile, truncating the file at
+     <p>This creates the file /var/log/logfile, truncating the file at
      startup and then truncating the file once per day. It is expected
      in this scenario that a separate process (such as tail) would
      process the file in real time.</p>
@@ -274,7 +277,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/programs/rotatelogs.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -27,7 +27,7 @@ Dependencies
 ============
 
    The projects files also support build configurations that require third
-   party dependencies such as openssl and ssh2. If you wish to support these,
+   party dependencies such as OpenSSL and SSH2. If you wish to support these,
    you will also need to download and compile those libraries as well.
 
    To support compilation of these libraries using different versions of
@@ -66,9 +66,20 @@ Building with Visual C++
    part of Visual Studio.
 
    If you are building with VC6 then you will also need the February 2003
-   Edition of the Platform SDK which can be downloaded from:
+   Edition of the Windows Platform SDK which can be downloaded from:
 
     http://www.microsoft.com/en-us/download/details.aspx?id=12261
+
+   If you require support for Internationalized Domain Names via Windows IDN
+   then you will need either:
+
+    * Microsoft Internationalized Domain Name (IDN) Mitigation APIs:
+      http://www.microsoft.com/en-us/download/details.aspx?id=734
+
+    * Microsoft Windows SDK Update for Windows Vista:
+      http://www.microsoft.com/en-us/download/details.aspx?id=23719
+
+    * Microsoft Visual Studio 2010 or above
 
    Once you have VC++ installed you should launch the application and open one
    of the solution or workspace files.
@@ -88,6 +99,17 @@ Notes
    <configuration> - The target configuration (For example: DLL Debug,
                      LIB Release - LIB OpenSSL)
 
+   If you are using the source code from the git repository, rather than a
+   release archive or nightly build, you will need to generate the project
+   files. Please run "generate -help" for usage details. 
+
+   Should you wish to help out with some of the items on the TODO list, or
+   find bugs in the project files that need correcting, and would like to
+   submit updated files back then please note that, whilst the solution files
+   can be edited directly, the templates for the project files (which are 
+   stored in the git repositoty) will need to be modified rather than the
+   generated project files that Visual Studio uses.
+
 TODO
 ====
 
@@ -95,7 +117,6 @@ TODO
    are not 100% complete. This is a list of things that are still todo:
 
    * Support zlib
-   * Support WinIDN
    * Use of static runtime libraries
    * Generate *.vcxproj.filters files for VC10, VC11 and VC12
    * Add the Test Suite components

@@ -27,7 +27,8 @@ AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = tmac__doc-common.diff tmac__troffrc.diff \
                  tmac__doc-syms.diff tmac__groff_mdoc.man.diff \
                  utf8.diff \
-                 PR-13280133.diff
+                 PR-13280133.diff \
+                 remove-pdfroff.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

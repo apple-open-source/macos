@@ -153,6 +153,7 @@ extern int launchd_flag;
 extern int disallow_getting_krbtgt;
 extern int kcm_data_changed;
 extern int use_uid_matching;
+extern int disable_ntlm_reflection_detection;
 
 #if 0
 extern const krb5_cc_ops krb5_kcmss_ops;

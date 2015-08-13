@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -37,6 +37,10 @@
 
 #ifdef MSDOS
 #include <dos.h>  /* delay() */
+#endif
+
+#ifdef __VXWORKS__
+#include <strings.h>  /* bzero() in FD_SET */
 #endif
 
 #include <curl/curl.h>
@@ -108,8 +112,10 @@ int Curl_wait_ms(int timeout_ms)
     if(error && error_not_EINTR)
       break;
     pending_ms = timeout_ms - elapsed_ms;
-    if(pending_ms <= 0)
+    if(pending_ms <= 0) {
+      r = 0;  /* Simulate a "call timed out" case */
       break;
+    }
   } while(r == -1);
 #endif /* USE_WINSOCK */
   if(r)
@@ -153,7 +159,7 @@ int Curl_socket_check(curl_socket_t readfd0, /* two sockets to read from */
   fd_set fds_err;
   curl_socket_t maxfd;
 #endif
-  struct timeval initial_tv = {0,0};
+  struct timeval initial_tv = {0, 0};
   int pending_ms = 0;
   int error;
   int r;
@@ -387,7 +393,7 @@ int Curl_poll(struct pollfd ufds[], unsigned int nfds, int timeout_ms)
   fd_set fds_err;
   curl_socket_t maxfd;
 #endif
-  struct timeval initial_tv = {0,0};
+  struct timeval initial_tv = {0, 0};
   bool fds_none = TRUE;
   unsigned int i;
   int pending_ms = 0;
@@ -432,8 +438,10 @@ int Curl_poll(struct pollfd ufds[], unsigned int nfds, int timeout_ms)
       break;
     if(timeout_ms > 0) {
       pending_ms = timeout_ms - elapsed_ms;
-      if(pending_ms <= 0)
+      if(pending_ms <= 0) {
+        r = 0;  /* Simulate a "call timed out" case */
         break;
+      }
     }
   } while(r == -1);
 
@@ -517,8 +525,10 @@ int Curl_poll(struct pollfd ufds[], unsigned int nfds, int timeout_ms)
       break;
     if(timeout_ms > 0) {
       pending_ms = timeout_ms - elapsed_ms;
-      if(pending_ms <= 0)
+      if(pending_ms <= 0) {
+        r = 0;  /* Simulate a "call timed out" case */
         break;
+      }
     }
   } while(r == -1);
 
@@ -563,6 +573,6 @@ int tpf_select_libcurl(int maxfds, fd_set* reads, fd_set* writes,
 
    rc = tpf_select_bsd(maxfds, reads, writes, excepts, tv);
    tpf_process_signals();
-   return(rc);
+   return rc;
 }
 #endif /* TPF */

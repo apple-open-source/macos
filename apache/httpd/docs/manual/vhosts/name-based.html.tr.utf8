@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -28,6 +30,7 @@
 <a href="../ko/vhosts/name-based.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/vhosts/name-based.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
+<div class="outofdate">Bu çeviri güncel olmayabilir. Son değişiklikler için İngilizce sürüm geçerlidir.</div>
 
     <p>Bu belgede isme dayalı sanal konakların ne zaman, nasıl kullanılacakları
       açıklanmıştır.</p>
@@ -84,6 +87,12 @@ Barındırma</a></li><li><a href="examples.html">Çok kullanılan sanal konak ya
       sunucu ismini <code class="directive"><a href="../mod/core.html#servername">ServerName</a></code> ve
       <code class="directive"><a href="../mod/core.html#serveralias">ServerAlias</a></code> yönergelerindeki
       isimlerle karşılaştırır.</p>
+
+    <p>Herhangi bir isme dayalı sanal konakta <code class="directive"><a href="../mod/core.html#servername">ServerName</a></code> yönergesini kullanmazsanız, sunucu
+      bu yönergeye sistem konak adından türetilmiş tam nitelenmiş alan adının
+      (FQDN) tanımlandığını varsayacaktır. Bu örtük atama sezgiselliğin
+      istenmediği bir sanal konak eşleşmesi ile sonuçlanabilir ve bu
+      önerilmez.</p>
 
   <h3><a name="defaultvhost" id="defaultvhost">Bir IP adresi ve port çifti için öntanımlı isme dayalı sankon</a></h3>
    
@@ -221,7 +230,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/name-based.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

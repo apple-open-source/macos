@@ -138,7 +138,7 @@ IOExternalMethod * IOI2CInterfaceUserClient::getTargetAndMethodForIndex(
                            kIOUCStructIStructO, 0xffffffff, 0xffffffff },
             };
 
-    if (index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
+    if (index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return (NULL);
 
     *targetP = this;

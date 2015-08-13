@@ -622,7 +622,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 										void * reference)
 {
 	IOReturn result = kIOReturnBadArgument;
-	IOService *targetObject;
+	OSObject *targetObject;
 
 	UInt32 actualSelector = selector & 0xFFFF ;
 	if ( actualSelector >= kNumMethods )
@@ -634,11 +634,12 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 	{
 		const OSObject * userObject = fExporter->lookupObject( (UserObjectHandle)( selector >> 16 ) ) ;
 		
-		targetObject = (IOService*)userObject ;		// "interesting code" note:
-													// when we don't have an object set in our method table,
-													// the object handle is encoded in the upper 16 bits of the 
-													// method index...
-													// We extract the object handle here to get the object to call...
+        // sort of pointless to dynamic cast to OSObject
+		targetObject = OSDynamicCast( OSObject, userObject );	// "interesting code" note:
+                                                                // when we don't have an object set in our method table,
+                                                                // the object handle is encoded in the upper 16 bits of the 
+                                                                // method index...
+                                                                // We extract the object handle here to get the object to call...
 		
 		if (targetObject)
 		{
@@ -653,912 +654,1850 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 	switch (actualSelector)
 	{
 		case kOpen:
-			result = ((IOFireWireUserClient*) targetObject)->userOpen();
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->userOpen();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kOpenWithSessionRef:
-			result = ((IOFireWireUserClient*) targetObject)->userOpenWithSessionRef((IOFireWireLib::UserObjectHandle) arguments->scalarInput[0]);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->userOpenWithSessionRef((IOFireWireLib::UserObjectHandle) arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kClose:
-			result = ((IOFireWireUserClient*) targetObject)->userClose();
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->userClose();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kReadQuad:
-			result = ((IOFireWireUserClient*) targetObject)->
-									readQuad((const ReadQuadParams*) arguments->structureInput,
-											(UInt32*) arguments->structureOutput);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->readQuad((const ReadQuadParams*) arguments->structureInput,
+                                         (UInt32*) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kRead:
-			result = ((IOFireWireUserClient*) targetObject)->
-											read((const ReadParams*) arguments->structureInput,
-												(IOByteCount*) arguments->structureOutput);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->read((const ReadParams*) arguments->structureInput,
+                                     (IOByteCount*) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kWriteQuad:
-			result = ((IOFireWireUserClient*) targetObject)->writeQuad((const WriteQuadParams*) arguments->structureInput);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->writeQuad((const WriteQuadParams*) arguments->structureInput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kWrite:
-			result = ((IOFireWireUserClient*) targetObject)->
-											write((const WriteParams*) arguments->structureInput,
-													(IOByteCount*) arguments->structureOutput);
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->write((const WriteParams*) arguments->structureInput,
+                                  (IOByteCount*) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kCompareSwap:
-			result = ((IOFireWireUserClient*) targetObject)->
-											compareSwap((const CompareSwapParams*) arguments->structureInput,
-													(UInt32*) arguments->structureOutput);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->compareSwap((const CompareSwapParams*) arguments->structureInput,
+							            (UInt32*) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kBusReset:
-			result = ((IOFireWireUserClient*) targetObject)->busReset();
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->busReset();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kCycleTime:
 		{
 			UInt32 cycleTime;
 			UInt64 upTime;
-			result = ((IOFireWireController*) targetObject)->getCycleTimeAndUpTime(cycleTime, upTime);
-			arguments->scalarOutput[0] = cycleTime;
-			arguments->scalarOutput[1] = upTime;
-		}
+            IOFireWireController * fw_controller = OSDynamicCast( IOFireWireController, targetObject );
+            if( fw_controller )
+            {
+                result = fw_controller->getCycleTimeAndUpTime(cycleTime, upTime);
+                arguments->scalarOutput[0] = cycleTime;
+                arguments->scalarOutput[1] = upTime;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kGetGenerationAndNodeID:
 		{
 			UInt32 outGeneration;
 			UInt32 outNodeID;
-			result = ((IOFireWireUserClient*) targetObject)->getGenerationAndNodeID(&outGeneration,&outNodeID);
-			arguments->scalarOutput[0] = outGeneration;
-			arguments->scalarOutput[1] = outNodeID;
-		}
-			break;
-		
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->getGenerationAndNodeID(&outGeneration,&outNodeID);
+                arguments->scalarOutput[0] = outGeneration;
+                arguments->scalarOutput[1] = outNodeID;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kGetLocalNodeID:
 		{
 			UInt32 outLocalNodeID;
-			result = ((IOFireWireUserClient*) targetObject)->getLocalNodeID(&outLocalNodeID);
-			arguments->scalarOutput[0] = outLocalNodeID;
-		}
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->getLocalNodeID(&outLocalNodeID);
+                arguments->scalarOutput[0] = outLocalNodeID;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
+        }
 		
 		case kGetResetTime:
-			result = ((IOFireWireUserClient*) targetObject)->getResetTime((AbsoluteTime*) arguments->structureOutput);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->getResetTime((AbsoluteTime*) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		case kReleaseUserObject:
-			result = ((IOFireWireUserClient*) targetObject)->releaseUserObject((UserObjectHandle)arguments->scalarInput[0]);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->releaseUserObject((UserObjectHandle)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kGetOSStringData:
 		{
 			UInt32 outTextLength;
-			result = ((IOFireWireUserClient*) targetObject)->getOSStringData((UserObjectHandle)arguments->scalarInput[0],
-																			(UInt32)arguments->scalarInput[1],
-																			(mach_vm_address_t)arguments->scalarInput[2],
-																			&outTextLength);
-			arguments->scalarOutput[0] = outTextLength;
-		}
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->getOSStringData((UserObjectHandle)arguments->scalarInput[0],
+                                                (UInt32)arguments->scalarInput[1],
+                                                (mach_vm_address_t)arguments->scalarInput[2],
+                                                &outTextLength);
+                arguments->scalarOutput[0] = outTextLength;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
+        }
 		
 		case kGetOSDataData:
 		{
 			IOByteCount outDataLen;
-			result = ((IOFireWireUserClient*) targetObject)->getOSDataData((UserObjectHandle)arguments->scalarInput[0],
-																			(IOByteCount)arguments->scalarInput[1],
-																			(mach_vm_address_t)arguments->scalarInput[2],
-																			&outDataLen);
-			arguments->scalarOutput[0] = outDataLen;
-		}
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->getOSDataData((UserObjectHandle)arguments->scalarInput[0],
+                                                (IOByteCount)arguments->scalarInput[1],
+                                                (mach_vm_address_t)arguments->scalarInput[2],
+                                                &outDataLen);
+                arguments->scalarOutput[0] = outDataLen;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
+        }
 		
 		case kLocalConfigDirectory_Create:
 		{
 			UserObjectHandle outDir;
-			result = ((IOFireWireUserClient*) targetObject)->localConfigDirectory_Create(&outDir);
-			arguments->scalarOutput[0] = (uint64_t) outDir;
-		}
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localConfigDirectory_Create(&outDir);
+                arguments->scalarOutput[0] = (uint64_t) outDir;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kLocalConfigDirectory_AddEntry_Buffer:
-			result = ((IOFireWireUserClient*) targetObject)->
-						localConfigDirectory_addEntry_Buffer((UserObjectHandle)arguments->scalarInput[0],
-															(int)arguments->scalarInput[1],
-															(char *)arguments->scalarInput[2],
-															(UInt32)arguments->scalarInput[3],
-															(const char *)arguments->scalarInput[4],
-															(UInt32)arguments->scalarInput[5]);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localConfigDirectory_addEntry_Buffer((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            (char *)arguments->scalarInput[2],
+                                                                            (UInt32)arguments->scalarInput[3],
+                                                                            (const char *)arguments->scalarInput[4],
+                                                                            (UInt32)arguments->scalarInput[5]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+    
 		case kLocalConfigDirectory_AddEntry_UInt32:
-			result = ((IOFireWireUserClient*) targetObject)->
-						localConfigDirectory_addEntry_UInt32((UserObjectHandle)arguments->scalarInput[0],
-															(int)arguments->scalarInput[1],
-															(UInt32)arguments->scalarInput[2],
-															(const char *)arguments->scalarInput[3],
-															(UInt32)arguments->scalarInput[4]);
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localConfigDirectory_addEntry_UInt32((UserObjectHandle)arguments->scalarInput[0],
+                                                                (int)arguments->scalarInput[1],
+                                                                (UInt32)arguments->scalarInput[2],
+                                                                (const char *)arguments->scalarInput[3],
+                                                                (UInt32)arguments->scalarInput[4]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kLocalConfigDirectory_AddEntry_FWAddr:
-			result = ((IOFireWireUserClient*) targetObject)->
-				localConfigDirectory_addEntry_FWAddr((UserObjectHandle)arguments->scalarInput[0],
-													(int)arguments->scalarInput[1],
-													(const char *)arguments->scalarInput[2],
-													(UInt32)arguments->scalarInput[3],
-													(FWAddress *) arguments->structureInput);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localConfigDirectory_addEntry_FWAddr((UserObjectHandle)arguments->scalarInput[0],
+                                                        (int)arguments->scalarInput[1],
+                                                        (const char *)arguments->scalarInput[2],
+                                                        (UInt32)arguments->scalarInput[3],
+                                                        (FWAddress *) arguments->structureInput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kLocalConfigDirectory_AddEntry_UnitDir:
 			// TODO -  Note: This wasn't hooked-up in Tiger either!
 			break;
 		
 		case kLocalConfigDirectory_Publish:
-			result = ((IOFireWireUserClient*) targetObject)->localConfigDirectory_Publish((UserObjectHandle)arguments->scalarInput[0]);
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localConfigDirectory_Publish((UserObjectHandle)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kLocalConfigDirectory_Unpublish:
-			result = ((IOFireWireUserClient*) targetObject)->localConfigDirectory_Unpublish((UserObjectHandle)arguments->scalarInput[0]);
-			break;
-		
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localConfigDirectory_Unpublish((UserObjectHandle)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kPseudoAddrSpace_Allocate:
-			result = ((IOFireWireUserClient*) targetObject)->
-									addressSpace_Create((AddressSpaceCreateParams *) arguments->structureInput,
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->addressSpace_Create((AddressSpaceCreateParams *) arguments->structureInput,
 														(UserObjectHandle *) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kPseudoAddrSpace_GetFWAddrInfo:
-			result = ((IOFireWireUserClient*) targetObject)->
-								addressSpace_GetInfo((UserObjectHandle)arguments->scalarInput[0],
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->addressSpace_GetInfo((UserObjectHandle)arguments->scalarInput[0],
 											(AddressSpaceInfo *) arguments->structureOutput);
-			break;
-		
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kPseudoAddrSpace_ClientCommandIsComplete:
-			result = ((IOFireWireUserClient*) targetObject)->
-						addressSpace_ClientCommandIsComplete((UserObjectHandle)arguments->scalarInput[0],
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->addressSpace_ClientCommandIsComplete((UserObjectHandle)arguments->scalarInput[0],
 															(FWClientCommandID)arguments->scalarInput[1],
 															(IOReturn)arguments->scalarInput[2]);
-			break;
-		
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		case kPhysicalAddrSpace_Allocate:
-		{
-			UserObjectHandle outAddressSpaceHandle;
-			result = ((IOFireWireUserClient*) targetObject)->physicalAddressSpace_Create((mach_vm_size_t)arguments->scalarInput[0],
-																						 (mach_vm_address_t)arguments->scalarInput[1],
-																						 (UInt32)arguments->scalarInput[2],
-																						 &outAddressSpaceHandle);
-			arguments->scalarOutput[0] = (uint64_t) outAddressSpaceHandle;
-		}
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outAddressSpaceHandle;
+                result = fw_uc->physicalAddressSpace_Create((mach_vm_size_t)arguments->scalarInput[0],
+                                                            (mach_vm_address_t)arguments->scalarInput[1],
+                                                            (UInt32)arguments->scalarInput[2],
+                                                            &outAddressSpaceHandle);
+                arguments->scalarOutput[0] = (uint64_t) outAddressSpaceHandle;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kPhysicalAddrSpace_GetSegmentCount_d:
 		{
-			UInt32 outSegmentCount;
-			result = ((IOFWUserPhysicalAddressSpace*) targetObject)->getSegmentCount(&outSegmentCount);
-			arguments->scalarOutput[0] = outSegmentCount;
-		}
+            IOFWUserPhysicalAddressSpace * fw_phys_space = OSDynamicCast( IOFWUserPhysicalAddressSpace, targetObject );
+            if( fw_phys_space )
+            {
+                UInt32 outSegmentCount;
+                result = fw_phys_space->getSegmentCount(&outSegmentCount);
+                arguments->scalarOutput[0] = outSegmentCount;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+
 		case kPhysicalAddrSpace_GetSegments:
 		{
-			UInt32 outSegmentCount;
-			result = ((IOFireWireUserClient*) targetObject)->physicalAddressSpace_GetSegments((UserObjectHandle)arguments->scalarInput[0],
-																			 (UInt32)arguments->scalarInput[1],
-																			 (mach_vm_address_t)arguments->scalarInput[2],
-																			 &outSegmentCount);
-			arguments->scalarOutput[0] = outSegmentCount;
-		}
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outSegmentCount;
+                result = fw_uc->physicalAddressSpace_GetSegments((UserObjectHandle)arguments->scalarInput[0],
+                                                                                 (UInt32)arguments->scalarInput[1],
+                                                                                 (mach_vm_address_t)arguments->scalarInput[2],
+                                                                                 &outSegmentCount);
+                arguments->scalarOutput[0] = outSegmentCount;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
 			break;
-		
+        }
+            
 		case kConfigDirectory_Create:
 		{
-			UserObjectHandle outDirRef;
-			result = ((IOFireWireUserClient*) targetObject)->configDirectory_Create(&outDirRef);
-			arguments->scalarOutput[0] = (uint64_t) outDirRef;
-		}
-			break;
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outDirRef;
+                result = fw_uc->configDirectory_Create(&outDirRef);
+                arguments->scalarOutput[0] = (uint64_t) outDirRef;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetKeyType:
-		{
-			IOConfigKeyType outType;
-			result = ((IOFireWireUserClient*) targetObject)->configDirectory_GetKeyType((UserObjectHandle)arguments->scalarInput[0],
-																						(int)arguments->scalarInput[1],
-																						&outType);
-			arguments->scalarOutput[0] = outType;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                IOConfigKeyType outType;
+                result = fw_uc->configDirectory_GetKeyType((UserObjectHandle)arguments->scalarInput[0],
+                                                                        (int)arguments->scalarInput[1],
+                                                                        &outType);
+                arguments->scalarOutput[0] = outType;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetKeyValue_UInt32:
-		{
-			UInt32 outValue; 
-			UserObjectHandle outTextHandle; 
-			UInt32 outTextLength;
-			result = ((IOFireWireUserClient*) targetObject)->
-												configDirectory_GetKeyValue_UInt32((UserObjectHandle)arguments->scalarInput[0],
-																(int)arguments->scalarInput[1],
-																(UInt32)arguments->scalarInput[2],
-																&outValue,
-																&outTextHandle,
-																&outTextLength);
-			arguments->scalarOutput[0] = outValue;
-			arguments->scalarOutput[1] = (uint64_t) outTextHandle;
-			arguments->scalarOutput[2] = outTextLength;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outValue;
+                UserObjectHandle outTextHandle; 
+                UInt32 outTextLength;
+                result = fw_uc->configDirectory_GetKeyValue_UInt32((UserObjectHandle)arguments->scalarInput[0],
+                                                                    (int)arguments->scalarInput[1],
+                                                                    (UInt32)arguments->scalarInput[2],
+                                                                    &outValue,
+                                                                    &outTextHandle,
+                                                                    &outTextLength);
+                arguments->scalarOutput[0] = outValue;
+                arguments->scalarOutput[1] = (uint64_t) outTextHandle;
+                arguments->scalarOutput[2] = outTextLength;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetKeyValue_Data:
-			result = ((IOFireWireUserClient*) targetObject)->
-								configDirectory_GetKeyValue_Data((UserObjectHandle)arguments->scalarInput[0],
-																(int)arguments->scalarInput[1],
-																(UInt32)arguments->scalarInput[2],
-																(GetKeyValueDataResults *) arguments->structureOutput);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->configDirectory_GetKeyValue_Data((UserObjectHandle)arguments->scalarInput[0],
+                                                                    (int)arguments->scalarInput[1],
+                                                                    (UInt32)arguments->scalarInput[2],
+                                                                    (GetKeyValueDataResults *) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetKeyValue_ConfigDirectory:
-		{
-			UserObjectHandle outDirHandle;
-			UserObjectHandle outTextHandle; 
-			UInt32 outTextLength;
-			result = ((IOFireWireUserClient*) targetObject)->configDirectory_GetKeyValue_ConfigDirectory((UserObjectHandle)arguments->scalarInput[0],
-																										 (int)arguments->scalarInput[1],
-																										 (UInt32)arguments->scalarInput[2],
-																										 &outDirHandle,
-																										 &outTextHandle,
-																										 &outTextLength);
-			arguments->scalarOutput[0] = (uint64_t) outDirHandle;
-			arguments->scalarOutput[1] = (uint64_t) outTextHandle;
-			arguments->scalarOutput[2] = outTextLength;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outDirHandle;
+                UserObjectHandle outTextHandle; 
+                UInt32 outTextLength;
+                result = fw_uc->configDirectory_GetKeyValue_ConfigDirectory((UserObjectHandle)arguments->scalarInput[0],
+                                                                                         (int)arguments->scalarInput[1],
+                                                                                         (UInt32)arguments->scalarInput[2],
+                                                                                         &outDirHandle,
+                                                                                         &outTextHandle,
+                                                                                         &outTextLength);
+                arguments->scalarOutput[0] = (uint64_t) outDirHandle;
+                arguments->scalarOutput[1] = (uint64_t) outTextHandle;
+                arguments->scalarOutput[2] = outTextLength;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetKeyOffset_FWAddress:
-			result = ((IOFireWireUserClient*) targetObject)->
-								configDirectory_GetKeyOffset_FWAddress((UserObjectHandle)arguments->scalarInput[0],
-																		(int)arguments->scalarInput[1],
-																		(UInt32)arguments->scalarInput[2],
-																		(GetKeyOffsetResults *) arguments->structureOutput);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->configDirectory_GetKeyOffset_FWAddress((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            (UInt32)arguments->scalarInput[2],
+                                                                            (GetKeyOffsetResults *) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexType:
-		{
-			IOConfigKeyType outType;
-			result = ((IOFireWireUserClient*) targetObject)->configDirectory_GetIndexType((UserObjectHandle)arguments->scalarInput[0],
-																						  (int)arguments->scalarInput[1],
-																						  &outType);
-			arguments->scalarOutput[0] = (IOConfigKeyType) outType;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                IOConfigKeyType outType;
+                result = fw_uc->configDirectory_GetIndexType((UserObjectHandle)arguments->scalarInput[0],
+                                                                          (int)arguments->scalarInput[1],
+                                                                          &outType);
+                arguments->scalarOutput[0] = (IOConfigKeyType) outType;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+            
 		
 		case kConfigDirectory_GetIndexKey:
-		{
-			int outKey;
-			result = ((IOFireWireUserClient*) targetObject)->configDirectory_GetIndexKey((UserObjectHandle)arguments->scalarInput[0],
-																						  (int)arguments->scalarInput[1],
-																						  &outKey);
-			arguments->scalarOutput[0] = outKey;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                int outKey;
+                result = fw_uc->configDirectory_GetIndexKey((UserObjectHandle)arguments->scalarInput[0],
+                                                                                              (int)arguments->scalarInput[1],
+                                                                                              &outKey);
+                arguments->scalarOutput[0] = outKey;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexValue_UInt32:
 			// configDirectory_GetIndexValue_UInt32
-		{
-			UInt32 outKey;
-			result = ((IOFireWireUserClient*) targetObject)->configDirectory_GetIndexValue_UInt32((UserObjectHandle)arguments->scalarInput[0],
-																						 (int)arguments->scalarInput[1],
-																						 &outKey);
-			arguments->scalarOutput[0] = outKey;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outKey;
+                result = fw_uc->configDirectory_GetIndexValue_UInt32((UserObjectHandle)arguments->scalarInput[0],
+                                                                                 (int)arguments->scalarInput[1],
+                                                                                 &outKey);
+                arguments->scalarOutput[0] = outKey;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexValue_Data:
-		{
-			UserObjectHandle outDataHandle;
-			IOByteCount outDataLen;
-			result = ((IOFireWireUserClient*) targetObject)->
-										configDirectory_GetIndexValue_Data((UserObjectHandle)arguments->scalarInput[0],
-																			(int)arguments->scalarInput[1],
-																			&outDataHandle,
-																			&outDataLen);
-			arguments->scalarOutput[0] = (uint64_t) outDataHandle;
-			arguments->scalarOutput[1] = outDataLen;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outDataHandle;
+                IOByteCount outDataLen;
+                result = fw_uc->configDirectory_GetIndexValue_Data((UserObjectHandle)arguments->scalarInput[0],
+                                                                                (int)arguments->scalarInput[1],
+                                                                                &outDataHandle,
+                                                                                &outDataLen);
+                arguments->scalarOutput[0] = (uint64_t) outDataHandle;
+                arguments->scalarOutput[1] = outDataLen;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexValue_String:
-		{
-			UserObjectHandle outTextHandle;
-			UInt32 outTextLength;
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetIndexValue_String((UserObjectHandle)arguments->scalarInput[0],
-																		(int)arguments->scalarInput[1],
-																		&outTextHandle,
-																		&outTextLength);
-			arguments->scalarOutput[0] = (uint64_t) outTextHandle;
-			arguments->scalarOutput[1] = outTextLength;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outTextHandle;
+                UInt32 outTextLength;
+                result = fw_uc->configDirectory_GetIndexValue_String((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            &outTextHandle,
+                                                                            &outTextLength);
+                arguments->scalarOutput[0] = (uint64_t) outTextHandle;
+                arguments->scalarOutput[1] = outTextLength;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexValue_ConfigDirectory:
-		{
-			UserObjectHandle outDirHandle;
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetIndexValue_ConfigDirectory((UserObjectHandle)arguments->scalarInput[0],
-																		(int)arguments->scalarInput[1],
-																		&outDirHandle);
-			arguments->scalarOutput[0] = (uint64_t) outDirHandle;
-		}
-		break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outDirHandle;
+                result = fw_uc->configDirectory_GetIndexValue_ConfigDirectory((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            &outDirHandle);
+                arguments->scalarOutput[0] = (uint64_t) outDirHandle;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexOffset_FWAddress:
-			result = ((IOFireWireUserClient*) targetObject)->
-								configDirectory_GetIndexOffset_FWAddress((UserObjectHandle)arguments->scalarInput[0],
-																		(int)arguments->scalarInput[1],
-																		(FWAddress *) arguments->structureOutput);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->configDirectory_GetIndexOffset_FWAddress((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            (FWAddress *) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexOffset_UInt32:
-		{
-			UInt32 outValue;
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetIndexOffset_UInt32((UserObjectHandle)arguments->scalarInput[0],
-																		(int)arguments->scalarInput[1],
-																		&outValue);
-			arguments->scalarOutput[0] = outValue;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outValue;
+                result = fw_uc->configDirectory_GetIndexOffset_UInt32((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            &outValue);
+                arguments->scalarOutput[0] = outValue;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetIndexEntry:
-		{
-			UInt32 outValue;
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetIndexEntry((UserObjectHandle)arguments->scalarInput[0],
-																		(int)arguments->scalarInput[1],
-																		&outValue);
-			arguments->scalarOutput[0] = outValue;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outValue;
+                result = fw_uc->configDirectory_GetIndexEntry((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            &outValue);
+                arguments->scalarOutput[0] = outValue;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetSubdirectories:
-		{
-			UserObjectHandle outIteratorHandle; 
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetSubdirectories((UserObjectHandle)arguments->scalarInput[0],
-																		&outIteratorHandle);
-			arguments->scalarOutput[0] = (uint64_t) outIteratorHandle;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outIteratorHandle;
+                result = fw_uc->configDirectory_GetSubdirectories((UserObjectHandle)arguments->scalarInput[0],
+                                                                            &outIteratorHandle);
+                arguments->scalarOutput[0] = (uint64_t) outIteratorHandle;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetKeySubdirectories:
-		{
-			UserObjectHandle outIteratorHandle; 
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetKeySubdirectories((UserObjectHandle)arguments->scalarInput[0],
-																		(int)arguments->scalarInput[1],
-																		&outIteratorHandle);
-			arguments->scalarOutput[0] = (uint64_t) outIteratorHandle;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outIteratorHandle;
+                result = fw_uc->configDirectory_GetKeySubdirectories((UserObjectHandle)arguments->scalarInput[0],
+                                                                            (int)arguments->scalarInput[1],
+                                                                            &outIteratorHandle);
+                arguments->scalarOutput[0] = (uint64_t) outIteratorHandle;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kConfigDirectory_GetType:
-		{
-			int outType;
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetType((UserObjectHandle)arguments->scalarInput[0],&outType);
-			arguments->scalarOutput[0] = outType;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                int outType;
+                result = fw_uc->configDirectory_GetType((UserObjectHandle)arguments->scalarInput[0],&outType);
+                arguments->scalarOutput[0] = outType;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kConfigDirectory_GetNumEntries:
-		{
-			int outNumEntries;
-			result = ((IOFireWireUserClient*) targetObject)->
-									configDirectory_GetNumEntries((UserObjectHandle)arguments->scalarInput[0],&outNumEntries);
-			arguments->scalarOutput[0] = outNumEntries;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                int outNumEntries;
+                result = fw_uc->configDirectory_GetNumEntries((UserObjectHandle)arguments->scalarInput[0],&outNumEntries);
+                arguments->scalarOutput[0] = outNumEntries;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochPort_GetSupported:
-		{
-			IOFWSpeed outMaxSpeed;
-			UInt32 outChanSupportedHi;
-			UInt32 outChanSupportedLo;
-			result = ((IOFireWireUserClient*) targetObject)->
-									localIsochPort_GetSupported((UserObjectHandle)arguments->scalarInput[0],
-																		&outMaxSpeed,
-																		&outChanSupportedHi,
-																		&outChanSupportedLo);
-			arguments->scalarOutput[0] = outMaxSpeed;
-			arguments->scalarOutput[1] = outChanSupportedHi;
-			arguments->scalarOutput[2] = outChanSupportedLo;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                IOFWSpeed outMaxSpeed;
+                UInt32 outChanSupportedHi;
+                UInt32 outChanSupportedLo;
+                result = fw_uc->localIsochPort_GetSupported((UserObjectHandle)arguments->scalarInput[0],
+                                                                            &outMaxSpeed,
+                                                                            &outChanSupportedHi,
+                                                                            &outChanSupportedLo);
+                arguments->scalarOutput[0] = outMaxSpeed;
+                arguments->scalarOutput[1] = outChanSupportedHi;
+                arguments->scalarOutput[2] = outChanSupportedLo;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochPort_AllocatePort_d:
-			result = ((IOFWUserLocalIsochPort*) targetObject)->allocatePort((IOFWSpeed)arguments->scalarInput[0],
+        {
+            IOFWUserLocalIsochPort * fw_isoch_port = OSDynamicCast( IOFWUserLocalIsochPort, targetObject );
+            if( fw_isoch_port )
+            {
+                result = fw_isoch_port->allocatePort((IOFWSpeed)arguments->scalarInput[0],
 																			(UInt32)arguments->scalarInput[1]);
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochPort_ReleasePort_d:
-			result = ((IOFWUserLocalIsochPort*) targetObject)->releasePort();
-			break;
+        {
+            IOFWUserLocalIsochPort * fw_isoch_port = OSDynamicCast( IOFWUserLocalIsochPort, targetObject );
+            if( fw_isoch_port )
+            {
+                result = fw_isoch_port->releasePort();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochPort_Start_d:
-			result = ((IOFWUserLocalIsochPort*) targetObject)->start();
-			break;
+        {
+            IOFWUserLocalIsochPort * fw_isoch_port = OSDynamicCast( IOFWUserLocalIsochPort, targetObject );
+            if( fw_isoch_port )
+            {
+                result = fw_isoch_port->start();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochPort_Stop_d:
-			result = ((IOFWUserLocalIsochPort*) targetObject)->stop();
-			break;
+        {
+            IOFWUserLocalIsochPort * fw_isoch_port = OSDynamicCast( IOFWUserLocalIsochPort, targetObject );
+            if( fw_isoch_port )
+            {
+                result = fw_isoch_port->stop();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kLocalIsochPort_Allocate:
-			result = ((IOFireWireUserClient*) targetObject)->
-								localIsochPort_Create((LocalIsochPortAllocateParams*) arguments->structureInput,
-														(UserObjectHandle*) arguments->structureOutput);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localIsochPort_Create((LocalIsochPortAllocateParams*) arguments->structureInput,
+                                                            (UserObjectHandle*) arguments->structureOutput);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kLocalIsochPort_ModifyJumpDCL_d:
-			result = ((IOFWUserLocalIsochPort*) targetObject)->modifyJumpDCL((UInt32)arguments->scalarInput[0],
-																			(UInt32)arguments->scalarInput[1]);
-			break;
+        {
+            IOFWUserLocalIsochPort * fw_isoch_port = OSDynamicCast( IOFWUserLocalIsochPort, targetObject );
+            if( fw_isoch_port )
+            {
+                result = fw_isoch_port->modifyJumpDCL((UInt32)arguments->scalarInput[0],
+                                                      (UInt32)arguments->scalarInput[1]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kLocalIsochPort_Notify_d:
-			if (arguments->scalarInput[0] == kFWNuDCLModifyNotification)
-			{
-				IOMemoryDescriptor * userDCLExportDesc = NULL ;
-				IOReturn error ;
-				UInt8 *pUserImportDCLBuffer;
-				userDCLExportDesc = IOMemoryDescriptor::withAddressRange( arguments->scalarInput[2], 
-																		 arguments->scalarInput[3], 
-																		 kIODirectionOut, 
-																		 getOwningTask() ) ;
-				// get map of program export data
-				if ( userDCLExportDesc )
-				{
-					error = userDCLExportDesc->prepare() ;
-				}
-				else
-					error = kIOReturnVMError;
-				
-				if ( !error )
-				{
-					pUserImportDCLBuffer = new UInt8[ arguments->scalarInput[3] ] ;
-					if ( !pUserImportDCLBuffer )
-					{
-						error = kIOReturnVMError ;
-					}
-				}				
-				
-				if ( !error )
-				{
-					unsigned byteCount = userDCLExportDesc->readBytes( 0, (void*)pUserImportDCLBuffer, arguments->scalarInput[3] ) ;
-					if ( byteCount < arguments->scalarInput[3] )
-					{
-						error = kIOReturnVMError ;
-					}
-				}
-				
-				if ( !error )
-				{
-					result = ((IOFWUserLocalIsochPort*) targetObject)->userNotify((UInt32)arguments->scalarInput[0],
-																				  (UInt32)arguments->scalarInput[1],
-																				  (void *) pUserImportDCLBuffer,
-																				  arguments->scalarInput[3]);
-					userDCLExportDesc->complete() ;
-					userDCLExportDesc->release();
-					delete [] pUserImportDCLBuffer;
-				}
-				else
-				{
-					result = kIOReturnVMError;
-				}
-			}
-			else
-				result = ((IOFWUserLocalIsochPort*) targetObject)->
-								userNotify((UInt32)arguments->scalarInput[0],
-											(UInt32)arguments->scalarInput[1],
-											(void *) arguments->structureInput,
-											arguments->structureInputSize);
-			break;
+        {
+            IOFWUserLocalIsochPort * fw_isoch_port = OSDynamicCast( IOFWUserLocalIsochPort, targetObject );
+            if( fw_isoch_port )
+            {
+                if (arguments->scalarInput[0] == kFWNuDCLModifyNotification)
+                {
+                    IOMemoryDescriptor * userDCLExportDesc = NULL ;
+                    IOReturn error ;
+                    UInt8 *pUserImportDCLBuffer;
+                    userDCLExportDesc = IOMemoryDescriptor::withAddressRange( arguments->scalarInput[2], 
+                                                                             arguments->scalarInput[3], 
+                                                                             kIODirectionOut, 
+                                                                             getOwningTask() ) ;
+                    // get map of program export data
+                    if ( userDCLExportDesc )
+                    {
+                        error = userDCLExportDesc->prepare() ;
+                    }
+                    else
+                        error = kIOReturnVMError;
+                    
+                    if ( !error )
+                    {
+                        pUserImportDCLBuffer = new UInt8[ arguments->scalarInput[3] ] ;
+                        if ( !pUserImportDCLBuffer )
+                        {
+                            error = kIOReturnVMError ;
+                        }
+                    }				
+                    
+                    if ( !error )
+                    {
+                        unsigned byteCount = userDCLExportDesc->readBytes( 0, (void*)pUserImportDCLBuffer, arguments->scalarInput[3] ) ;
+                        if ( byteCount < arguments->scalarInput[3] )
+                        {
+                            error = kIOReturnVMError ;
+                        }
+                    }
+                    
+                    if ( !error )
+                    {
+                        result = fw_isoch_port->userNotify((UInt32)arguments->scalarInput[0],
+                                                                                      (UInt32)arguments->scalarInput[1],
+                                                                                      (void *) pUserImportDCLBuffer,
+                                                                                      arguments->scalarInput[3]);
+                        userDCLExportDesc->complete() ;
+                        userDCLExportDesc->release();
+                        delete [] pUserImportDCLBuffer;
+                    }
+                    else
+                    {
+                        result = kIOReturnVMError;
+                    }
+                }
+                else
+                {	result = fw_isoch_port->userNotify((UInt32)arguments->scalarInput[0],
+                                                (UInt32)arguments->scalarInput[1],
+                                                (void *) arguments->structureInput,
+                                                arguments->structureInputSize);
+                }
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kLocalIsochPort_SetChannel:
-			result = ((IOFireWireUserClient*) targetObject)->
-											localIsochPort_SetChannel((UserObjectHandle)arguments->scalarInput[0],
-																	(UserObjectHandle)arguments->scalarInput[1]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->localIsochPort_SetChannel((UserObjectHandle)arguments->scalarInput[0],
+                                                          (UserObjectHandle)arguments->scalarInput[1]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kIsochChannel_Allocate:
-		{
-			UserObjectHandle outChannelHandle;
-			result = ((IOFireWireUserClient*) targetObject)->
-											isochChannel_Create((bool)arguments->scalarInput[0],
-																	(UInt32)arguments->scalarInput[1],
-																	(IOFWSpeed)arguments->scalarInput[2],
-																	&outChannelHandle);
-			arguments->scalarOutput[0] = (uint64_t) outChannelHandle;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outChannelHandle;
+                result = fw_uc->isochChannel_Create((bool)arguments->scalarInput[0],
+                                                    (UInt32)arguments->scalarInput[1],
+                                                    (IOFWSpeed)arguments->scalarInput[2],
+                                                    &outChannelHandle);
+                arguments->scalarOutput[0] = (uint64_t) outChannelHandle;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochChannel_UserAllocateChannelBegin:
-		{
-			UInt32 outSpeed;
-			UInt32 outChannel;
-			result = ((IOFireWireUserClient*) targetObject)->
-											isochChannel_AllocateChannelBegin((UserObjectHandle)arguments->scalarInput[0],
-																	(UInt32)arguments->scalarInput[1],
-																	(UInt32)arguments->scalarInput[2],
-																	(UInt32)arguments->scalarInput[3],
-																	&outSpeed,
-																	&outChannel);
-			arguments->scalarOutput[0] = outSpeed;
-			arguments->scalarOutput[1] = outChannel;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outSpeed;
+                UInt32 outChannel;
+                result = fw_uc->
+                                                isochChannel_AllocateChannelBegin((UserObjectHandle)arguments->scalarInput[0],
+                                                                        (UInt32)arguments->scalarInput[1],
+                                                                        (UInt32)arguments->scalarInput[2],
+                                                                        (UInt32)arguments->scalarInput[3],
+                                                                        &outSpeed,
+                                                                        &outChannel);
+                arguments->scalarOutput[0] = outSpeed;
+                arguments->scalarOutput[1] = outChannel;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochChannel_UserReleaseChannelComplete_d:
-			result = ((IOFWUserIsochChannel*) targetObject)->releaseChannelComplete();
-			break;
+        {
+            IOFWUserIsochChannel * fw_isoch_channel = OSDynamicCast( IOFWUserIsochChannel, targetObject );
+            if( fw_isoch_channel )
+            {
+                result = fw_isoch_channel->releaseChannelComplete();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kCommand_Cancel_d:
-			result = ((IOFWCommand*) targetObject)->cancel((IOReturn)arguments->scalarInput[0]);
-			break;
+        {
+            IOFWCommand * fw_command = OSDynamicCast( IOFWCommand, targetObject );
+            if( fw_command )
+            {
+                result = fw_command->cancel((IOReturn)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kSeize:
-			result = ((IOFireWireUserClient*) targetObject)->seize((IOOptionBits) arguments->scalarInput[0]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->seize((IOOptionBits) arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kFireLog:
-			result = ((IOFireWireUserClient*) targetObject)->
-							firelog((const char*) arguments->structureInput,arguments->structureInputSize);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->firelog((const char*) arguments->structureInput,arguments->structureInputSize);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetBusCycleTime:
-		{
-			UInt32 busTime;
-			UInt32 cycleTime;
-			result = ((IOFireWireBus*) targetObject)->getBusCycleTime(busTime,cycleTime);
-			arguments->scalarOutput[0] = busTime;
-			arguments->scalarOutput[1] = cycleTime;
-		}
-			break;
+        {
+            IOFireWireBus * fw_bus = OSDynamicCast( IOFireWireBus, targetObject );
+            if( fw_bus )
+            {
+                UInt32 busTime;
+                UInt32 cycleTime;
+                result = fw_bus->getBusCycleTime(busTime,cycleTime);
+                arguments->scalarOutput[0] = busTime;
+                arguments->scalarOutput[1] = cycleTime;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetBusGeneration:
-		{
-			UInt32 outGeneration;
-			result = ((IOFireWireUserClient*) targetObject)->getBusGeneration(&outGeneration);
-			arguments->scalarOutput[0] = outGeneration;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outGeneration;
+                result = fw_uc->getBusGeneration(&outGeneration);
+                arguments->scalarOutput[0] = outGeneration;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetLocalNodeIDWithGeneration:
-		{
-			UInt32 outLocalNodeID;
-			result = ((IOFireWireUserClient*) targetObject)->
-										getLocalNodeIDWithGeneration((UInt32)arguments->scalarInput[0],&outLocalNodeID);
-			arguments->scalarOutput[0] = outLocalNodeID;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outLocalNodeID;
+                result = fw_uc->getLocalNodeIDWithGeneration((UInt32)arguments->scalarInput[0],&outLocalNodeID);
+                arguments->scalarOutput[0] = outLocalNodeID;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetRemoteNodeID:
-		{
-			UInt32 outRemoteNodeID;
-			result = ((IOFireWireUserClient*) targetObject)->
-										getRemoteNodeID((UInt32)arguments->scalarInput[0],&outRemoteNodeID);
-			arguments->scalarOutput[0] = outRemoteNodeID;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outRemoteNodeID;
+                result = fw_uc->getRemoteNodeID((UInt32)arguments->scalarInput[0],&outRemoteNodeID);
+                arguments->scalarOutput[0] = outRemoteNodeID;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetSpeedToNode:
-		{
-			UInt32 outSpeed;
-			result = ((IOFireWireUserClient*) targetObject)->
-										getSpeedToNode((UInt32)arguments->scalarInput[0],&outSpeed);
-			arguments->scalarOutput[0] = outSpeed;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outSpeed;
+                result = fw_uc->getSpeedToNode((UInt32)arguments->scalarInput[0],&outSpeed);
+                arguments->scalarOutput[0] = outSpeed;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetSpeedBetweenNodes:
-		{
-			UInt32 outSpeed;
-			result = ((IOFireWireUserClient*) targetObject)->
-										getSpeedBetweenNodes((UInt32)arguments->scalarInput[0],
-															(UInt32)arguments->scalarInput[1],
-															(UInt32)arguments->scalarInput[2],
-															&outSpeed);
-			arguments->scalarOutput[0] = outSpeed;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outSpeed;
+                result = fw_uc->getSpeedBetweenNodes((UInt32)arguments->scalarInput[0],
+                                                    (UInt32)arguments->scalarInput[1],
+                                                    (UInt32)arguments->scalarInput[2],
+                                                    &outSpeed);
+                arguments->scalarOutput[0] = outSpeed;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetIRMNodeID:
-		{
-			UInt32 irmNodeID;
-			result = ((IOFireWireUserClient*) targetObject)->
-										getIRMNodeID((UInt32)arguments->scalarInput[0],&irmNodeID);
-			arguments->scalarOutput[0] = irmNodeID;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 irmNodeID;
+                result = fw_uc->getIRMNodeID((UInt32)arguments->scalarInput[0],&irmNodeID);
+                arguments->scalarOutput[0] = irmNodeID;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kClipMaxRec2K:
-			result = ((IOFireWireUserClient*) targetObject)->clipMaxRec2K((Boolean) arguments->scalarInput[0]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->clipMaxRec2K((Boolean) arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kIsochPort_SetIsochResourceFlags_d:
-			result = ((IOFWLocalIsochPort*) targetObject)->setIsochResourceFlags((IOFWIsochResourceFlags) arguments->scalarInput[0]);
-			break;
+        {
+            IOFWLocalIsochPort * fw_isoch_port = OSDynamicCast( IOFWLocalIsochPort, targetObject );
+            if( fw_isoch_port )
+            {
+                result = fw_isoch_port->setIsochResourceFlags((IOFWIsochResourceFlags) arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kGetSessionRef:
-		{
-			IOFireWireSessionRef sessionRef=NULL;
-			result = ((IOFireWireUserClient*) targetObject)->getSessionRef(&sessionRef);
-			arguments->scalarOutput[0] = (uint64_t) sessionRef;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                IOFireWireSessionRef sessionRef=NULL;
+                result = fw_uc->getSessionRef(&sessionRef);
+                arguments->scalarOutput[0] = (uint64_t) sessionRef;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kAllocateIRMBandwidth:
-			result = ((IOFireWireUserClient*) targetObject)->allocateIRMBandwidthInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->allocateIRMBandwidthInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kReleaseIRMBandwidth:
-			result = ((IOFireWireUserClient*) targetObject)->releaseIRMBandwidthInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->releaseIRMBandwidthInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 	
 		case kAllocateIRMChannel:
-			result = ((IOFireWireUserClient*) targetObject)->allocateIRMChannelInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->allocateIRMChannelInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kReleaseIRMChannel:
-			result = ((IOFireWireUserClient*) targetObject)->releaseIRMChannelInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->releaseIRMChannelInGeneration(arguments->scalarInput[0],arguments->scalarInput[1]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kAsyncStreamListener_Allocate:
-			result = ((IOFireWireUserClient*) targetObject)->
-								asyncStreamListener_Create((FWUserAsyncStreamListenerCreateParams*) arguments->structureInput,
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->asyncStreamListener_Create((FWUserAsyncStreamListenerCreateParams*) arguments->structureInput,
 														(UserObjectHandle*) arguments->structureOutput);
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kAsyncStreamListener_ClientCommandIsComplete:
-			result = ((IOFireWireUserClient*) targetObject)->asyncStreamListener_ClientCommandIsComplete((UserObjectHandle)arguments->scalarInput[0],
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->asyncStreamListener_ClientCommandIsComplete((UserObjectHandle)arguments->scalarInput[0],
 																			(FWClientCommandID)arguments->scalarInput[1]);
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kAsyncStreamListener_GetOverrunCounter:
-		{
-			UInt32 counter = 0;
-			result = ((IOFireWireUserClient*) targetObject)->
-									asyncStreamListener_GetOverrunCounter((UserObjectHandle)arguments->scalarInput[0], &counter);
-			arguments->scalarOutput[0] = counter;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 counter = 0;
+                result = fw_uc->asyncStreamListener_GetOverrunCounter((UserObjectHandle)arguments->scalarInput[0], &counter);
+                arguments->scalarOutput[0] = counter;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kAsyncStreamListener_SetFlags:
-			result = ((IOFireWireUserClient*) targetObject)->
-											asyncStreamListener_SetFlags((UserObjectHandle)arguments->scalarInput[0],
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->asyncStreamListener_SetFlags((UserObjectHandle)arguments->scalarInput[0],
 																	(UInt32)arguments->scalarInput[1]);
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kAsyncStreamListener_GetFlags:
-		{
-			UInt32 outFlags;
-			result = ((IOFireWireUserClient*) targetObject)->
-									asyncStreamListener_GetFlags((UserObjectHandle)arguments->scalarInput[0], &outFlags);
-			arguments->scalarOutput[0] = outFlags;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt32 outFlags;
+                result = fw_uc->asyncStreamListener_GetFlags((UserObjectHandle)arguments->scalarInput[0], &outFlags);
+                arguments->scalarOutput[0] = outFlags;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kAsyncStreamListener_TurnOnNotification:
-			result = ((IOFireWireUserClient*) targetObject)->asyncStreamListener_TurnOnNotification((UserObjectHandle)arguments->scalarInput[0]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->asyncStreamListener_TurnOnNotification((UserObjectHandle)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kAsyncStreamListener_TurnOffNotification:
-			result = ((IOFireWireUserClient*) targetObject)->asyncStreamListener_TurnOffNotification((UserObjectHandle)arguments->scalarInput[0]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->asyncStreamListener_TurnOffNotification((UserObjectHandle)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kSetAsyncRef_BusReset:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-												setAsyncRef_BusReset(arguments->asyncReference,
-																	(mach_vm_address_t)arguments->scalarInput[0],
-																	(io_user_reference_t)arguments->scalarInput[1],
-																	NULL,NULL,NULL,NULL);
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncRef_BusReset(arguments->asyncReference,
+                                                    (mach_vm_address_t)arguments->scalarInput[0],
+                                                    (io_user_reference_t)arguments->scalarInput[1],
+                                                    NULL,NULL,NULL,NULL);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kSetAsyncRef_BusResetDone:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncRef_BusResetDone(arguments->asyncReference,
-																(mach_vm_address_t)arguments->scalarInput[0],
-																(io_user_reference_t)arguments->scalarInput[1],
-																NULL,NULL,NULL,NULL);
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncRef_BusResetDone(arguments->asyncReference,
+                                                        (mach_vm_address_t)arguments->scalarInput[0],
+                                                        (io_user_reference_t)arguments->scalarInput[1],
+                                                        NULL,NULL,NULL,NULL);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kSetAsyncRef_Packet:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncRef_Packet(arguments->asyncReference,
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncRef_Packet(arguments->asyncReference,
 															(UserObjectHandle)arguments->scalarInput[0],
 															(mach_vm_address_t)arguments->scalarInput[1],
 															(io_user_reference_t)arguments->scalarInput[2],
 															NULL,NULL,NULL);
-		}
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
+
 
 
 		case kSetAsyncRef_SkippedPacket:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncRef_SkippedPacket(arguments->asyncReference,
-																(UserObjectHandle)arguments->scalarInput[0],
-																(mach_vm_address_t)arguments->scalarInput[1],
-																(io_user_reference_t)arguments->scalarInput[2],
-																NULL,NULL,NULL);
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncRef_SkippedPacket(arguments->asyncReference,
+                                                            (UserObjectHandle)arguments->scalarInput[0],
+                                                            (mach_vm_address_t)arguments->scalarInput[1],
+                                                            (io_user_reference_t)arguments->scalarInput[2],
+                                                            NULL,NULL,NULL);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kSetAsyncRef_Read:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncRef_Read(arguments->asyncReference,
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncRef_Read(arguments->asyncReference,
 														(UserObjectHandle)arguments->scalarInput[0],
 														(mach_vm_address_t)arguments->scalarInput[1],
 														(io_user_reference_t)arguments->scalarInput[2],
 														NULL,NULL,NULL);
-		}
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kCommand_Submit:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										userAsyncCommand_Submit(arguments->asyncReference,
-																(CommandSubmitParams*)arguments->structureInput,
-																(CommandSubmitResult*)arguments->structureOutput,
-																(IOByteCount) arguments->structureInputSize,
-																(IOByteCount*) &arguments->structureOutputSize);
-			}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->userAsyncCommand_Submit(arguments->asyncReference,
+                                                        (CommandSubmitParams*)arguments->structureInput,
+                                                        (CommandSubmitResult*)arguments->structureOutput,
+                                                        (IOByteCount) arguments->structureInputSize,
+                                                        (IOByteCount*) &arguments->structureOutputSize);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kSetAsyncRef_IsochChannelForceStop:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncRef_IsochChannelForceStop(arguments->asyncReference,
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncRef_IsochChannelForceStop(arguments->asyncReference,
 																		(UserObjectHandle)arguments->scalarInput[0]);
-		}
-		break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kSetAsyncRef_DCLCallProc:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncRef_DCLCallProc(arguments->asyncReference,
-																(UserObjectHandle)arguments->scalarInput[0]);
-		}
-		break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncRef_DCLCallProc(arguments->asyncReference,
+                                                            (UserObjectHandle)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kSetAsyncStreamRef_Packet:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncStreamRef_Packet(arguments->asyncReference,
-																(UserObjectHandle)arguments->scalarInput[0],
-																(mach_vm_address_t)arguments->scalarInput[1],
-																(io_user_reference_t)arguments->scalarInput[2],
-																NULL,NULL,NULL);
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncStreamRef_Packet(arguments->asyncReference,
+                                                        (UserObjectHandle)arguments->scalarInput[0],
+                                                        (mach_vm_address_t)arguments->scalarInput[1],
+                                                        (io_user_reference_t)arguments->scalarInput[2],
+                                                        NULL,NULL,NULL);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kSetAsyncStreamRef_SkippedPacket:
-		{
-			result = ((IOFireWireUserClient*) targetObject)->
-										setAsyncStreamRef_SkippedPacket(arguments->asyncReference,
-																(UserObjectHandle)arguments->scalarInput[0],
-																(mach_vm_address_t)arguments->scalarInput[1],
-																(io_user_reference_t)arguments->scalarInput[2],
-																NULL,NULL,NULL);
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->setAsyncStreamRef_SkippedPacket(arguments->asyncReference,
+                                                                (UserObjectHandle)arguments->scalarInput[0],
+                                                                (mach_vm_address_t)arguments->scalarInput[1],
+                                                                (io_user_reference_t)arguments->scalarInput[2],
+                                                                NULL,NULL,NULL);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		
 		case kIRMAllocation_Allocate:
-		{
-			UserObjectHandle outDataHandle;
-			result = ((IOFireWireUserClient*) targetObject)->irmAllocation_Create(arguments->scalarInput[0],&outDataHandle);
-			arguments->scalarOutput[0] = (uint64_t) outDataHandle;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UserObjectHandle outDataHandle;
+                result = fw_uc->irmAllocation_Create(arguments->scalarInput[0],&outDataHandle);
+                arguments->scalarOutput[0] = (uint64_t) outDataHandle;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 			
 		case kIRMAllocation_AllocateResources:
-			result = ((IOFireWireUserClient*) targetObject)->irmAllocation_AllocateResources((UserObjectHandle)arguments->scalarInput[0],
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->irmAllocation_AllocateResources((UserObjectHandle)arguments->scalarInput[0],
 																							 arguments->scalarInput[1],
 																							 arguments->scalarInput[2]);
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 	
 
 		case kIRMAllocation_DeallocateResources:
-			result = ((IOFireWireUserClient*) targetObject)->irmAllocation_DeallocateResources((UserObjectHandle)arguments->scalarInput[0]);
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->irmAllocation_DeallocateResources((UserObjectHandle)arguments->scalarInput[0]);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kIRMAllocation_areResourcesAllocated:
-		{
-			UInt8 isochChannel;
-			UInt32 bandwidthUnits;
-			result = ((IOFireWireUserClient*) targetObject)->irmAllocation_areResourcesAllocated((UserObjectHandle)arguments->scalarInput[0], &isochChannel , &bandwidthUnits);
-			arguments->scalarOutput[1] = (uint64_t) isochChannel;
-			arguments->scalarOutput[2] = (uint64_t) bandwidthUnits;
-		}
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                UInt8 isochChannel;
+                UInt32 bandwidthUnits;
+                result = fw_uc->irmAllocation_areResourcesAllocated((UserObjectHandle)arguments->scalarInput[0], &isochChannel , &bandwidthUnits);
+                arguments->scalarOutput[1] = (uint64_t) isochChannel;
+                arguments->scalarOutput[2] = (uint64_t) bandwidthUnits;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kIRMAllocation_setDeallocateOnRelease:
-			((IOFireWireUserClient*) targetObject)->irmAllocation_setDeallocateOnRelease((UserObjectHandle)arguments->scalarInput[0],arguments->scalarInput[1]);
-			result = kIOReturnSuccess;
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                fw_uc->irmAllocation_setDeallocateOnRelease((UserObjectHandle)arguments->scalarInput[0],arguments->scalarInput[1]);
+                result = kIOReturnSuccess;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kIRMAllocation_SetRef:
-			result = ((IOFireWireUserClient*) targetObject)->irmAllocation_setRef(arguments->asyncReference,
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->irmAllocation_setRef(arguments->asyncReference,
 																				  (UserObjectHandle)arguments->scalarInput[0],
 																				  arguments->scalarInput[1],
 																				  arguments->scalarInput[2]);
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kCommandCreateAsync:
-			{
-				result = ((IOFireWireUserClient*) targetObject)->
-										createAsyncCommand( arguments->asyncReference,
-															(CommandSubmitParams*)arguments->structureInput,
-															(UserObjectHandle*)arguments->structureOutput );
-			}
-			break;
-				
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+				result = fw_uc->createAsyncCommand( arguments->asyncReference,
+                                                    (CommandSubmitParams*)arguments->structureInput,
+                                                    (UserObjectHandle*)arguments->structureOutput );
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kVectorCommandCreate:
-			result = ((IOFireWireUserClient*) targetObject)->createVectorCommand( (UserObjectHandle*)arguments->structureOutput );
-			break;
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
+                result = fw_uc->createVectorCommand( (UserObjectHandle*)arguments->structureOutput );
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 			
 		case kVectorCommandSubmit:
-			result = ((IOFWUserVectorCommand*)targetObject)->submit(	arguments->asyncReference, 
-																		(mach_vm_address_t)arguments->scalarInput[0], 
-																		(io_user_reference_t)arguments->scalarInput[1] );
-			break;
+        {
+            IOFWUserVectorCommand * fw_vector_cmd = OSDynamicCast( IOFWUserVectorCommand, targetObject );
+            if( fw_vector_cmd )
+            {
+                result = fw_vector_cmd->submit(	arguments->asyncReference,
+                                                (mach_vm_address_t)arguments->scalarInput[0],
+                                                (io_user_reference_t)arguments->scalarInput[1] );
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kVectorCommandSetBuffers:
-			result = ((IOFWUserVectorCommand*)targetObject)->setBuffers(	(mach_vm_address_t)arguments->scalarInput[0], 
-																			(mach_vm_size_t)arguments->scalarInput[1],
-																			(mach_vm_address_t)arguments->scalarInput[2], 
-																			(mach_vm_size_t)arguments->scalarInput[3]  );
-			break;
+        {
+            IOFWUserVectorCommand * fw_vector_cmd = OSDynamicCast( IOFWUserVectorCommand, targetObject );
+            if( fw_vector_cmd )
+            {
+                result = fw_vector_cmd->setBuffers(	(mach_vm_address_t)arguments->scalarInput[0],
+                                                            (mach_vm_size_t)arguments->scalarInput[1],
+                                                            (mach_vm_address_t)arguments->scalarInput[2], 
+                                                            (mach_vm_size_t)arguments->scalarInput[3]  );
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kPHYPacketListenerCreate:
-			{
+        {
+            IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
+            if( fw_uc )
+            {
 				UserObjectHandle kernel_ref;
-				result = ((IOFireWireUserClient*) targetObject)->createPHYPacketListener( (mach_vm_address_t)arguments->scalarInput[0],
+				result = fw_uc->createPHYPacketListener( (mach_vm_address_t)arguments->scalarInput[0],
 																						  &kernel_ref );
 				arguments->scalarOutput[0] = (uint64_t)kernel_ref;
-			}
-			break;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 
 		case kPHYPacketListenerSetPacketCallback:
-			result = ((IOFWUserPHYPacketListener*)targetObject)->setPacketCallback(	arguments->asyncReference, 
-																					(mach_vm_address_t)arguments->scalarInput[0], 
-																					(io_user_reference_t)arguments->scalarInput[1] );
-			break;
+        {
+            IOFWUserPHYPacketListener * phy_listener = OSDynamicCast( IOFWUserPHYPacketListener, targetObject );
+            if( phy_listener )
+            {
+                result = phy_listener->setPacketCallback(	arguments->asyncReference,
+                                                        (mach_vm_address_t)arguments->scalarInput[0],
+                                                        (io_user_reference_t)arguments->scalarInput[1] );
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 			
 		case kPHYPacketListenerSetSkippedCallback:
-			result = ((IOFWUserPHYPacketListener*)targetObject)->setSkippedCallback(	arguments->asyncReference, 
-																						(mach_vm_address_t)arguments->scalarInput[0], 
-																						(io_user_reference_t)arguments->scalarInput[1] );
-			break;
+        {
+            IOFWUserPHYPacketListener * phy_listener = OSDynamicCast( IOFWUserPHYPacketListener, targetObject );
+            if( phy_listener )
+            {
+                result = phy_listener->setSkippedCallback(	arguments->asyncReference,
+                                                            (mach_vm_address_t)arguments->scalarInput[0],
+                                                            (io_user_reference_t)arguments->scalarInput[1] );
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 			
 		case kPHYPacketListenerActivate:
-			result = ((IOFWUserPHYPacketListener*)targetObject)->activate();
-			break;
+        {
+            IOFWUserPHYPacketListener * phy_listener = OSDynamicCast( IOFWUserPHYPacketListener, targetObject );
+            if( phy_listener )
+            {
+                result = phy_listener->activate();
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 			
 		case kPHYPacketListenerDeactivate:
-			((IOFWUserPHYPacketListener*)targetObject)->deactivate();
-			result = kIOReturnSuccess;
-			break;
+        {
+            IOFWUserPHYPacketListener * phy_listener = OSDynamicCast( IOFWUserPHYPacketListener, targetObject );
+            if( phy_listener )
+            {
+                phy_listener->deactivate();
+                result = kIOReturnSuccess;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 		
 		case kPHYPacketListenerClientCommandIsComplete:
-			((IOFWUserPHYPacketListener*)targetObject)->clientCommandIsComplete( (FWClientCommandID)arguments->scalarInput[0] );
-			result = kIOReturnSuccess;
-			break;
+        {
+            IOFWUserPHYPacketListener * phy_listener = OSDynamicCast( IOFWUserPHYPacketListener, targetObject );
+            if( phy_listener )
+            {
+                phy_listener->clientCommandIsComplete( (FWClientCommandID)arguments->scalarInput[0] );
+                result = kIOReturnSuccess;
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+            }
+            break;
+        }
 			
 		default:
 			// NONE OF THE ABOVE :(

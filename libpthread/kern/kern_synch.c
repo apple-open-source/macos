@@ -1609,6 +1609,7 @@ ksyn_wqfind(user_addr_t uaddr, uint32_t mgen, uint32_t ugen, uint32_t sgen, int 
 		pthread_list_lock();
 		res = ksyn_wq_hash_lookup(uaddr, current_proc(), flags, &kwq, &hashptr, &object, &offset);
 		if (res != 0) {
+			pthread_list_unlock();
 			break;
 		}
 		if (kwq == NULL && nkwq == NULL) {
@@ -1679,9 +1680,9 @@ ksyn_wqfind(user_addr_t uaddr, uint32_t mgen, uint32_t ugen, uint32_t sgen, int 
 				kwq->kw_dropcount++;
 			}
 		}
+		pthread_list_unlock();
 		break;
 	}
-	pthread_list_unlock();
 	if (kwqp != NULL) {
 		*kwqp = kwq;
 	}

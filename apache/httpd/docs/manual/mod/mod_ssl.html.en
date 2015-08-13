@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -43,7 +45,13 @@ to provide the cryptography engine.</p>
 <p>Further details, discussion, and examples are provided in the
 <a href="../ssl/">SSL documentation</a>.</p>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#envvars">Environment Variables</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#logformats">Custom Log Formats</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#notes">Request Notes</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#authzproviders">Authorization providers for use with Require</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#sslallowemptyfragments">SSLAllowEmptyFragments</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslcacertificatefile">SSLCACertificateFile</a></li>
@@ -97,6 +105,7 @@ to provide the cryptography engine.</p>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslsessioncache">SSLSessionCache</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslsessioncachetimeout">SSLSessionCacheTimeout</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslsessionticketkeyfile">SSLSessionTicketKeyFile</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sslsessiontickets">SSLSessionTickets</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslsrpunknownuserseed">SSLSRPUnknownUserSeed</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslsrpverifierfile">SSLSRPVerifierFile</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslstaplingcache">SSLStaplingCache</a></li>
@@ -114,13 +123,7 @@ to provide the cryptography engine.</p>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslverifyclient">SSLVerifyClient</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslverifydepth">SSLVerifyDepth</a></li>
 </ul>
-<h3>Topics</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#envvars">Environment Variables</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#logformats">Custom Log Formats</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#notes">Request Notes</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#authzproviders">Authorization providers for use with Require</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="envvars" id="envvars">Environment Variables</a></h2>
@@ -156,6 +159,8 @@ compatibility variables.</p>
 <tr><td><code>SSL_CLIENT_M_SERIAL</code></td>           <td>string</td>    <td>The serial of the client certificate</td></tr>
 <tr><td><code>SSL_CLIENT_S_DN</code></td>               <td>string</td>    <td>Subject DN in client's certificate</td></tr>
 <tr><td><code>SSL_CLIENT_S_DN_</code><em>x509</em></td> <td>string</td>    <td>Component of client's Subject DN</td></tr>
+<tr><td><code>SSL_CLIENT_SAN_Email_</code><em>n</em></td> <td>string</td>  <td>Client certificate's subjectAltName extension entries of type rfc822Name</td></tr>
+<tr><td><code>SSL_CLIENT_SAN_DNS_</code><em>n</em></td> <td>string</td>    <td>Client certificate's subjectAltName extension entries of type dNSName</td></tr>
 <tr><td><code>SSL_CLIENT_I_DN</code></td>               <td>string</td>    <td>Issuer DN of client's certificate</td></tr>
 <tr><td><code>SSL_CLIENT_I_DN_</code><em>x509</em></td> <td>string</td>    <td>Component of client's Issuer DN</td></tr>
 <tr><td><code>SSL_CLIENT_V_START</code></td>            <td>string</td>    <td>Validity of client's certificate (start time)</td></tr>
@@ -165,10 +170,13 @@ compatibility variables.</p>
 <tr><td><code>SSL_CLIENT_A_KEY</code></td>              <td>string</td>    <td>Algorithm used for the public key of client's certificate</td></tr>
 <tr><td><code>SSL_CLIENT_CERT</code></td>               <td>string</td>    <td>PEM-encoded client certificate</td></tr>
 <tr><td><code>SSL_CLIENT_CERT_CHAIN_</code><em>n</em></td> <td>string</td>    <td>PEM-encoded certificates in client certificate chain</td></tr>
+<tr><td><code>SSL_CLIENT_CERT_RFC4523_CEA</code></td>   <td>string</td>    <td>Serial number and issuer of the certificate. The format matches that of the CertificateExactAssertion in RFC4523</td></tr>
 <tr><td><code>SSL_CLIENT_VERIFY</code></td>             <td>string</td>    <td><code>NONE</code>, <code>SUCCESS</code>, <code>GENEROUS</code> or <code>FAILED:</code><em>reason</em></td></tr>
 <tr><td><code>SSL_SERVER_M_VERSION</code></td>          <td>string</td>    <td>The version of the server certificate</td></tr>
 <tr><td><code>SSL_SERVER_M_SERIAL</code></td>           <td>string</td>    <td>The serial of the server certificate</td></tr>
 <tr><td><code>SSL_SERVER_S_DN</code></td>               <td>string</td>    <td>Subject DN in server's certificate</td></tr>
+<tr><td><code>SSL_SERVER_SAN_Email_</code><em>n</em></td> <td>string</td>  <td>Server certificate's subjectAltName extension entries of type rfc822Name</td></tr>
+<tr><td><code>SSL_SERVER_SAN_DNS_</code><em>n</em></td> <td>string</td>    <td>Server certificate's subjectAltName extension entries of type dNSName</td></tr>
 <tr><td><code>SSL_SERVER_S_DN_</code><em>x509</em></td> <td>string</td>    <td>Component of server's Subject DN</td></tr>
 <tr><td><code>SSL_SERVER_I_DN</code></td>               <td>string</td>    <td>Issuer DN of server's certificate</td></tr>
 <tr><td><code>SSL_SERVER_I_DN_</code><em>x509</em></td> <td>string</td>    <td>Component of server's Issuer DN</td></tr>
@@ -250,7 +258,7 @@ you find in the above table.</p>
 For backward compatibility there is additionally a special
 ``<code>%{</code><em>name</em><code>}c</code>'' cryptography format function
 provided. Information about this function is provided in the <a href="../ssl/ssl_compat.html">Compatibility</a> chapter.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">CustomLog logs/ssl_request_log "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">CustomLog "logs/ssl_request_log" "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"</pre>
 </div>
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -349,7 +357,7 @@ with. These are used for Client Authentication. Such a file is simply the
 concatenation of the various PEM-encoded Certificate files, in order of
 preference. This can be used alternatively and/or additionally to
 <code class="directive"><a href="#sslcacertificatepath">SSLCACertificatePath</a></code>.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCACertificateFile /usr/local/apache2/conf/ssl.crt/ca-bundle-client.crt</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCACertificateFile "/usr/local/apache2/conf/ssl.crt/ca-bundle-client.crt"</pre>
 </div>
 
 </div>
@@ -373,7 +381,7 @@ hash filenames. So usually you can't just place the Certificate files
 there: you also have to create symbolic links named
 <em>hash-value</em><code>.N</code>. And you should always make sure this directory
 contains the appropriate symbolic links.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCACertificatePath /usr/local/apache2/conf/ssl.crt/</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCACertificatePath "/usr/local/apache2/conf/ssl.crt/"</pre>
 </div>
 
 </div>
@@ -411,7 +419,7 @@ directives.</p>
 specify an <em>all-in-one</em> file containing a concatenation of
 PEM-encoded CA certificates.</p>
 
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCADNRequestFile /usr/local/apache2/conf/ca-names.crt</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCADNRequestFile "/usr/local/apache2/conf/ca-names.crt"</pre>
 </div>
 
 </div>
@@ -436,7 +444,7 @@ through hash filenames. So usually you can't just place the
 Certificate files there: you also have to create symbolic links named
 <em>hash-value</em><code>.N</code>. And you should always make sure
 this directory contains the appropriate symbolic links.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCADNRequestPath /usr/local/apache2/conf/ca-names.crt/</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCADNRequestPath "/usr/local/apache2/conf/ca-names.crt/"</pre>
 </div>
 
 </div>
@@ -493,7 +501,7 @@ Authorities (CA) whose <em>clients</em> you deal with. These are used
 for Client Authentication.  Such a file is simply the concatenation of
 the various PEM-encoded CRL files, in order of preference. This can be
 used alternatively and/or additionally to <code class="directive"><a href="#sslcarevocationpath">SSLCARevocationPath</a></code>.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCARevocationFile /usr/local/apache2/conf/ssl.crl/ca-bundle-client.crl</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCARevocationFile "/usr/local/apache2/conf/ssl.crl/ca-bundle-client.crl"</pre>
 </div>
 
 </div>
@@ -517,7 +525,7 @@ hash filenames. So usually you have not only to place the CRL files there.
 Additionally you have to create symbolic links named
 <em>hash-value</em><code>.rN</code>. And you should always make sure this directory
 contains the appropriate symbolic links.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCARevocationPath /usr/local/apache2/conf/ssl.crl/</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCARevocationPath "/usr/local/apache2/conf/ssl.crl/"</pre>
 </div>
 
 </div>
@@ -560,7 +568,7 @@ But be careful: Providing the certificate chain works only if you are using a
 using a coupled RSA+DSA certificate pair, this will work only if actually both
 certificates use the <em>same</em> certificate chain. Else the browsers will be
 confused in this situation.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateChainFile /usr/local/apache2/conf/ssl.crt/ca.crt</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateChainFile "/usr/local/apache2/conf/ssl.crt/ca.crt"</pre>
 </div>
 
 </div>
@@ -576,35 +584,44 @@ confused in this situation.</p>
 <p>
 This directive points to a file with certificate data in PEM format.
 At a minimum, the file must include an end-entity (leaf) certificate.
-Beginning with version 2.4.8, it may also include intermediate CA
-certificates, sorted from leaf to root, and obsoletes
-<code class="directive"><a href="#sslcertificatechainfile">SSLCertificateChainFile</a></code>.
-</p>
-
-<p>
-Additional optional elements are DH parameters and/or an EC curve name
-for ephemeral keys, as generated by <code>openssl dhparam</code> and
-<code>openssl ecparam</code>, respectively (supported in version 2.4.7
-or later) and finally, the end-entity certificate's private key.
-If the private key is encrypted, the pass phrase dialog is forced
-at startup time.</p>
-
-<p>
-This directive can be used multiple times (referencing different filenames)
+The directive can be used multiple times (referencing different filenames)
 to support multiple algorithms for server authentication - typically
 RSA, DSA, and ECC. The number of supported algorithms depends on the
 OpenSSL version being used for mod_ssl: with version 1.0.0 or later,
 <code>openssl list-public-key-algorithms</code> will output a list
-of supported algorithms.</p>
+of supported algorithms.
+</p>
 
 <p>
-When running with OpenSSL 1.0.2 or later, this directive allows
-to configure the intermediate CA chain on a per-certificate basis,
-which removes a limitation of the (now obsolete)
-<code class="directive"><a href="#sslcertificatechainfile">SSLCertificateChainFile</a></code> directive.
-DH and ECDH parameters, however, are only read from the first
-<code class="directive">SSLCertificateFile</code> directive, as they
-are applied independently of the authentication algorithm type.</p>
+The files may also include intermediate CA certificates, sorted from
+leaf to root. This is supported with version 2.4.8 and later,
+and obsoletes <code class="directive"><a href="#sslcertificatechainfile">SSLCertificateChainFile</a></code>.
+When running with OpenSSL 1.0.2 or later, this allows
+to configure the intermediate CA chain on a per-certificate basis.
+</p>
+
+<p>
+Custom DH parameters and an EC curve name for ephemeral keys,
+can also be added to end of the first file configured using
+<code class="directive"><a href="#sslcertificatefile">SSLCertificateFile</a></code>.
+This is supported in version 2.4.7 or later.
+Such parameters can be generated using the commands
+<code>openssl dhparam</code> and <code>openssl ecparam</code>.
+The parameters can be added as-is to the end of the first
+certificate file. Only the first file can be used for custom
+parameters, as they are applied independently of the authentication
+algorithm type.
+</p>
+
+<p>
+Finally the the end-entity certificate's private key can also be
+added to the certificate file instead of using a separate
+<code class="directive"><a href="#sslcertificatekeyfile">SSLCertificateKeyFile</a></code>
+directive. This practice is highly discouraged. If it is used,
+the certificate files using such an embedded key must be configured
+after the certificates using a separate key file. If the private
+key is encrypted, the pass phrase dialog is forced at startup time.
+</p>
 
 <div class="note">
 <h3>DH parameter interoperability with primes &gt; 1024 bit</h3>
@@ -622,7 +639,7 @@ such issues.
 </p>
 </div>
 
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateFile /usr/local/apache2/conf/ssl.crt/server.crt</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateFile "/usr/local/apache2/conf/ssl.crt/server.crt"</pre>
 </div>
 
 </div>
@@ -637,9 +654,7 @@ such issues.
 </table>
 <p>
 This directive points to the PEM-encoded private key file for the
-server (the private key may also be combined with the certificate in the
-<code class="directive"><a href="#sslcertificatefile">SSLCertificateFile</a></code>, but this practice
-is discouraged). If the contained private key is encrypted, the pass phrase
+server. If the contained private key is encrypted, the pass phrase
 dialog is forced at startup time.</p>
 
 <p>
@@ -649,7 +664,14 @@ to support multiple algorithms for server authentication. For each
 directive, there must be a matching <code class="directive">SSLCertificateFile</code>
 directive.</p>
 
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateKeyFile /usr/local/apache2/conf/ssl.key/server.key</pre>
+<p>
+The private key may also be combined with the certificate in the file given by
+<code class="directive"><a href="#sslcertificatefile">SSLCertificateFile</a></code>, but this practice
+is highly discouraged. If it is used, the certificate files using such
+an embedded key must be configured after the certificates using a separate
+key file.</p>
+
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateKeyFile "/usr/local/apache2/conf/ssl.key/server.key"</pre>
 </div>
 
 </div>
@@ -1014,7 +1036,7 @@ directives.</p>
 
 <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLVerifyClient on
 SSLOCSPEnable on
-SSLOCSPDefaultResponder http://responder.example.com:8888/responder
+SSLOCSPDefaultResponder "http://responder.example.com:8888/responder"
 SSLOCSPOverrideResponder on</pre>
 </div>
 
@@ -1091,8 +1113,8 @@ which means that OCSP responses are considered valid as long as their
 </table>
 <p>This option determines whether queries to OCSP responders should contain
 a nonce or not. By default, a query nonce is always used and checked against
-the response's one. When the responder does not use nonces (eg. Microsoft OCSP
-Responder), this option ought to be turned <code>off</code>.</p>
+the response's one. When the responder does not use nonces (e.g. Microsoft OCSP
+Responder), this option should be turned <code>off</code>.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1114,7 +1136,7 @@ features are added to OpenSSL.</p>
 depends on the OpenSSL version being used for <code class="module"><a href="../mod/mod_ssl.html">mod_ssl</a></code>
 (at least version 1.0.2 is required). For a list of supported command
 names, see the section <em>Supported configuration file commands</em> in the
-<a href="http://www.openssl.org/docs/ssl/SSL_CONF_cmd.html#SUPPORTED_CONFIGURATION_FILE_COM">SSL_CONF_cmd(3)</a> manual page for OpenSSL.</p>
+<a href="http://www.openssl.org/docs/ssl/SSL_CONF_cmd.html#SUPPORTED-CONFIGURATION-FILE-COMMANDS">SSL_CONF_cmd(3)</a> manual page for OpenSSL.</p>
 
 <p>Some of the <code class="directive">SSLOpenSSLConfCmd</code> commands can be used
 as an alternative to existing directives (such as
@@ -1125,7 +1147,7 @@ may sometimes differ.</p>
 
 <div class="example"><h3>Examples</h3><pre class="prettyprint lang-config">SSLOpenSSLConfCmd Options -SessionTicket,ServerPreference
 SSLOpenSSLConfCmd ECDHParameters brainpoolP256r1
-SSLOpenSSLConfCmd ServerInfoFile /usr/local/apache2/conf/server-info.pem
+SSLOpenSSLConfCmd ServerInfoFile "/usr/local/apache2/conf/server-info.pem"
 SSLOpenSSLConfCmd Protocol "-ALL, TLSv1.2"
 SSLOpenSSLConfCmd SignatureAlgorithms RSA+SHA384:ECDSA+SHA256</pre>
 </div>
@@ -1320,7 +1342,7 @@ query can be done in two ways which can be configured by
     The reuse-algorithm above is used here, too. In other words: The external
     program is called only once per unique Pass Phrase.</p></li>
 </ul>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLPassPhraseDialog exec:/usr/local/apache/sbin/pp-filter</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLPassPhraseDialog "exec:/usr/local/apache/sbin/pp-filter"</pre>
 </div>
 
 </div>
@@ -1390,7 +1412,7 @@ with. These are used for Remote Server Authentication. Such a file is simply the
 concatenation of the various PEM-encoded Certificate files, in order of
 preference. This can be used alternatively and/or additionally to
 <code class="directive"><a href="#sslproxycacertificatepath">SSLProxyCACertificatePath</a></code>.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCACertificateFile /usr/local/apache2/conf/ssl.crt/ca-bundle-remote-server.crt</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCACertificateFile "/usr/local/apache2/conf/ssl.crt/ca-bundle-remote-server.crt"</pre>
 </div>
 
 </div>
@@ -1414,7 +1436,7 @@ hash filenames. So usually you can't just place the Certificate files
 there: you also have to create symbolic links named
 <em>hash-value</em><code>.N</code>. And you should always make sure this directory
 contains the appropriate symbolic links.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCACertificatePath /usr/local/apache2/conf/ssl.crt/</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCACertificatePath "/usr/local/apache2/conf/ssl.crt/"</pre>
 </div>
 
 </div>
@@ -1472,7 +1494,7 @@ Authorities (CA) whose <em>remote servers</em> you deal with. These are used
 for Remote Server Authentication.  Such a file is simply the concatenation of
 the various PEM-encoded CRL files, in order of preference. This can be
 used alternatively and/or additionally to <code class="directive"><a href="#sslproxycarevocationpath">SSLProxyCARevocationPath</a></code>.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCARevocationFile /usr/local/apache2/conf/ssl.crl/ca-bundle-remote-server.crl</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCARevocationFile "/usr/local/apache2/conf/ssl.crl/ca-bundle-remote-server.crl"</pre>
 </div>
 
 </div>
@@ -1496,7 +1518,7 @@ hash filenames. So usually you have not only to place the CRL files there.
 Additionally you have to create symbolic links named
 <em>hash-value</em><code>.rN</code>. And you should always make sure this directory
 contains the appropriate symbolic links.</p>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCARevocationPath /usr/local/apache2/conf/ssl.crl/</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyCARevocationPath "/usr/local/apache2/conf/ssl.crl/"</pre>
 </div>
 
 </div>
@@ -1649,7 +1671,7 @@ be examined and a chain of trust will be constructed.
 trusted as if they were also in <code class="directive"><a href="#sslproxycacertificatefile">
 SSLProxyCACertificateFile</a></code>.</p>
 </div>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyMachineCertificateChainFile /usr/local/apache2/conf/ssl.crt/proxyCA.pem</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyMachineCertificateChainFile "/usr/local/apache2/conf/ssl.crt/proxyCA.pem"</pre>
 </div>
 
 </div>
@@ -1675,7 +1697,7 @@ or additionally to <code>SSLProxyMachineCertificatePath</code>.
 <div class="warning">
 <p>Currently there is no support for encrypted private keys</p>
 </div>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyMachineCertificateFile /usr/local/apache2/conf/ssl.crt/proxy.pem</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyMachineCertificateFile "/usr/local/apache2/conf/ssl.crt/proxy.pem"</pre>
 </div>
 
 </div>
@@ -1700,7 +1722,7 @@ directory contains the appropriate symbolic links.</p>
 <div class="warning">
 <p>Currently there is no support for encrypted private keys</p>
 </div>
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyMachineCertificatePath /usr/local/apache2/conf/proxy.crt/</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProxyMachineCertificatePath "/usr/local/apache2/conf/proxy.crt/"</pre>
 </div>
 
 </div>
@@ -1863,12 +1885,12 @@ The following <em>source</em> variants are available:</p>
     on your platform.</p></li>
 </ul>
 <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLRandomSeed startup builtin
-SSLRandomSeed startup file:/dev/random
-SSLRandomSeed startup file:/dev/urandom 1024
-SSLRandomSeed startup exec:/usr/local/bin/truerand 16
+SSLRandomSeed startup "file:/dev/random"
+SSLRandomSeed startup "file:/dev/urandom" 1024
+SSLRandomSeed startup "exec:/usr/local/bin/truerand" 16
 SSLRandomSeed connect builtin
-SSLRandomSeed connect file:/dev/random
-SSLRandomSeed connect file:/dev/urandom 1024</pre>
+SSLRandomSeed connect "file:/dev/random"
+SSLRandomSeed connect "file:/dev/urandom" 1024</pre>
 </div>
 
 </div>
@@ -2120,8 +2142,8 @@ The following five storage <em>type</em>s are currently supported:</p>
 
 </ul>
 
-<div class="example"><h3>Examples</h3><pre class="prettyprint lang-config">SSLSessionCache dbm:/usr/local/apache/logs/ssl_gcache_data
-SSLSessionCache shmcb:/usr/local/apache/logs/ssl_gcache_data(512000)</pre>
+<div class="example"><h3>Examples</h3><pre class="prettyprint lang-config">SSLSessionCache "dbm:/usr/local/apache/logs/ssl_gcache_data"
+SSLSessionCache "shmcb:/usr/local/apache/logs/ssl_gcache_data(512000)"</pre>
 </div>
 
 <p>The <code>ssl-cache</code> mutex is used to serialize access to
@@ -2139,6 +2161,7 @@ in the Session Cache</td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Applies also to RFC 5077 TLS session resumption in Apache 2.4.10 and later</td></tr>
 </table>
 <p>
 This directive sets the timeout in seconds for the information stored in the
@@ -2177,12 +2200,35 @@ dd if=/dev/random of=/path/to/file.tkey bs=1 count=48
 
 <p>Ticket keys should be rotated (replaced) on a frequent basis,
 as this is the only way to invalidate an existing session ticket -
-OpenSSL currently doesn't allow to specify a limit for ticket lifetimes.</p>
+OpenSSL currently doesn't allow to specify a limit for ticket lifetimes.
+A new ticket key only gets used after restarting the web server.
+All existing session tickets become invalid after a restart.</p>
 
 <div class="warning">
 <p>The ticket key file contains sensitive keying material and should
 be protected with file permissions similar to those used for
 <code class="directive"><a href="#sslcertificatekeyfile">SSLCertificateKeyFile</a></code>.</p>
+</div>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="SSLSessionTickets" id="SSLSessionTickets">SSLSessionTickets</a> <a name="sslsessiontickets" id="sslsessiontickets">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Enable or disable use of TLS session tickets</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLSessionTickets on|off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>SSLSessionTickets on</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in httpd 2.4.11 and later, if using OpenSSL 0.9.8f
+or later.</td></tr>
+</table>
+<p>This directive allows to enable or disable the use of TLS session tickets
+(RFC 5077).</p>
+<div class="warning">
+<p>TLS session tickets are enabled by default. Using them without restarting
+the web server with an appropriate frequency (e.g. daily) compromises perfect
+forward secrecy.</p>
 </div>
 
 </div>
@@ -2301,7 +2347,7 @@ is also enabled.</p>
 </table>
 <p>This directive overrides the URI of an OCSP responder as obtained from
 the authorityInfoAccess (AIA) extension of the certificate.
-Of potential use when going through a proxy for retrieving OCSP queries.</p>
+One potential use is when a proxy is used for retrieving OCSP queries.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -2476,6 +2522,14 @@ stated goal of "saving roundtrips and resources" - see also
 (TLS Multiple Certificate Status Extension).
 </p>
 
+<p>When OCSP stapling is enabled, the <code>ssl-stapling</code> mutex is used
+to control access to the OCSP stapling cache in order to prevent corruption,
+and the <code>sss-stapling-refresh</code> mutex is used to control refreshes
+of OCSP responses.  These mutexes can be configured using the
+<code class="directive"><a href="../mod/core.html#mutex">Mutex</a></code> directive.
+</p>
+
+
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="SSLVerifyClient" id="SSLVerifyClient">SSLVerifyClient</a> <a name="sslverifyclient" id="sslverifyclient">Directive</a></h2>
@@ -2572,7 +2626,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_ssl.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

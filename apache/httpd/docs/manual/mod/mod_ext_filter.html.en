@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -61,15 +63,15 @@ delivery to the client</td></tr>
     a prototype environment for filters.</p>
 
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#examples">Examples</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#extfilterdefine">ExtFilterDefine</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#extfilteroptions">ExtFilterOptions</a></li>
 </ul>
-<h3>Topics</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#examples">Examples</a></li>
-</ul><h3>See also</h3>
+<h3>See also</h3>
 <ul class="seealso">
 <li><a href="../filter.html">Filters</a></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
@@ -106,7 +108,7 @@ ExtFilterDefine c-to-html mode=output \
       <pre class="prettyprint lang-config"># mod_ext_filter directive to define the external filter
 ExtFilterDefine gzip mode=output cmd=/bin/gzip
 
-&lt;Location /gzipped&gt;
+&lt;Location "/gzipped"&gt;
     
     # core directive to cause the gzip filter to be
     # run on output
@@ -127,7 +129,7 @@ ExtFilterDefine gzip mode=output cmd=/bin/gzip
 ExtFilterDefine slowdown mode=output cmd=/bin/cat \
     preservescontentlength
 
-&lt;Location /&gt;
+&lt;Location "/"&gt;
     # core directive to cause the slowdown filter to
     # be run several times on output
     #
@@ -143,12 +145,17 @@ ExtFilterDefine slowdown mode=output cmd=/bin/cat \
 ExtFilterDefine fixtext mode=output intype=text/html \
     cmd="/bin/sed s/verdana/arial/g"
 
-&lt;Location /&gt;
+&lt;Location "/"&gt;
     # core directive to cause the fixtext filter to
     # be run on output
     SetOutputFilter fixtext
 &lt;/Location&gt;</pre>
 
+
+<div class="note">
+<p>You can do the same thing using <code class="module"><a href="../mod/mod_substitute.html">mod_substitute</a></code>
+without invoking an external process.</p>
+</div>
     
 
     <h3>Tracing another filter</h3>
@@ -171,7 +178,7 @@ ExtFilterDefine traceafter \
     cmd="/bin/tracefilter.pl /tmp/traceafter" \
     EnableEnv=trace_this_client ftype=21
 
-&lt;Directory /usr/local/docs&gt;
+&lt;Directory "/usr/local/docs"&gt;
     SetEnvIf Remote_Addr 192.168.1.31 trace_this_client
     SetOutputFilter tracebefore;deflate;traceafter
 &lt;/Directory&gt;</pre>
@@ -346,7 +353,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_ext_filter.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

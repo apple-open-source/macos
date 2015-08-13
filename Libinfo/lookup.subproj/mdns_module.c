@@ -558,7 +558,16 @@ mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, u
 	}
 
 	bb = reply.ttl + time(NULL);
-	out = (si_item_t *)LI_ils_create("L4488s*44a", (unsigned long)si, cat, 1, bb, 0LL, h.host.h_name, h.host.h_aliases, h.host.h_addrtype, h.host.h_length, h.host.h_addr_list);
+
+	switch (af)
+	{
+		case AF_INET:
+			out = (si_item_t *)LI_ils_create("L4488s*44a", (unsigned long)si, CATEGORY_HOST_IPV4, 1, bb, 0LL, h.host.h_name, h.host.h_aliases, h.host.h_addrtype, h.host.h_length, h.host.h_addr_list);
+			break;
+		case AF_INET6:
+			out = (si_item_t *)LI_ils_create("L4488s*44c", (unsigned long)si, CATEGORY_HOST_IPV6, 1, bb, 0LL, h.host.h_name, h.host.h_aliases, h.host.h_addrtype, h.host.h_length, h.host.h_addr_list);
+			break;
+	}
 
 	_mdns_hostent_clear(&h);
 

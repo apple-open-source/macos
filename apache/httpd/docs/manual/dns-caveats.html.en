@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -49,7 +51,7 @@
     <pre class="prettyprint lang-config"># This is a misconfiguration example, do not use on your server
 &lt;VirtualHost www.example.dom&gt;
   ServerAdmin webgirl@example.dom
-  DocumentRoot /www/example
+  DocumentRoot "/www/example"
 &lt;/VirtualHost&gt;</pre>
 
 
@@ -70,7 +72,7 @@
     <pre class="prettyprint lang-config"># This is a misconfiguration example, do not use on your server
 &lt;VirtualHost 192.0.2.1&gt;
   ServerAdmin webgirl@example.dom
-  DocumentRoot /www/example
+  DocumentRoot "/www/example"
 &lt;/VirtualHost&gt;</pre>
 
 
@@ -88,7 +90,7 @@
     <pre class="prettyprint lang-config">&lt;VirtualHost 192.0.2.1&gt;
   ServerName www.example.dom
   ServerAdmin webgirl@example.dom
-  DocumentRoot /www/example
+  DocumentRoot "/www/example"
 &lt;/VirtualHost&gt;</pre>
 
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
@@ -100,11 +102,11 @@
 
     <pre class="prettyprint lang-config">&lt;VirtualHost www.example1.dom&gt;
   ServerAdmin webgirl@example1.dom
-  DocumentRoot /www/example1
+  DocumentRoot "/www/example1"
 &lt;/VirtualHost&gt;
 &lt;VirtualHost www.example2.dom&gt;
   ServerAdmin webguy@example2.dom
-  DocumentRoot /www/example2
+  DocumentRoot "/www/example2"
 &lt;/VirtualHost&gt;</pre>
 
 
@@ -206,7 +208,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/dns-caveats.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

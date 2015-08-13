@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -57,7 +59,10 @@
     <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>.</p>
 
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#order">Order of Processing</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#alias">Alias</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#aliasmatch">AliasMatch</a></li>
@@ -68,10 +73,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#scriptalias">ScriptAlias</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#scriptaliasmatch">ScriptAliasMatch</a></li>
 </ul>
-<h3>Topics</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#order">Order of Processing</a></li>
-</ul><h3>See also</h3>
+<h3>See also</h3>
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code></li>
 <li><a href="../urlmapping.html">Mapping URLs to the filesystem</a></li>
@@ -97,15 +99,14 @@
     all the directives to have an effect.  For example, the following
     configuration will work as expected:</p>
 
-    <pre class="prettyprint lang-config">Alias /foo/bar /baz
-Alias /foo /gaq</pre>
+    <pre class="prettyprint lang-config">Alias "/foo/bar" "/baz"
+Alias "/foo" "/gaq"</pre>
 
 
     <p>But if the above two directives were reversed in order, the
     <code>/foo</code> <code class="directive"><a href="#alias">Alias</a></code>
     would always match before the <code>/foo/bar</code> <code class="directive"><a href="#alias">Alias</a></code>, so the latter directive would be
     ignored.</p>
-
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="Alias" id="Alias">Alias</a> <a name="alias" id="alias">Directive</a></h2>
@@ -126,7 +127,7 @@ Alias /foo /gaq</pre>
     <var>URL-path</var> is case-sensitive, even on case-insensitive
     file systems.</p>
 
-    <pre class="prettyprint lang-config">Alias /image /ftp/pub/image</pre>
+    <pre class="prettyprint lang-config">Alias "/image" "/ftp/pub/image"</pre>
 
 
     <p>A request for <code>http://example.com/image/foo.gif</code> would cause
@@ -139,10 +140,10 @@ Alias /foo /gaq</pre>
     <var>URL-path</var> then the server will require a trailing / in
     order to expand the alias. That is, if you use</p>
 
-    <pre class="prettyprint lang-config">Alias /icons/ /usr/local/apache/icons/</pre>
+    <pre class="prettyprint lang-config">Alias "/icons/" "/usr/local/apache/icons/"</pre>
 
 
-    <p>then the url <code>/icons</code> will not be aliased, as it lacks
+    <p>then the URL <code>/icons</code> will not be aliased, as it lacks
     that trailing /. Likewise, if you omit the slash on the
     <var>URL-path</var> then you must also omit it from the
     <var>file-path</var>.</p>
@@ -159,15 +160,14 @@ Alias /foo /gaq</pre>
     directory outside of your <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code>, you may need to explicitly
     permit access to the target directory.</p>
 
-    <pre class="prettyprint lang-config">Alias /image /ftp/pub/image
-&lt;Directory /ftp/pub/image&gt;
+    <pre class="prettyprint lang-config">Alias "/image" "/ftp/pub/image"
+&lt;Directory "/ftp/pub/image"&gt;
     Require all granted
 &lt;/Directory&gt;</pre>
 
 
-    <p>Any number slashes in the <var>URL-path</var> parameter 
+    <p>Any number slashes in the <var>URL-path</var> parameter
     matches any number of slashes in the requested URL-path.</p>
-
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -190,7 +190,7 @@ expressions</td></tr>
     example, to activate the <code>/icons</code> directory, one might
     use:</p>
 
-    <pre class="prettyprint lang-config">AliasMatch ^/icons(.*) /usr/local/apache/icons$1</pre>
+    <pre class="prettyprint lang-config">AliasMatch "^/icons(/|$)(.*)" "/usr/local/apache/icons$1$2"</pre>
 
 
     <p>The full range of <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular expression</a>
@@ -198,7 +198,7 @@ expressions</td></tr>
     it is possible to construct an alias with case-insensitive
     matching of the URL-path:</p>
 
-    <pre class="prettyprint lang-config">AliasMatch (?i)^/image(.*) /ftp/pub/image$1</pre>
+    <pre class="prettyprint lang-config">AliasMatch "(?i)^/image(.*)" "/ftp/pub/image$1"</pre>
 
 
     <p>One subtle difference
@@ -222,18 +222,18 @@ expressions</td></tr>
 
     <p>For example, suppose you want to replace this with AliasMatch:</p>
 
-    <pre class="prettyprint lang-config">Alias /image/ /ftp/pub/image/</pre>
+    <pre class="prettyprint lang-config">Alias "/image/" "/ftp/pub/image/"</pre>
 
 
     <p>This is NOT equivalent - don't do this!  This will send all
     requests that have /image/ anywhere in them to /ftp/pub/image/:</p>
 
-    <pre class="prettyprint lang-config">AliasMatch /image/ /ftp/pub/image/</pre>
+    <pre class="prettyprint lang-config">AliasMatch "/image/" "/ftp/pub/image/"</pre>
 
 
     <p>This is what you need to get the same effect:</p>
 
-    <pre class="prettyprint lang-config">AliasMatch ^/image/(.*)$ /ftp/pub/image/$1</pre>
+    <pre class="prettyprint lang-config">AliasMatch "^/image/(.*)$" "/ftp/pub/image/$1"</pre>
 
 
     <p>Of course, there's no point in
@@ -243,8 +243,8 @@ expressions</td></tr>
     you do more complicated things.  For example, you could
     serve different kinds of files from different directories:</p>
 
-    <pre class="prettyprint lang-config">      AliasMatch ^/image/(.*)\.jpg$ /files/jpg.images/$1.jpg<br />
-      AliasMatch ^/image/(.*)\.gif$ /files/gif.images/$1.gif</pre>
+    <pre class="prettyprint lang-config">AliasMatch "^/image/(.*)\.jpg$" "/files/jpg.images/$1.jpg"
+AliasMatch "^/image/(.*)\.gif$" "/files/gif.images/$1.gif"</pre>
 
 
     <p>Multiple leading slashes in the requested URL are discarded
@@ -283,21 +283,21 @@ a different URL</td></tr>
     <em>URL-Path</em> will be appended to the target URL.</p>
 
     <pre class="prettyprint lang-config"># Redirect to a URL on a different host
-Redirect /service http://foo2.example.com/service
+Redirect "/service" "http://foo2.example.com/service"
 
 # Redirect to a URL on the same host
-Redirect /one /two</pre>
+Redirect "/one" "/two"</pre>
 
 
     <p>If the client requests <code>http://example.com/service/foo.txt</code>,
     it will be told to access
     <code>http://foo2.example.com/service/foo.txt</code>
-	instead. This includes requests with <code>GET</code> parameters, such as
+    instead. This includes requests with <code>GET</code> parameters, such as
     <code>http://example.com/service/foo.pl?q=23&amp;a=42</code>,
     it will be redirected to
     <code>http://foo2.example.com/service/foo.pl?q=23&amp;a=42</code>.
-	Note that <code>POST</code>s will be discarded.<br />
-	Only complete path segments are matched, so the above
+    Note that <code>POST</code>s will be discarded.<br />
+    Only complete path segments are matched, so the above
     example would not match a request for
     <code>http://example.com/servicefoo.txt</code>.  For more complex matching
     using regular expressions, see the <code class="directive"><a href="#redirectmatch">RedirectMatch</a></code> directive.</p>
@@ -344,9 +344,8 @@ Redirect /one /two</pre>
     HTTP status code, known to the Apache HTTP Server (see the function
     <code>send_error_response</code> in http_protocol.c).</p>
 
-    <pre class="prettyprint lang-config">Redirect permanent /one http://example.com/two
-Redirect 303 /three http://example.com/other</pre>
-
+    <pre class="prettyprint lang-config">Redirect permanent "/one" "http://example.com/two"
+Redirect 303 "/three" "http://example.com/other"</pre>
 
 
 </div>
@@ -371,7 +370,7 @@ of the current URL</td></tr>
     example, to redirect all GIF files to like-named JPEG files on
     another server, one might use:</p>
 
-    <pre class="prettyprint lang-config">RedirectMatch (.*)\.gif$ http://other.example.com$1.jpg</pre>
+    <pre class="prettyprint lang-config">RedirectMatch "(.*)\.gif$" "http://other.example.com$1.jpg"</pre>
 
 
     <p>The considerations related to the difference between
@@ -437,23 +436,23 @@ target as a CGI script</td></tr>
     to scripts beginning with the second argument, which is a full
     pathname in the local filesystem.</p>
 
-    <pre class="prettyprint lang-config">ScriptAlias /cgi-bin/ /web/cgi-bin/</pre>
+    <pre class="prettyprint lang-config">ScriptAlias "/cgi-bin/" "/web/cgi-bin/"</pre>
 
 
     <p>A request for <code>http://example.com/cgi-bin/foo</code> would cause the
     server to run the script <code>/web/cgi-bin/foo</code>.  This configuration
     is essentially equivalent to:</p>
-    <pre class="prettyprint lang-config">Alias /cgi-bin/ /web/cgi-bin/
-&lt;Location /cgi-bin &gt;
+    <pre class="prettyprint lang-config">Alias "/cgi-bin/" "/web/cgi-bin/"
+&lt;Location "/cgi-bin" &gt;
     SetHandler cgi-script
     Options +ExecCGI
 &lt;/Location&gt;</pre>
 
 
-	<p><code class="directive">ScriptAlias</code> can also be used in conjunction with
-	a script or handler you have. For example:</p>
+    <p><code class="directive">ScriptAlias</code> can also be used in conjunction with
+    a script or handler you have. For example:</p>
 
-	<pre class="prettyprint lang-config">ScriptAlias /cgi-bin/ /web/cgi-handler.pl</pre>
+    <pre class="prettyprint lang-config">ScriptAlias "/cgi-bin/" "/web/cgi-handler.pl"</pre>
 
 
     <p>In this scenario all files requested in <code>/cgi-bin/</code> will be
@@ -470,7 +469,7 @@ target as a CGI script</td></tr>
     choose to place your CGI scripts in a directory already
     accessible from the web, do not use
     <code class="directive">ScriptAlias</code>.  Instead, use <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code>, <code class="directive"><a href="../mod/core.html#sethandler">SetHandler</a></code>, and <code class="directive"><a href="../mod/core.html#options">Options</a></code> as in:
-    <pre class="prettyprint lang-config">&lt;Directory /usr/local/apache2/htdocs/cgi-bin &gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/usr/local/apache2/htdocs/cgi-bin"&gt;
     SetHandler cgi-script
     Options ExecCGI
 &lt;/Directory&gt;</pre>
@@ -480,7 +479,6 @@ target as a CGI script</td></tr>
     <code class="directive">ScriptAlias</code> and revealing the source code
     of the CGI scripts if they are not restricted by a
     <code class="directive"><a href="../mod/core.html#directory">Directory</a></code> section.</div>
-
 
 <h3>See also</h3>
 <ul>
@@ -507,7 +505,7 @@ and designates the target as a CGI script</td></tr>
     example, to activate the standard <code>/cgi-bin</code>, one
     might use:</p>
 
-    <pre class="prettyprint lang-config">ScriptAliasMatch ^/cgi-bin(.*) /usr/local/apache/cgi-bin$1</pre>
+    <pre class="prettyprint lang-config">ScriptAliasMatch "^/cgi-bin(.*)" "/usr/local/apache/cgi-bin$1"</pre>
 
 
     <p>As for AliasMatch, the full range of <a class="glossarylink" href="../glossary.html#rexex" title="see glossary">regular
@@ -515,7 +513,7 @@ and designates the target as a CGI script</td></tr>
     For example, it is possible to construct an alias with case-insensitive
     matching of the URL-path:</p>
 
-    <pre class="prettyprint lang-config">ScriptAliasMatch (?i)^/cgi-bin(.*) /usr/local/apache/cgi-bin$1</pre>
+    <pre class="prettyprint lang-config">ScriptAliasMatch "(?i)^/cgi-bin(.*)" "/usr/local/apache/cgi-bin$1"</pre>
 
 
     <p>The considerations related to the difference between
@@ -554,7 +552,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_alias.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

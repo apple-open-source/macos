@@ -519,12 +519,6 @@ _krb5_kcm_noop (
 	krb5_ccache id);
 
 krb5_error_code
-_krb5_kcm_ntlm_challenge (
-	krb5_context context,
-	int op __attribute((__unused__)),
-	uint8_t chal[8]);
-
-krb5_error_code
 _krb5_kdc_retry (
 	krb5_context context,
 	krb5_sendto_ctx ctx,

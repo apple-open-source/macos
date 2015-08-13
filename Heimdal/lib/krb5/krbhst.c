@@ -186,10 +186,6 @@ state_append_hosts(struct _krb5_srv_query_ctx *query)
 
 	append_host_hostinfo(query->handle, query->array[n].hi);
     }
-
-    dispatch_semaphore_signal((dispatch_semaphore_t)query->sema);
-
-    heim_release(query);
 }
 
 static void
@@ -211,6 +207,11 @@ QueryReplyCallback(DNSServiceRef sdRef,
     struct srv_reply *tmp;
     krb5_krbhst_info *hi;
     int status;
+
+    if (query->queryPostProcessingDone) {
+	_krb5_debugx(query->context, 10, "Got DNS callback after MoreComing == 0 was already set!");
+	return;
+    }
 
     if (errorCode != kDNSServiceErr_NoError) {
 	flags = 0; /* other values are undefined on failure */
@@ -253,6 +254,8 @@ QueryReplyCallback(DNSServiceRef sdRef,
     
     tmp = realloc(query->array, (query->len + 1) * sizeof(query->array[0]));
     if (tmp == NULL) {
+	if (hi->path)
+	    free(hi->path);
 	free(hi);
 	goto end;
     }
@@ -264,8 +267,15 @@ QueryReplyCallback(DNSServiceRef sdRef,
 
  end:
     if ((flags & kDNSServiceFlagsMoreComing) == 0) {
+	heim_assert(!query->queryPostProcessingDone, "DNS-SD invariant not true, canceled but got error message");
+
 	_krb5_state_srv_sort(query);
+
 	state_append_hosts(query);
+
+	query->queryPostProcessingDone = true;
+	dispatch_semaphore_signal((dispatch_semaphore_t)query->sema);
+	heim_release(query);
     }
 }
 
@@ -281,7 +291,6 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
     DNSServiceRef client = NULL;
     DNSServiceErrorType error;
     krb5_error_code ret;
-
 
     error = DNSServiceQueryRecord(&client,
 				  kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates,
@@ -307,6 +316,18 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	/* must run the DNSServiceRefDeallocate on the same queue as dns request are processed on */
 	dispatch_sync((dispatch_queue_t)dnsQueue, ^{
 	    DNSServiceRefDeallocate(client);
+
+	    /*
+	     * If we cancelled the connection, and the callback didn't
+	     * get a chance to any work, now its time to clean up
+	     * since after DNSServiceRefDeallocate() completed, there
+	     * will be no more callbacks.
+	     */
+
+	    if (!query->queryPostProcessingDone) {
+		heim_release(query);
+		query->queryPostProcessingDone = true;
+	    }
 	});
     } else {
 	_krb5_debugx(context, 2,
@@ -315,8 +336,6 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	ret = KRB5_KDC_UNREACH;
     }
    
-    heim_release(query);
-
     return ret;
 }
 
@@ -378,7 +397,6 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 {
     heim_async_f(queue, query, srv_query_domain);
     heim_sema_wait(query->sema, 10);
-    heim_release(query);
 }
 
 #endif
@@ -776,6 +794,8 @@ srv_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
 #endif
 
     srv_find_realm(context, kd, dnsQueue, query);
+
+    heim_release(query);
 
     return 0;
 }

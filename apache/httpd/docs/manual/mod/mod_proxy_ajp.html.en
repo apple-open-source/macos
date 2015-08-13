@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -50,10 +52,7 @@
       large.</p>
     </div>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
-<p>This module provides no
-            directives.</p>
-<h3>Topics</h3>
+<div id="quickview"><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#usage">Usage</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#env">Environment Variables</a></li>
@@ -61,7 +60,10 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#basppacketstruct">Basic Packet Structure</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#rpacetstruct">Request Packet Structure</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#resppacketstruct">Response Packet Structure</a></li>
-</ul><h3>See also</h3>
+</ul><h3 class="directives">Directives</h3>
+<p>This module provides no
+            directives.</p>
+<h3>See also</h3>
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></li>
 <li><a href="../env.html">Environment Variable documentation</a></li>
@@ -73,16 +75,16 @@
     (e.g. Apache Tomcat) using the AJP13 protocol. The usage is similar to
     an HTTP reverse proxy, but uses the <code>ajp://</code> prefix:</p>
 
-    <div class="example"><h3>Simple Reverse Proxy</h3><pre class="prettyprint lang-config">ProxyPass /app ajp://backend.example.com:8009/app</pre>
+    <div class="example"><h3>Simple Reverse Proxy</h3><pre class="prettyprint lang-config">ProxyPass "/app" "ajp://backend.example.com:8009/app"</pre>
 </div>
 
     <p>Balancers may also be used:</p>
-    <div class="example"><h3>Balancer Reverse Proxy</h3><pre class="prettyprint lang-config">&lt;Proxy balancer://cluster&gt;
-    BalancerMember ajp://app1.example.com:8009 loadfactor=1
-    BalancerMember ajp://app2.example.com:8009 loadfactor=2
+    <div class="example"><h3>Balancer Reverse Proxy</h3><pre class="prettyprint lang-config">&lt;Proxy "balancer://cluster"&gt;
+    BalancerMember "ajp://app1.example.com:8009" loadfactor=1
+    BalancerMember "ajp://app2.example.com:8009" loadfactor=2
     ProxySet lbmethod=bytraffic
 &lt;/Proxy&gt;
-ProxyPass /app balancer://cluster/app</pre>
+ProxyPass "/app" "balancer://cluster/app"</pre>
 </div>
 
     <p>Note that usually no
@@ -97,8 +99,8 @@ ProxyPass /app balancer://cluster/app</pre>
     backend. In this case, a redirect header can be rewritten relative to the
     original host URL (not the backend <code>ajp://</code> URL), for
     example:</p>
-    <div class="example"><h3>Rewriting Proxied Path</h3><pre class="prettyprint lang-config">ProxyPass /apps/foo ajp://backend.example.com:8009/foo
-ProxyPassReverse /apps/foo http://www.example.com/foo</pre>
+    <div class="example"><h3>Rewriting Proxied Path</h3><pre class="prettyprint lang-config">ProxyPass "/apps/foo" "ajp://backend.example.com:8009/foo"
+ProxyPassReverse "/apps/foo" "http://www.example.com/foo"</pre>
 </div>
     <p>However, it is usually better to deploy the application on the backend
     server at the same path as the proxy rather than to take this approach.
@@ -157,11 +159,7 @@ ProxyPassReverse /apps/foo http://www.example.com/foo</pre>
 <h2><a name="basppacketstruct" id="basppacketstruct">Basic Packet Structure</a></h2>
     <p>There is a bit of an XDR heritage to this protocol, but it differs
     in lots of ways (no 4 byte alignment, for example).</p>
-    <p>Byte order: I am not clear about the endian-ness of the individual
-    bytes.  I'm guessing the bytes are little-endian, because that's what
-    XDR specifies, and I'm guessing that sys/socket library is magically
-    making that so (on the C side).  If anyone with a better knowledge of
-    socket calls can step in, that would be great.</p>
+    <p>AJP13 uses network byte order for all data types.</p>
     <p>There are four data types in the protocol: bytes, booleans,
     integers and strings.</p>
     <dl>
@@ -574,9 +572,9 @@ AJP13_GET_BODY_CHUNK :=
   
   <h3>End Response</h3>
     <p>Signals the end of this request-handling cycle.  If the
-    <code>reuse</code> flag is true <code>(==1)</code>, this TCP connection can
-    now be used to handle new incoming requests.  If <code>reuse</code> is false
-    (anything other than 1 in the actual C code), the connection should
+    <code>reuse</code> flag is true <code>(anything other than 0 in the actual
+    C code)</code>, this TCP connection can now be used to handle new incoming
+    requests.  If <code>reuse</code> is false (==0), the connection should
     be closed.</p>
   
   <h3>Get Body Chunk</h3>
@@ -615,7 +613,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_proxy_ajp.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -49,6 +49,9 @@
 /* to disable RTSP */
 /* #undef CURL_DISABLE_RTSP */
 
+/* to disable SMB/CIFS */
+/* #undef CURL_DISABLE_SMB */
+
 /* to disable SMTP */
 /* #undef CURL_DISABLE_SMTP */
 
@@ -66,9 +69,6 @@
 
 /* Definition to make a library symbol externally visible. */
 #define CURL_EXTERN_SYMBOL __attribute__ ((__visibility__ ("default")))
-
-/* Use Windows LDAP implementation */
-/* #undef CURL_LDAP_WIN */
 
 /* your Entropy Gathering Daemon socket pathname */
 /* #undef EGD_SOCKET */
@@ -121,6 +121,9 @@
 /* Define to 1 if bool is an available type. */
 #define HAVE_BOOL_T 1
 
+/* Define to 1 if using BoringSSL. */
+/* #undef HAVE_BORINGSSL */
+
 /* Define to 1 if you have the clock_gettime function and monotonic timer. */
 /* #undef HAVE_CLOCK_GETTIME_MONOTONIC */
 
@@ -141,6 +144,12 @@
 
 /* Define to 1 if you have the <cyassl/error-ssl.h> header file. */
 /* #undef HAVE_CYASSL_ERROR_SSL_H */
+
+/* Define to 1 if you have the <cyassl/options.h> header file. */
+/* #undef HAVE_CYASSL_OPTIONS_H */
+
+/* Define to 1 if you have the `DES_set_odd_parity' function. */
+/* #undef HAVE_DES_SET_ODD_PARITY */
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -386,29 +395,17 @@
 /* Define to 1 if you have the `resolve' library (-lresolve). */
 /* #undef HAVE_LIBRESOLVE */
 
+/* Define to 1 if using libressl. */
+/* #undef HAVE_LIBRESSL */
+
 /* Define to 1 if you have the <librtmp/rtmp.h> header file. */
 /* #undef HAVE_LIBRTMP_RTMP_H */
 
 /* Define to 1 if you have the `ssh2' library (-lssh2). */
 /* #undef HAVE_LIBSSH2 */
 
-/* Define to 1 if you have the `libssh2_exit' function. */
-/* #undef HAVE_LIBSSH2_EXIT */
-
 /* Define to 1 if you have the <libssh2.h> header file. */
 /* #undef HAVE_LIBSSH2_H */
-
-/* Define to 1 if you have the `libssh2_init' function. */
-/* #undef HAVE_LIBSSH2_INIT */
-
-/* Define to 1 if you have the `libssh2_scp_send64' function. */
-/* #undef HAVE_LIBSSH2_SCP_SEND64 */
-
-/* Define to 1 if you have the `libssh2_session_handshake' function. */
-/* #undef HAVE_LIBSSH2_SESSION_HANDSHAKE */
-
-/* Define to 1 if you have the `libssh2_version' function. */
-/* #undef HAVE_LIBSSH2_VERSION */
 
 /* Define to 1 if you have the `ssl' library (-lssl). */
 /* #undef HAVE_LIBSSL */
@@ -482,6 +479,9 @@
 
 /* Define to 1 if you have the <openssl/rsa.h> header file. */
 /* #undef HAVE_OPENSSL_RSA_H */
+
+/* if you have the function SRP_Calc_client_key */
+/* #undef HAVE_OPENSSL_SRP */
 
 /* Define to 1 if you have the <openssl/ssl.h> header file. */
 /* #undef HAVE_OPENSSL_SSL_H */
@@ -591,23 +591,8 @@
 /* Define to 1 if you have the <socket.h> header file. */
 /* #undef HAVE_SOCKET_H */
 
-/* Define this if you have the SPNEGO library fbopenssl */
-/* #undef HAVE_SPNEGO */
-
-/* if you have the function SRP_Calc_client_key */
-/* #undef HAVE_SSLEAY_SRP */
-
 /* Define to 1 if you have the `SSLv2_client_method' function. */
 /* #undef HAVE_SSLV2_CLIENT_METHOD */
-
-/* Define to 1 if you have the `SSL_CTX_set_alpn_protos' function. */
-/* #undef HAVE_SSL_CTX_SET_ALPN_PROTOS */
-
-/* Define to 1 if you have the `SSL_CTX_set_alpn_select_cb' function. */
-/* #undef HAVE_SSL_CTX_SET_ALPN_SELECT_CB */
-
-/* Define to 1 if you have the `SSL_CTX_set_next_proto_select_cb' function. */
-/* #undef HAVE_SSL_CTX_SET_NEXT_PROTO_SELECT_CB */
 
 /* Define to 1 if you have the `SSL_get_shutdown' function. */
 /* #undef HAVE_SSL_GET_SHUTDOWN */
@@ -986,14 +971,14 @@
 /* to enable Windows native SSL/TLS support */
 /* #undef USE_SCHANNEL */
 
-/* if SSL is enabled */
-/* #undef USE_SSLEAY */
-
 /* if you want POSIX threaded DNS lookup */
 #define USE_THREADS_POSIX 1
 
 /* Use TLS-SRP authentication */
 /* #undef USE_TLS_SRP */
+
+/* Use Unix domain sockets */
+#define USE_UNIX_SOCKETS 1
 
 /* Define to 1 if you have the `normaliz' (WinIDN) library (-lnormaliz). */
 /* #undef USE_WIN32_IDN */
@@ -1002,15 +987,15 @@
    */
 /* #undef USE_WIN32_LARGE_FILES */
 
+/* Use Windows LDAP implementation */
+/* #undef USE_WIN32_LDAP */
+
 /* Define to 1 if you are building a Windows target without large file
    support. */
 /* #undef USE_WIN32_SMALL_FILES */
 
 /* to enable SSPI support */
 /* #undef USE_WINDOWS_SSPI */
-
-/* Define to 1 if using yaSSL in OpenSSL compatibility mode. */
-/* #undef USE_YASSLEMUL */
 
 /* Version number of package */
 #define VERSION "-"

@@ -34,6 +34,8 @@
 
 #define kHIDQueueSize           16384
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
 #define super IOUserClient
 
 
@@ -708,7 +710,7 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArgumen
             // 12978252:  If we get an IOBMD passed in, set the length to be the # of bytes that were transferred
             IOBufferMemoryDescriptor * buffer = OSDynamicCast(IOBufferMemoryDescriptor, pResult->descriptor);
             if (buffer)
-                buffer->setLength((vm_size_t)arguments->structureInputSize);
+                buffer->setLength(MIN((vm_size_t)arguments->structureInputSize, buffer->getCapacity()));
             
         }
         

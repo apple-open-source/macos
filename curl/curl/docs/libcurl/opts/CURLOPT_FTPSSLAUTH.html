@@ -4,15 +4,20 @@
 <title>CURLOPT_FTPSSLAUTH man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -46,8 +51,8 @@ p.roffit {
 </head><body>
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
-<p class="level0">CURLOPT_FTPSSLAUTH - set order to attemp TSL vs SSL when using FTP <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0">#include &lt;curl/curl.h&gt; 
+<p class="level0">CURLOPT_FTPSSLAUTH - set order in which to attempt TLS vs SSL when using FTP <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
+<p class="level0">&#35;include &lt;curl/curl.h&gt; 
 <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_FTPSSLAUTH, long order); <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">Pass a long using one of the values from below, to alter how libcurl issues "AUTH TLS" or "AUTH SSL" when FTP over SSL is activated. This is only interesting if <a Class="emphasis" href="./CURLOPT_USE_SSL.html">CURLOPT_USE_SSL</a> is also set. 
 <p class="level0">Possible <span Class="emphasis">order</span> values: 
@@ -62,6 +67,6 @@ p.roffit {
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Added in 7.12.2 <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_USE_SSL.html">CURLOPT_USE_SSL</a> <a Class="manpage" href="./CURLOPT_FTP_SSL_CCC.html">CURLOPT_FTP_SSL_CCC</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_USE_SSL.html">CURLOPT_USE_SSL</a>, <a Class="manpage" href="./CURLOPT_FTP_SSL_CCC.html">CURLOPT_FTP_SSL_CCC</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

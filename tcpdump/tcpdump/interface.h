@@ -181,7 +181,6 @@ extern int llc_print(const u_char *, u_int, u_int, const u_char *,
 	const u_char *, u_short *);
 extern int snap_print(const u_char *, u_int, u_int, u_int);
 extern void aarp_print(const u_char *, u_int);
-extern void aodv_print(const u_char *, u_int, int);
 extern void atalk_print(const u_char *, u_int);
 extern void atm_print(u_int, u_int, u_int, const u_char *, u_int, u_int);
 extern u_int atm_if_print(const struct pcap_pkthdr *, const u_char *);
@@ -233,7 +232,6 @@ extern const u_char * ns_nprint (register const u_char *, register const u_char 
 extern void ntp_print(const u_char *, u_int);
 extern u_int null_if_print(const struct pcap_pkthdr *, const u_char *);
 extern void ospf_print(const u_char *, u_int, const u_char *);
-extern void olsr_print (const u_char *, u_int, int);
 extern void pimv1_print(const u_char *, u_int);
 extern void cisco_autorp_print(const u_char *, u_int);
 extern void rsvp_print(const u_char *, u_int);

@@ -62,7 +62,8 @@ static const char *ticket_life = NULL;
 
 int launchd_flag = 0;
 int disallow_getting_krbtgt = 0;
-int use_uid_matching = 0;
+int use_uid_matching = -1;
+int disable_ntlm_reflection_detection = 0;
 int max_num_requests = 100000;
 int kcm_timeout = -1;
 
@@ -365,6 +366,18 @@ kcm_configure(int argc, char **argv)
 							   "kcm",
 							   "detach", NULL);
 #endif
+
+    if (use_uid_matching == -1)
+	use_uid_matching = krb5_config_get_bool_default(kcm_context, NULL,
+							0,
+							"kcm",
+							"use-uid-matching", NULL);
+
+    disable_ntlm_reflection_detection = krb5_config_get_bool_default(kcm_context, NULL,
+								     0,
+								     "kcm",
+								     "disable-ntlm-reflection-detection", NULL);
+    
     kcm_openlog();
     if(max_request == 0)
 	max_request = 64 * 1024;

@@ -18,10 +18,8 @@
 # Foundation, 51 Franklin St - Fifth Floor, Boston, MA 02110-1301, USA.
 
 MAN1=\
-  pdfroff.n
 
 CMDFILES=\
-  pdfroff
 
 TMACFILES=\
   pdfmark.tmac \

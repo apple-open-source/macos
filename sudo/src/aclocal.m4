@@ -139,6 +139,26 @@ AC_DEFUN([SUDO_IO_LOGDIR], [
 ])dnl
 
 dnl
+dnl Detect time zone file directory, if any.
+dnl
+AC_DEFUN([SUDO_TZDIR], [AC_MSG_CHECKING(time zone data directory)
+tzdir="$with_tzdir"
+if test -z "$tzdir"; then
+    tzdir=no
+    for d in /usr/share /usr/share/lib /usr/lib /etc; do
+	if test -d "$d/zoneinfo"; then
+	    tzdir="$d/zoneinfo"
+	    break
+	fi
+    done
+fi
+AC_MSG_RESULT([$tzdir])
+if test "${tzdir}" != "no"; then
+    SUDO_DEFINE_UNQUOTED(_PATH_ZONEINFO, "$tzdir")
+fi
+])dnl
+
+dnl
 dnl check for working fnmatch(3)
 dnl
 AC_DEFUN([SUDO_FUNC_FNMATCH],
@@ -151,6 +171,23 @@ main() { exit(fnmatch("/*/bin/echo *", "/usr/bin/echo just a test", FNM_CASEFOLD
 rm -f core core.* *.core])
 AC_MSG_RESULT($sudo_cv_func_fnmatch)
 AS_IF([test $sudo_cv_func_fnmatch = yes], [$1], [$2])])
+
+dnl
+dnl Attempt to check for working PIE support.
+dnl This is a bit of a hack but on Solaris 10 with GNU ld and GNU as
+dnl we can end up with strange values from malloc().
+dnl A better check would be to verify that ASLR works with PIE.
+dnl
+AC_DEFUN([SUDO_WORKING_PIE],
+[AC_MSG_CHECKING([for working PIE support])
+AC_CACHE_VAL(sudo_cv_working_pie,
+[rm -f conftestdata; > conftestdata
+AC_RUN_IFELSE([AC_LANG_SOURCE([AC_INCLUDES_DEFAULT
+main() { char *p = malloc(1024); if (p == NULL) return 1; memset(p, 0, 1024); return 0; }])], [sudo_cv_working_pie=yes], [sudo_cv_working_pie=no],
+  [sudo_cv_working_pie=no])
+rm -f core core.* *.core])
+AC_MSG_RESULT($sudo_cv_working_pie)
+AS_IF([test $sudo_cv_working_pie = yes], [$1], [$2])])
 
 dnl
 dnl check for isblank(3)

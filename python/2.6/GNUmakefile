@@ -144,10 +144,12 @@ $(OBJROOT)/$(PROJECT):
 	sed 's/@VERSION@/$(VERS)/' $(FIX)/python.c.ed | ed - $(PROJECT)/Modules/python.c && \
 	ed - $(PROJECT)/Modules/readline.c < $(FIX)/readline.c.ed && \
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
+	patch $(PROJECT)/Objects/bufferobject.c $(FIX)/bufferobject.c.patch && \
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
 	ed - $(PROJECT)/Python/mactoolboxglue.c < $(FIX)/mactoolboxglue.c.ed && \
+	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \

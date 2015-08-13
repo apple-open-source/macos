@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -188,8 +190,8 @@ hyperliens pleinement qualifiés (car vous devez modifier le schéma de l'URL).
 Cependant, à l'aide du module <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>, vous pouvez
 manipuler des hyperliens relatifs, pour obtenir le même effet.</p>
     <pre class="prettyprint lang-config">RewriteEngine on
-RewriteRule   ^/(.*)_SSL$   https://%{SERVER_NAME}/$1 [R,L]
-RewriteRule   ^/(.*)_NOSSL$ http://%{SERVER_NAME}/$1  [R,L]</pre>
+RewriteRule   "^/(.*)_SSL$"   "https://%{SERVER_NAME}/$1" [R,L]
+RewriteRule   "^/(.*)_NOSSL$" "http://%{SERVER_NAME}/$1"  [R,L]</pre>
 
 
     <p>Ce jeu de règles rewrite vous permet d'utiliser des hyperliens de la
@@ -269,8 +271,8 @@ fins de test ?</a></h3>
 			-keyout server.key</strong></code><br />
 	Ces fichiers seront utilisés comme suit dans votre
 	<code>httpd.conf</code> :
-        <pre class="prettyprint lang-config">SSLCertificateFile    /path/to/this/server.crt
-SSLCertificateKeyFile /path/to/this/server.key</pre>
+        <pre class="prettyprint lang-config">SSLCertificateFile    "/path/to/this/server.crt"
+SSLCertificateKeyFile "/path/to/this/server.key"</pre>
 
     </li>
     <li>Il est important de savoir que le fichier <code>server.key</code> n'a
@@ -351,8 +353,8 @@ SSLCertificateKeyFile /path/to/this/server.key</pre>
     <li>Vous devez maintenant disposer de deux fichiers :
     <code>server.key</code> et <code>server.crt</code>. Ils sont précisés dans
     votre fichier <code>httpd.conf</code> comme suit :
-       <pre class="prettyprint lang-config">SSLCertificateFile    /path/to/this/server.crt
-SSLCertificateKeyFile /path/to/this/server.key</pre>
+       <pre class="prettyprint lang-config">SSLCertificateFile    "/path/to/this/server.crt"
+SSLCertificateKeyFile "/path/to/this/server.key"</pre>
 
        Le fichier <code>server.csr</code> n'est plus nécessaire.
     </li>
@@ -391,7 +393,7 @@ certification (CA) ?</a></h3>
     que vous venez de générer (la sortie sera au format PEM) :<br />
        <br />
        <code><strong>$ openssl req -new -x509 -nodes -sha1 -days 365
-		       -key server.key -out server.crt</strong></code><br />
+		       -key server.key -out server.crt -extensions usr_cert</strong></code><br />
        <br />
        Cette commande signe le certificat du serveur et produit un fichier
        <code>server.crt</code>. Vous pouvez afficher les détails de ce
@@ -825,22 +827,23 @@ de 1024 bits ?</a></h3>
     des erreurs (avec un <code class="directive"><a href="../mod/core.html#loglevel">LogLevel</a></code>
     <code>info</code> ou supérieur), vous pouvez soit réarranger la
     liste d'algorithmes de mod_ssl via la directive <code class="directive"><a href="../mod/mod_ssl.html#sslciphersuite">SSLCipherSuite</a></code> (éventuellement en
-    conjonction avec la directive <code class="directive"><a href="../mod/mod_ssl.html#sslhonorcipherorder">SSLHonorCipherOrder</a></code>), soit utiliser la
-    directive <code class="directive"><a href="../mod/mod_ssl.html#sslcertificatefile">SSLCertificateFile</a></code>
-    pour configurer des paramètres DH personnalisés avec un nombre
+    conjonction avec la directive <code class="directive"><a href="../mod/mod_ssl.html#sslhonorcipherorder">SSLHonorCipherOrder</a></code>), soit utiliser des
+    paramètres DH personnalisés avec un nombre
     premier de 1024 bits, paramètres qui seront toujours prioritaires
     par rapport à tout autre paramètre DH par défaut.</p>
 
     <p>Pour générer des paramètres DH personnalisés, utilisez la
-    commande <code>openssl dhparam</code>. Vous pouvez aussi ajouter les
-    paramètres DH standards issus de la <a href="http://www.ietf.org/rfc/rfc2409.txt">RFC 2409</a>, section 6.2
-    au fichier <code class="directive"><a href="../mod/mod_ssl.html#sslcertificatefile">SSLCertificateFile</a></code>
-    considéré :</p>
+    commande <code>openssl dhparam 1024</code>. Vous pouvez aussi
+    utiliser les
+    paramètres DH standards issus de la <a href="http://www.ietf.org/rfc/rfc2409.txt">RFC 2409</a>, section 6.2 :</p>
     <div class="example"><pre>-----BEGIN DH PARAMETERS-----
 MIGHAoGBAP//////////yQ/aoiFowjTExmKLgNwc0SkCTgiKZ8x0Agu+pjsTmyJR
 Sgh5jjQE3e+VGbPNOkMbMCsKbfJfFDdP4TVtbVHCReSFtXZiXn7G9ExC6aY37WsL
 /1y29Aa37e44a/taiZ+lrp8kEXxLH+ZJKGZR7OZTgf//////////AgEC
 -----END DH PARAMETERS-----</pre></div>
+    <p>Ajoute les paramÃ¨tres personnalisÃ©s incluant les lignes "BEGIN DH
+    PARAMETERS" et "END DH PARAMETERS" Ã&nbsp; la fin du premier fichier de
+    certificat dÃ©fini via la directive <code class="directive"><a href="../mod/mod_ssl.html#sslcertificatefile">SSLCertificateFile</a></code>.</p>
 
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1024,7 +1027,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/ssl/ssl_faq.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

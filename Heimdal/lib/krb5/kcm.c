@@ -1486,8 +1486,7 @@ _krb5_kcm_get_ticket(krb5_context context,
  *
  */
 krb5_error_code
-_krb5_kcm_ntlm_challenge(krb5_context context, int op __attribute((__unused__)),
-			 uint8_t chal[8])
+krb5_kcm_ntlm_challenge(krb5_context context, uint8_t chal[8])
 {
     krb5_error_code ret;
     krb5_ssize_t sret;
@@ -1507,6 +1506,54 @@ _krb5_kcm_ntlm_challenge(krb5_context context, int op __attribute((__unused__)),
 
  out:
     krb5_storage_free(request);
+    return ret;
+}
+
+/*
+ * Request:
+ *
+ * Response:
+ *
+ */
+krb5_error_code
+krb5_kcm_check_ntlm_challenge(krb5_context context,
+			      uint8_t chal[8],
+			      krb5_boolean *detectedReflection)
+{
+    krb5_error_code ret;
+    krb5_ssize_t sret;
+    krb5_storage *request = NULL, *response = NULL;
+    krb5_data response_data;
+    uint8_t status;
+
+    krb5_data_zero(&response_data);
+    *detectedReflection = false;
+
+    ret = krb5_kcm_storage_request(context, KCM_OP_CHECK_NTLM_CHALLENGE, &request);
+    if (ret)
+	return ret;
+
+    sret = krb5_storage_write(request, chal, 8);
+    if (sret != 8) {
+	ret = EINVAL;
+	goto out;
+    }
+
+    ret = krb5_kcm_call(context, request, &response, &response_data);
+    if (ret)
+	goto out;
+
+    ret = krb5_ret_uint8(response, &status);
+    if (ret)
+	goto out;
+
+    *detectedReflection = status;
+
+ out:
+    krb5_storage_free(request);
+    if (response)
+	krb5_storage_free(response);
+    krb5_data_free(&response_data);
     return ret;
 }
 

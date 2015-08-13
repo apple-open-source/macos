@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -92,6 +92,8 @@
 #define MAX_STRING              256
 #define MAX_STRING1             MAX_STRING+1
 
+#define SYNCTIME_UA "synctime/1.0"
+
 typedef struct
 {
   char http_proxy[MAX_STRING1];
@@ -99,12 +101,11 @@ typedef struct
   char timeserver[MAX_STRING1];
 } conf_t;
 
-const char DefaultTimeServer[4][MAX_STRING1] =
+const char DefaultTimeServer[3][MAX_STRING1] =
 {
-  "http://nist.time.gov/timezone.cgi?UTC/s/0",
-  "http://www.google.com/",
-  "http://www.worldtimeserver.com/current_time_in_UTC.aspx",
-  "http://www.worldtime.com/cgi-bin/wt.cgi"
+  "http://pool.ntp.org/",
+  "http://nist.time.gov/",
+  "http://www.google.com/"
 };
 
 const char *DayStr[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -186,9 +187,9 @@ void SyncTime_CURL_Init(CURL *curl, char *proxy_port,
   if (strlen(proxy_user_password) > 0)
     curl_easy_setopt(curl, CURLOPT_PROXYUSERPWD, proxy_user_password);
 
-  /* Trick Webserver by claiming that you are using Microsoft WinXP SP2, IE6 */
-  curl_easy_setopt(curl, CURLOPT_USERAGENT,
-                   "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)");
+#ifdef SYNCTIME_UA
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, SYNCTIME_UA);
+#endif
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, *SyncTime_CURL_WriteOutput);
   curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, *SyncTime_CURL_WriteHeader);
 }

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -65,7 +67,8 @@ configuration.</div>
    <p>The syntax of the <code>RewriteMap</code> directive is as
    follows:</p>
 
-<pre class="prettyprint lang-config">RewriteMap <em>MapName</em> <em>MapType</em>:<em>MapSource</em></pre>
+<pre class="prettyprint lang-config">RewriteMap <em>MapName</em> <em>MapType</em>:<em>MapSource</em>
+</pre>
 
 
     <p>The <a id="mapfunc" name="mapfunc"><em>MapName</em></a> is an
@@ -90,17 +93,17 @@ configuration.</div>
 
     <p>For example, you might define a
       <code class="directive">RewriteMap</code> as:</p>
-    <pre class="prettyprint lang-config">RewriteMap examplemap txt:/path/to/file/map.txt</pre>
+    <pre class="prettyprint lang-config">RewriteMap examplemap "txt:/path/to/file/map.txt"</pre>
 
     <p>You would then be able to use this map in a
       <code class="directive">RewriteRule</code> as follows:</p>
-<pre class="prettyprint lang-config">RewriteRule ^/ex/(.*) ${examplemap:$1}</pre>
+<pre class="prettyprint lang-config">RewriteRule "^/ex/(.*)" "${examplemap:$1}"</pre>
 
 
 <p>A default value can be specified in the event that nothing is found
 in the map:</p>
 
-<pre class="prettyprint lang-config">RewriteRule ^/ex/(.*) ${examplemap:$1|/not_found.html}</pre>
+<pre class="prettyprint lang-config">RewriteRule "^/ex/(.*)" "${examplemap:$1|/not_found.html}"</pre>
 
 
 <div class="note"><h3>Per-directory and .htaccess context</h3>
@@ -143,8 +146,8 @@ may be used, and give examples of each.</p>
     product IDs for easier-to-remember URLs, using the following
     recipe:</p>
 <p><strong>Product to ID configuration</strong></p>
-    <pre class="prettyprint lang-config">RewriteMap product2id txt:/etc/apache2/productmap.txt
-RewriteRule ^/product/(.*) /prods.php?id=${product2id:$1|NOTFOUND} [PT]</pre>
+    <pre class="prettyprint lang-config">RewriteMap product2id "txt:/etc/apache2/productmap.txt"
+RewriteRule "^/product/(.*)" "/prods.php?id=${product2id:$1|NOTFOUND}" [PT]</pre>
 
 
     <p>We assume here that the <code>prods.php</code> script knows what
@@ -175,7 +178,7 @@ telephone  328
     scope. If you're planning to use this in a <code>.htaccess</code>
     file, you'll need to remove the leading slash from the rewrite
     pattern in order for it to match anything:
-    <pre class="prettyprint lang-config">RewriteRule ^product/(.*) /prods.php?id=${product2id:$1|NOTFOUND} [PT]</pre>
+    <pre class="prettyprint lang-config">RewriteRule "^product/(.*)" "/prods.php?id=${product2id:$1|NOTFOUND}" [PT]</pre>
 
     </div>
 
@@ -214,10 +217,10 @@ static   www1|www2|www3|www4<br />
 dynamic  www5|www6
     </code></p></div>
 <p><strong>Configuration directives</strong></p>
-    <pre class="prettyprint lang-config">RewriteMap servers rnd:/path/to/file/map.txt
+    <pre class="prettyprint lang-config">RewriteMap servers "rnd:/path/to/file/map.txt"
 
-RewriteRule ^/(.*\.(png|gif|jpg)) http://${servers:static}/$1 [NC,P,L]
-RewriteRule ^/(.*) http://${servers:dynamic}/$1 [P,L]</pre>
+RewriteRule "^/(.*\.(png|gif|jpg))" "http://${servers:static}/$1" [NC,P,L]
+RewriteRule "^/(.*)" "http://${servers:dynamic}/$1" [P,L]</pre>
 
 
     <p>So, when an image is requested and the first of these rules is
@@ -249,7 +252,7 @@ static   www1|www1|www2|www3|www4
 
     <p>You may optionally specify a particular dbm type:</p>
 
- <pre class="prettyprint lang-config">RewriteMap examplemap dbm=sdbm:/etc/apache/mapfile.dbm</pre>
+ <pre class="prettyprint lang-config">RewriteMap examplemap "dbm=sdbm:/etc/apache/mapfile.dbm"</pre>
 
 
     <p>The type can be sdbm, gdbm, ndbm or db.
@@ -268,7 +271,7 @@ $ httxt2dbm -i mapfile.txt -o mapfile.map
 <p>You can then reference the resulting file in your
 <code>RewriteMap</code> directive:</p>
 
-<pre class="prettyprint lang-config">RewriteMap mapname dbm:/etc/apache/mapfile.map</pre>
+<pre class="prettyprint lang-config">RewriteMap mapname "dbm:/etc/apache/mapfile.map"</pre>
 
 
 <div class="note">
@@ -320,7 +323,7 @@ by many requests.
 
    <p> <strong>Redirect a URI to an all-lowercase version of itself</strong></p>
     <pre class="prettyprint lang-config">RewriteMap lc int:tolower
-RewriteRule (.*?[A-Z]+.*) ${lc:$1} [R]</pre>
+RewriteRule "(.*?[A-Z]+.*)" "${lc:$1}" [R]</pre>
 
 
     <div class="note">
@@ -362,8 +365,8 @@ RewriteRule (.*?[A-Z]+.*) ${lc:$1} [R]</pre>
     underscores in a request URI.</p>
     
 <p><strong>Rewrite configuration</strong></p>
-    <pre class="prettyprint lang-config">RewriteMap d2u prg:/www/bin/dash2under.pl<br />
-RewriteRule - ${d2u:%{REQUEST_URI}}</pre>
+    <pre class="prettyprint lang-config">RewriteMap d2u "prg:/www/bin/dash2under.pl"<br />
+RewriteRule "-" "${d2u:%{REQUEST_URI}}"</pre>
 
 
     <p><strong>dash2under.pl</strong></p>
@@ -455,7 +458,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/rewritemap.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -4,15 +4,20 @@
 <title>CURLOPT_NETRC man page</title>
 <meta name="generator" content="roffit">
 <STYLE type="text/css">
-P.level0 {
+pre {
+  overflow: auto;
+  margin: 0;
+}
+
+P.level0, pre.level0 {
  padding-left: 2em;
 }
 
-P.level1 {
+P.level1, pre.level1 {
  padding-left: 4em;
 }
 
-P.level2 {
+P.level2, pre.level2 {
  padding-left: 6em;
 }
 
@@ -47,7 +52,7 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">CURLOPT_NETRC - request that .netrc is used <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0">#include &lt;curl/curl.h&gt; 
+<p class="level0">&#35;include &lt;curl/curl.h&gt; 
 <p class="level0">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_NETRC, long level); <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">This parameter controls the preference <span Class="emphasis">level</span> of libcurl between using user names and passwords from your <span Class="emphasis">~/.netrc</span> file, relative to user names and passwords in the URL supplied with <a Class="emphasis" href="./CURLOPT_URL.html">CURLOPT_URL</a>. 
 <p class="level0">libcurl uses a user name (and supplied or prompted password) supplied with <a Class="emphasis" href="./CURLOPT_USERPWD.html">CURLOPT_USERPWD</a> or <a Class="emphasis" href="./CURLOPT_USERNAME.html">CURLOPT_USERNAME</a> in preference to any of the options controlled by this parameter. 
@@ -68,6 +73,6 @@ p.roffit {
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">Always <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./CURLOPT_USERPWD.html">CURLOPT_USERPWD</a> <a Class="manpage" href="./CURLOPT_USERNAME.html">CURLOPT_USERNAME</a> <span Class="manpage"> </span> <p class="roffit">
+<p class="level0"><a Class="manpage" href="./CURLOPT_USERPWD.html">CURLOPT_USERPWD</a>, <a Class="manpage" href="./CURLOPT_USERNAME.html">CURLOPT_USERNAME</a>, <span Class="manpage"> </span> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

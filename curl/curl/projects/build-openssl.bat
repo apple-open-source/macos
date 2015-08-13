@@ -6,7 +6,7 @@ rem *                             / __| | | | |_) | |
 rem *                            | (__| |_| |  _ <| |___
 rem *                             \___|\___/|_| \_\_____|
 rem *
-rem * Copyright (C) 2012 - 2014, Steve Holme, <steve_holme@hotmail.com>.
+rem * Copyright (C) 2012 - 2015, Steve Holme, <steve_holme@hotmail.com>.
 rem *
 rem * This software is licensed as described in the file COPYING, which
 rem * you should have received as part of this distribution. The terms
@@ -105,6 +105,14 @@ rem ***************************************************************************
   rem Check we have Visual Studio installed
   if not exist "%PF%\%VC_PATH%" goto novc
 
+  rem Check we have Perl installed
+  echo %PATH% | findstr /I /C:"\Perl" 1>nul
+  if errorlevel 1 (
+    if not exist "%SystemDrive%\Perl" (
+      if not exist "%SystemDrive%\Perl64" goto noperl
+    )
+  )
+
   rem Check the start directory exists
   if not exist "%START_DIR%" goto noopenssl
 
@@ -156,7 +164,7 @@ rem ***************************************************************************
   set OUTDIR=build\Win64\%VC_DESC%
   if not exist %OUTDIR% md %OUTDIR%
 
-  if "%BUILD_CONFIG%" == "release" goto x86release
+  if "%BUILD_CONFIG%" == "release" goto x64release
 
 :x64debug
   rem Configuring 64-bit Debug Build
@@ -306,6 +314,11 @@ rem ***************************************************************************
 :novc
   echo.
   echo Error: %VC_DESC% is not installed
+  goto error
+
+:noperl
+  echo.
+  echo Error: Perl is not installed
   goto error
 
 :nox64

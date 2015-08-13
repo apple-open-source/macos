@@ -35,6 +35,28 @@
 # KIND, either express or implied.
 #
 ###########################################################################
+
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
+#
+# Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://curl.haxx.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+###########################################################################
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -101,8 +123,7 @@ build_triplet = @build@
 host_triplet = @host@
 @USE_CPPFLAG_CURL_STATICLIB_TRUE@am__append_1 = -DCURL_STATICLIB
 DIST_COMMON = $(srcdir)/Makefile.inc $(srcdir)/Makefile.in \
-	$(srcdir)/Makefile.am $(top_srcdir)/mkinstalldirs \
-	$(top_srcdir)/depcomp README
+	$(srcdir)/Makefile.am $(top_srcdir)/depcomp README
 check_PROGRAMS = 10-at-a-time$(EXEEXT) anyauthput$(EXEEXT) \
 	cookie_interface$(EXEEXT) debug$(EXEEXT) fileupload$(EXEEXT) \
 	fopen$(EXEEXT) ftpget$(EXEEXT) ftpgetresp$(EXEEXT) \
@@ -127,7 +148,8 @@ check_PROGRAMS = 10-at-a-time$(EXEEXT) anyauthput$(EXEEXT) \
 	imap-search$(EXEEXT) imap-create$(EXEEXT) imap-delete$(EXEEXT) \
 	imap-copy$(EXEEXT) imap-noop$(EXEEXT) imap-ssl$(EXEEXT) \
 	imap-tls$(EXEEXT) imap-multi$(EXEEXT) url2file$(EXEEXT) \
-	sftpget$(EXEEXT) ftpsget$(EXEEXT) postinmemory$(EXEEXT)
+	sftpget$(EXEEXT) ftpsget$(EXEEXT) postinmemory$(EXEEXT) \
+	http2-download$(EXEEXT) http2-upload$(EXEEXT)
 subdir = docs/examples
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
@@ -149,7 +171,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
@@ -281,6 +303,20 @@ http_post_LDADD = $(LDADD)
 @USE_EXPLICIT_LIB_DEPS_FALSE@http_post_DEPENDENCIES =  \
 @USE_EXPLICIT_LIB_DEPS_FALSE@	$(LIBDIR)/libcurl.la
 @USE_EXPLICIT_LIB_DEPS_TRUE@http_post_DEPENDENCIES =  \
+@USE_EXPLICIT_LIB_DEPS_TRUE@	$(LIBDIR)/libcurl.la
+http2_download_SOURCES = http2-download.c
+http2_download_OBJECTS = http2-download.$(OBJEXT)
+http2_download_LDADD = $(LDADD)
+@USE_EXPLICIT_LIB_DEPS_FALSE@http2_download_DEPENDENCIES =  \
+@USE_EXPLICIT_LIB_DEPS_FALSE@	$(LIBDIR)/libcurl.la
+@USE_EXPLICIT_LIB_DEPS_TRUE@http2_download_DEPENDENCIES =  \
+@USE_EXPLICIT_LIB_DEPS_TRUE@	$(LIBDIR)/libcurl.la
+http2_upload_SOURCES = http2-upload.c
+http2_upload_OBJECTS = http2-upload.$(OBJEXT)
+http2_upload_LDADD = $(LDADD)
+@USE_EXPLICIT_LIB_DEPS_FALSE@http2_upload_DEPENDENCIES =  \
+@USE_EXPLICIT_LIB_DEPS_FALSE@	$(LIBDIR)/libcurl.la
+@USE_EXPLICIT_LIB_DEPS_TRUE@http2_upload_DEPENDENCIES =  \
 @USE_EXPLICIT_LIB_DEPS_TRUE@	$(LIBDIR)/libcurl.la
 httpcustomheader_SOURCES = httpcustomheader.c
 httpcustomheader_OBJECTS = httpcustomheader.$(OBJEXT)
@@ -681,14 +717,14 @@ SOURCES = 10-at-a-time.c anyauthput.c certinfo.c chkspeed.c \
 	cookie_interface.c debug.c externalsocket.c fileupload.c \
 	fopen.c ftp-wildcard.c ftpget.c ftpgetinfo.c ftpgetresp.c \
 	ftpsget.c ftpupload.c getinfo.c getinmemory.c http-post.c \
-	httpcustomheader.c httpput.c https.c imap-append.c imap-copy.c \
-	imap-create.c imap-delete.c imap-examine.c imap-fetch.c \
-	imap-list.c imap-lsub.c imap-multi.c imap-noop.c imap-search.c \
-	imap-ssl.c imap-store.c imap-tls.c multi-app.c \
-	multi-debugcallback.c multi-double.c multi-post.c \
-	multi-single.c persistant.c pop3-dele.c pop3-list.c \
-	pop3-multi.c pop3-noop.c pop3-retr.c pop3-ssl.c pop3-stat.c \
-	pop3-tls.c pop3-top.c pop3-uidl.c post-callback.c \
+	http2-download.c http2-upload.c httpcustomheader.c httpput.c \
+	https.c imap-append.c imap-copy.c imap-create.c imap-delete.c \
+	imap-examine.c imap-fetch.c imap-list.c imap-lsub.c \
+	imap-multi.c imap-noop.c imap-search.c imap-ssl.c imap-store.c \
+	imap-tls.c multi-app.c multi-debugcallback.c multi-double.c \
+	multi-post.c multi-single.c persistant.c pop3-dele.c \
+	pop3-list.c pop3-multi.c pop3-noop.c pop3-retr.c pop3-ssl.c \
+	pop3-stat.c pop3-tls.c pop3-top.c pop3-uidl.c post-callback.c \
 	postinmemory.c postit2.c progressfunc.c resolve.c rtsp.c \
 	sendrecv.c sepheaders.c sftpget.c simple.c simplepost.c \
 	simplessl.c smtp-expn.c smtp-mail.c smtp-multi.c smtp-ssl.c \
@@ -697,14 +733,14 @@ DIST_SOURCES = 10-at-a-time.c anyauthput.c certinfo.c chkspeed.c \
 	cookie_interface.c debug.c externalsocket.c fileupload.c \
 	fopen.c ftp-wildcard.c ftpget.c ftpgetinfo.c ftpgetresp.c \
 	ftpsget.c ftpupload.c getinfo.c getinmemory.c http-post.c \
-	httpcustomheader.c httpput.c https.c imap-append.c imap-copy.c \
-	imap-create.c imap-delete.c imap-examine.c imap-fetch.c \
-	imap-list.c imap-lsub.c imap-multi.c imap-noop.c imap-search.c \
-	imap-ssl.c imap-store.c imap-tls.c multi-app.c \
-	multi-debugcallback.c multi-double.c multi-post.c \
-	multi-single.c persistant.c pop3-dele.c pop3-list.c \
-	pop3-multi.c pop3-noop.c pop3-retr.c pop3-ssl.c pop3-stat.c \
-	pop3-tls.c pop3-top.c pop3-uidl.c post-callback.c \
+	http2-download.c http2-upload.c httpcustomheader.c httpput.c \
+	https.c imap-append.c imap-copy.c imap-create.c imap-delete.c \
+	imap-examine.c imap-fetch.c imap-list.c imap-lsub.c \
+	imap-multi.c imap-noop.c imap-search.c imap-ssl.c imap-store.c \
+	imap-tls.c multi-app.c multi-debugcallback.c multi-double.c \
+	multi-post.c multi-single.c persistant.c pop3-dele.c \
+	pop3-list.c pop3-multi.c pop3-noop.c pop3-retr.c pop3-ssl.c \
+	pop3-stat.c pop3-tls.c pop3-top.c pop3-uidl.c post-callback.c \
 	postinmemory.c postit2.c progressfunc.c resolve.c rtsp.c \
 	sendrecv.c sepheaders.c sftpget.c simple.c simplepost.c \
 	simplessl.c smtp-expn.c smtp-mail.c smtp-multi.c smtp-ssl.c \
@@ -766,6 +802,7 @@ CURL_DISABLE_LDAPS = @CURL_DISABLE_LDAPS@
 CURL_DISABLE_POP3 = @CURL_DISABLE_POP3@
 CURL_DISABLE_PROXY = @CURL_DISABLE_PROXY@
 CURL_DISABLE_RTSP = @CURL_DISABLE_RTSP@
+CURL_DISABLE_SMB = @CURL_DISABLE_SMB@
 CURL_DISABLE_SMTP = @CURL_DISABLE_SMTP@
 CURL_DISABLE_TELNET = @CURL_DISABLE_TELNET@
 CURL_DISABLE_TFTP = @CURL_DISABLE_TFTP@
@@ -790,7 +827,7 @@ GREP = @GREP@
 HAVE_GNUTLS_SRP = @HAVE_GNUTLS_SRP@
 HAVE_LDAP_SSL = @HAVE_LDAP_SSL@
 HAVE_LIBZ = @HAVE_LIBZ@
-HAVE_SSLEAY_SRP = @HAVE_SSLEAY_SRP@
+HAVE_OPENSSL_SRP = @HAVE_OPENSSL_SRP@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -820,6 +857,7 @@ MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
 NROFF = @NROFF@
+NSS_LIBS = @NSS_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -844,6 +882,7 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 SSL_ENABLED = @SSL_ENABLED@
+SSL_LIBS = @SSL_LIBS@
 STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
@@ -860,7 +899,7 @@ USE_NSS = @USE_NSS@
 USE_OPENLDAP = @USE_OPENLDAP@
 USE_POLARSSL = @USE_POLARSSL@
 USE_SCHANNEL = @USE_SCHANNEL@
-USE_SSLEAY = @USE_SSLEAY@
+USE_UNIX_SOCKETS = @USE_UNIX_SOCKETS@
 USE_WINDOWS_SSPI = @USE_WINDOWS_SSPI@
 VERSION = @VERSION@
 VERSIONNUM = @VERSIONNUM@
@@ -944,10 +983,10 @@ LIBDIR = $(top_builddir)/lib
 
 # These examples require external dependencies that may not be commonly
 # available on POSIX systems, so don't bother attempting to compile them here.
-COMPLICATED_EXAMPLES = curlgtk.c curlx.c htmltitle.cpp cacertinmem.c	   \
-  ftpuploadresume.c ghiper.c hiperfifo.c htmltidy.c multithread.c	   \
+COMPLICATED_EXAMPLES = curlgtk.c curlx.c htmltitle.cpp cacertinmem.c       \
+  ftpuploadresume.c ghiper.c hiperfifo.c htmltidy.c multithread.c          \
   opensslthreadlock.c sampleconv.c synctime.c threaded-ssl.c evhiperfifo.c \
-  smooth-gtk-thread.c version-check.pl href_extractor.c asiohiper.cpp \
+  smooth-gtk-thread.c version-check.pl href_extractor.c asiohiper.cpp      \
   multi-uv.c xmlstream.c usercertinmem.c sessioninfo.c
 
 all: all-am
@@ -1066,6 +1105,14 @@ getinmemory$(EXEEXT): $(getinmemory_OBJECTS) $(getinmemory_DEPENDENCIES) $(EXTRA
 http-post$(EXEEXT): $(http_post_OBJECTS) $(http_post_DEPENDENCIES) $(EXTRA_http_post_DEPENDENCIES) 
 	@rm -f http-post$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(http_post_OBJECTS) $(http_post_LDADD) $(LIBS)
+
+http2-download$(EXEEXT): $(http2_download_OBJECTS) $(http2_download_DEPENDENCIES) $(EXTRA_http2_download_DEPENDENCIES) 
+	@rm -f http2-download$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(http2_download_OBJECTS) $(http2_download_LDADD) $(LIBS)
+
+http2-upload$(EXEEXT): $(http2_upload_OBJECTS) $(http2_upload_DEPENDENCIES) $(EXTRA_http2_upload_DEPENDENCIES) 
+	@rm -f http2-upload$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(http2_upload_OBJECTS) $(http2_upload_LDADD) $(LIBS)
 
 httpcustomheader$(EXEEXT): $(httpcustomheader_OBJECTS) $(httpcustomheader_DEPENDENCIES) $(EXTRA_httpcustomheader_DEPENDENCIES) 
 	@rm -f httpcustomheader$(EXEEXT)
@@ -1299,6 +1346,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getinmemory.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http-post.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http2-download.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http2-upload.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/httpcustomheader.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/httpput.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/https.Po@am__quote@

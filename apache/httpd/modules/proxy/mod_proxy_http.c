@@ -324,7 +324,7 @@ static int stream_reqbody_chunked(apr_pool_t *p,
                           " from %s (%s)", p_conn->addr,
                           p_conn->hostname ? p_conn->hostname: "",
                           c->client_ip, c->remote_host ? c->remote_host: "");
-            return HTTP_BAD_REQUEST;
+            return ap_map_http_request_error(status, HTTP_BAD_REQUEST);
         }
     }
 
@@ -475,7 +475,7 @@ static int stream_reqbody_cl(apr_pool_t *p,
                           " from %s (%s)", p_conn->addr,
                           p_conn->hostname ? p_conn->hostname: "",
                           c->client_ip, c->remote_host ? c->remote_host: "");
-            return HTTP_BAD_REQUEST;
+            return ap_map_http_request_error(status, HTTP_BAD_REQUEST);
         }
     }
 
@@ -624,7 +624,7 @@ static int spool_reqbody_cl(apr_pool_t *p,
                           " from %s (%s)", p_conn->addr,
                           p_conn->hostname ? p_conn->hostname: "",
                           c->client_ip, c->remote_host ? c->remote_host: "");
-            return HTTP_BAD_REQUEST;
+            return ap_map_http_request_error(status, HTTP_BAD_REQUEST);
         }
     }
 
@@ -687,7 +687,6 @@ static apr_status_t proxy_buckets_lifetime_transform(request_rec *r,
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00964)
                           "Unhandled bucket type of type %s in"
                           " proxy_buckets_lifetime_transform", e->type->name);
-            apr_bucket_delete(e);
             rv = APR_EGENERAL;
         }
     }
@@ -750,14 +749,8 @@ int ap_proxy_http_request(apr_pool_t *p, request_rec *r,
     if (!r->kept_body && r->main) {
         /* XXX: Why DON'T sub-requests use keepalives? */
         p_conn->close = 1;
-        if (old_cl_val) {
-            old_cl_val = NULL;
-            apr_table_unset(r->headers_in, "Content-Length");
-        }
-        if (old_te_val) {
-            old_te_val = NULL;
-            apr_table_unset(r->headers_in, "Transfer-Encoding");
-        }
+        old_cl_val = NULL;
+        old_te_val = NULL;
         rb_method = RB_STREAM_CL;
         e = apr_bucket_eos_create(input_brigade->bucket_alloc);
         APR_BRIGADE_INSERT_TAIL(input_brigade, e);
@@ -783,7 +776,6 @@ int ap_proxy_http_request(apr_pool_t *p, request_rec *r,
                       "client %s (%s) requested Transfer-Encoding "
                       "chunked body with Content-Length (C-L ignored)",
                       c->client_ip, c->remote_host ? c->remote_host: "");
-        apr_table_unset(r->headers_in, "Content-Length");
         old_cl_val = NULL;
         origin->keepalive = AP_CONN_CLOSE;
         p_conn->close = 1;
@@ -808,7 +800,7 @@ int ap_proxy_http_request(apr_pool_t *p, request_rec *r,
                           " from %s (%s)",
                           p_conn->addr, p_conn->hostname ? p_conn->hostname: "",
                           c->client_ip, c->remote_host ? c->remote_host: "");
-            return HTTP_BAD_REQUEST;
+            return ap_map_http_request_error(status, HTTP_BAD_REQUEST);
         }
 
         apr_brigade_length(temp_brigade, 1, &bytes);
@@ -930,7 +922,7 @@ skip_body:
      * otherwise sent Connection: Keep-Alive.
      */
     if (!force10) {
-        if (p_conn->close) {
+        if (!ap_proxy_connection_reusable(p_conn)) {
             buf = apr_pstrdup(p, "Connection: close" CRLF);
         }
         else {
@@ -1011,8 +1003,11 @@ static request_rec *make_fake_req(conn_rec *c, request_rec *r)
     rp->status          = HTTP_OK;
 
     rp->headers_in      = apr_table_make(pool, 50);
+    rp->trailers_in     = apr_table_make(pool, 5);
+
     rp->subprocess_env  = apr_table_make(pool, 50);
     rp->headers_out     = apr_table_make(pool, 12);
+    rp->trailers_out    = apr_table_make(pool, 5);
     rp->err_headers_out = apr_table_make(pool, 5);
     rp->notes           = apr_table_make(pool, 5);
 
@@ -1093,6 +1088,7 @@ static void ap_proxy_read_headers(request_rec *r, request_rec *rr,
     psc = (proxy_server_conf *) ap_get_module_config(sconf, &proxy_module);
 
     r->headers_out = apr_table_make(r->pool, 20);
+    r->trailers_out = apr_table_make(r->pool, 5);
     *pread_len = 0;
 
     /*
@@ -1222,6 +1218,14 @@ apr_status_t ap_proxygetline(apr_bucket_brigade *bb, char *s, int n, request_rec
 #ifndef AP_MAX_INTERIM_RESPONSES
 #define AP_MAX_INTERIM_RESPONSES 10
 #endif
+
+static int add_trailers(void *data, const char *key, const char *val)
+{
+    if (val) {
+        apr_table_add((apr_table_t*)data, key, val);
+    }
+    return 1;
+}
 
 static
 apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
@@ -1379,6 +1383,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
          */
         if (apr_date_checkmask(buffer, "HTTP/#.# ###*")) {
             int major, minor;
+            int toclose;
 
             major = buffer[5] - '0';
             minor = buffer[7] - '0';
@@ -1487,7 +1492,10 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
             te = apr_table_get(r->headers_out, "Transfer-Encoding");
 
             /* strip connection listed hop-by-hop headers from response */
-            backend->close = ap_proxy_clear_connection_fn(r, r->headers_out);
+            toclose = ap_proxy_clear_connection_fn(r, r->headers_out);
+            if (toclose) {
+                backend->close = 1;
+            }
 
             if ((buf = apr_table_get(r->headers_out, "Content-Type"))) {
                 ap_set_content_type(r, apr_pstrdup(p, buf));
@@ -1640,8 +1648,25 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
             if (!r->header_only && /* not HEAD request */
                 (proxy_status != HTTP_NO_CONTENT) && /* not 204 */
                 (proxy_status != HTTP_NOT_MODIFIED)) { /* not 304 */
+                const char *tmp;
+                /* Add minimal headers needed to allow http_in filter
+                 * detecting end of body without waiting for a timeout. */
+                if ((tmp = apr_table_get(r->headers_out, "Transfer-Encoding"))) {
+                    apr_table_set(backend->r->headers_in, "Transfer-Encoding", tmp);
+                }
+                else if ((tmp = apr_table_get(r->headers_out, "Content-Length"))) {
+                    apr_table_set(backend->r->headers_in, "Content-Length", tmp);
+                }
+                else if (te) {
+                    apr_table_set(backend->r->headers_in, "Transfer-Encoding", te);
+                }
                 ap_discard_request_body(backend->r);
             }
+            /*
+             * prevent proxy_handler() from treating this as an
+             * internal error.
+             */
+            apr_table_setn(r->notes, "proxy-error-override", "1");
             return proxy_status;
         }
 
@@ -1734,6 +1759,12 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
                     }
                     /* next time try a non-blocking read */
                     mode = APR_NONBLOCK_READ;
+
+                    if (!apr_is_empty_table(backend->r->trailers_in)) {
+                        apr_table_do(add_trailers, r->trailers_out,
+                                backend->r->trailers_in, NULL);
+                        apr_table_clear(backend->r->trailers_in);
+                    }
 
                     apr_brigade_length(bb, 0, &readbytes);
                     backend->worker->s->read += readbytes;

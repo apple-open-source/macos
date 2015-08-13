@@ -865,6 +865,17 @@ PROXY_DECLARE(int) ap_proxy_connect_backend(const char *proxy_function,
                                             proxy_conn_rec *conn,
                                             proxy_worker *worker,
                                             server_rec *s);
+
+/**
+ * Make a connection to a Unix Domain Socket (UDS) path
+ * @param sock     UDS to connect
+ * @param uds_path UDS path to connect to
+ * @param p        pool to make the sock addr
+ * @return         APR_SUCCESS or error status
+ */
+PROXY_DECLARE(apr_status_t) ap_proxy_connect_uds(apr_socket_t *sock,
+                                                 const char *uds_path,
+                                                 apr_pool_t *p);
 /**
  * Make a connection record for backend connection
  * @param proxy_function calling proxy scheme (http, ajp, ...)
@@ -878,6 +889,17 @@ PROXY_DECLARE(int) ap_proxy_connect_backend(const char *proxy_function,
 PROXY_DECLARE(int) ap_proxy_connection_create(const char *proxy_function,
                                               proxy_conn_rec *conn,
                                               conn_rec *c, server_rec *s);
+
+/**
+ * Determine if proxy connection can potentially be reused at the
+ * end of this request.
+ * @param conn proxy connection
+ * @return non-zero if reusable, 0 otherwise
+ * @note Even if this function returns non-zero, the connection may
+ * be subsequently marked for closure.
+ */
+PROXY_DECLARE(int) ap_proxy_connection_reusable(proxy_conn_rec *conn);
+
 /**
  * Signal the upstream chain that the connection to the backend broke in the
  * middle of the response. This is done by sending an error bucket with
@@ -1011,6 +1033,14 @@ int ap_proxy_lb_workers(void);
  * @return              port number or 0 if unknown
  */
 PROXY_DECLARE(apr_port_t) ap_proxy_port_of_scheme(const char *scheme);
+
+/**
+ * Strip a unix domain socket (UDS) prefix from the input URL
+ * @param p             pool to allocate result from
+ * @param url           a URL potentially prefixed with a UDS path
+ * @return              URL with the UDS prefix removed
+ */
+PROXY_DECLARE(const char *) ap_proxy_de_socketfy(apr_pool_t *p, const char *url);
 
 extern module PROXY_DECLARE_DATA proxy_module;
 

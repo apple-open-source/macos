@@ -876,8 +876,7 @@ int main(int argc, char **argv)
       memset(&test, 0, sizeof(test));
       if (do_tftp(&test, tp, n) < 0)
         break;
-      if(test.buffer)
-        free(test.buffer);
+      free(test.buffer);
     }
     sclose(peer);
     peer = CURL_SOCKET_BAD;
@@ -1089,8 +1088,7 @@ static int parse_servercmd(struct testcase *req)
       else
         break;
     }
-    if(orgcmd)
-      free(orgcmd);
+    free(orgcmd);
   }
 
   return 0; /* OK! */
@@ -1371,7 +1369,7 @@ abort:
 
 /*
  * Send a nak packet (error message).  Error code passed in is one of the
- * standard TFTP codes, or a UNIX errno offset by 100.
+ * standard TFTP codes, or a Unix errno offset by 100.
  */
 static void nak(int error)
 {

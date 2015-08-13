@@ -23,7 +23,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32,..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -81,7 +81,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_OPENSSL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -140,7 +140,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -198,7 +198,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32,NDEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -245,7 +245,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32,..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32,_DEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL,USE_LIBSSH2,HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -292,7 +292,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -349,7 +349,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32,..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32,_DEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL,USE_LIBSSH2,HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -396,7 +396,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32,_DEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_WINDOWS_SSPI,USE_SCHANNEL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -443,7 +443,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32,_DEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -490,7 +490,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -547,7 +547,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -605,7 +605,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32,NDEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_WINDOWS_SSPI,USE_SCHANNEL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -652,7 +652,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_OPENSSL"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -710,7 +710,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32,NDEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -757,7 +757,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32,NDEBUG,BUILDING_LIBCURL,CURL_STATICLIB"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -804,7 +804,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32,..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32,NDEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL,USE_LIBSSH2,HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -851,7 +851,7 @@
 				AdditionalOptions="/EHsc "
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32,..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32,NDEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL,USE_LIBSSH2,HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -898,7 +898,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32,_DEBUG,BUILDING_LIBCURL,CURL_STATICLIB"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -945,7 +945,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32,..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -1004,7 +1004,7 @@
 				AdditionalOptions="/EHsc "
 				Optimization="0"
 				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib,..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32,_DEBUG,BUILDING_LIBCURL,CURL_STATICLIB,USE_SSLEAY,USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
@@ -1039,6 +1039,215 @@
 			<Tool
 				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
+		<Configuration
+			Name="DLL Debug - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory=".\..\..\..\..\build\Win32\VC7.1\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="2"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/EHsc "
+				Optimization="0"
+				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				WarningLevel="3"
+				SuppressStartupBanner="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="/MACHINE:I386 /FIXED:NO"
+				AdditionalDependencies="normaliz.lib wldap32.lib ws2_32.lib"
+				OutputFile="$(OutDir)\$(ProjectName)d.dll"
+				LinkIncremental="1"
+				SuppressStartupBanner="TRUE"
+				GenerateDebugInformation="TRUE"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="_DEBUG"
+				SuppressStartupBanner="TRUE"
+				TargetEnvironment="1"
+				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="DLL Release - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory=".\..\..\..\..\build\Win32\VC7.1\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="2"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/EHsc "
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				StringPooling="TRUE"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="TRUE"
+				WarningLevel="3"
+				SuppressStartupBanner="TRUE"
+				CompileAs="0"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="/MACHINE:I386 /FIXED:NO"
+				AdditionalDependencies="normaliz.lib wldap32.lib ws2_32.lib"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
+				LinkIncremental="1"
+				SuppressStartupBanner="TRUE"
+				SetChecksum="TRUE"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="NDEBUG"
+				SuppressStartupBanner="TRUE"
+				TargetEnvironment="1"
+				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="LIB Debug - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory=".\..\..\..\..\build\Win32\VC7.1\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/EHsc "
+				Optimization="0"
+				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				WarningLevel="3"
+				SuppressStartupBanner="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				AdditionalOptions="/machine:I386 "
+				OutputFile="$(OutDir)\$(ProjectName)d.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="LIB Release - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory=".\..\..\..\..\build\Win32\VC7.1\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/EHsc "
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="$(ProgramFiles)\Microsoft Platform SDK\Include,..\..\..\..\include,..\..\..\..\lib"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				StringPooling="TRUE"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="TRUE"
+				WarningLevel="3"
+				SuppressStartupBanner="TRUE"
+				CompileAs="0"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				AdditionalOptions="/machine:I386 "
+				OutputFile="$(OutDir)\$(ProjectName).lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
 	</Configurations>
 	<References>
 	</References>
@@ -1059,9 +1268,6 @@
 				RelativePath="..\..\..\..\lib\base64.c">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\bundles.c">
-			</File>
-			<File
 				RelativePath="..\..\..\..\lib\conncache.c">
 			</File>
 			<File
@@ -1075,6 +1281,12 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_addrinfo.c">
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_des.c">
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_endian.c">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_fnmatch.c">
@@ -1108,6 +1320,9 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_sasl.c">
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_sasl_gssapi.c">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_sasl_sspi.c">
@@ -1287,6 +1502,9 @@
 				RelativePath="..\..\..\..\lib\slist.c">
 			</File>
 			<File
+				RelativePath="..\..\..\..\lib\smb.c">
+			</File>
+			<File
 				RelativePath="..\..\..\..\lib\smtp.c">
 			</File>
 			<File
@@ -1363,9 +1581,6 @@
 				RelativePath="..\..\..\..\lib\asyn.h">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\bundles.h">
-			</File>
-			<File
 				RelativePath="..\..\..\..\lib\config-win32.h">
 			</File>
 			<File
@@ -1385,6 +1600,12 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_base64.h">
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_des.h">
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_endian.h">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_fnmatch.h">
@@ -1427,6 +1648,9 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_ntlm_wb.h">
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_printf.h">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_rtmp.h">
@@ -1585,6 +1809,9 @@
 				RelativePath="..\..\..\..\lib\slist.h">
 			</File>
 			<File
+				RelativePath="..\..\..\..\lib\smb.h">
+			</File>
+			<File
 				RelativePath="..\..\..\..\lib\smtp.h">
 			</File>
 			<File
@@ -1662,13 +1889,10 @@
 					RelativePath="..\..\..\..\lib\vtls\axtls.c">
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_darwinssl.c">
-				</File>
-				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_schannel.c">
-				</File>
-				<File
 					RelativePath="..\..\..\..\lib\vtls\cyassl.c">
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vtls\darwinssl.c">
 				</File>
 				<File
 					RelativePath="..\..\..\..\lib\vtls\gskit.c">
@@ -1689,7 +1913,7 @@
 					RelativePath="..\..\..\..\lib\vtls\polarssl_threadlock.c">
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\qssl.c">
+					RelativePath="..\..\..\..\lib\vtls\schannel.c">
 				</File>
 				<File
 					RelativePath="..\..\..\..\lib\vtls\vtls.c">
@@ -1702,13 +1926,10 @@
 					RelativePath="..\..\..\..\lib\vtls\axtls.h">
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_darwinssl.h">
-				</File>
-				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_schannel.h">
-				</File>
-				<File
 					RelativePath="..\..\..\..\lib\vtls\cyassl.h">
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vtls\darwinssl.h">
 				</File>
 				<File
 					RelativePath="..\..\..\..\lib\vtls\gskit.h">
@@ -1729,7 +1950,7 @@
 					RelativePath="..\..\..\..\lib\vtls\polarssl_threadlock.h">
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\qssl.h">
+					RelativePath="..\..\..\..\lib\vtls\schannel.h">
 				</File>
 				<File
 					RelativePath="..\..\..\..\lib\vtls\vtls.h">

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -60,9 +62,9 @@ correspondance</a></li><li><a href="access.html">Contrôle d'accès</a></li><li><a
       [P] comme suit :</p>
 
 <pre class="prettyprint lang-config">RewriteEngine  on
-RewriteBase    /produits/
-RewriteRule    ^widget/(.*)$  http://produits.example.com/widget/$1  [P]
-ProxyPassReverse /produits/objet/ http://produits.example.com/objet/</pre>
+RewriteBase    "/produits/"
+RewriteRule    "^widget/(.*)$"  "http://produits.example.com/widget/$1"  [P]
+ProxyPassReverse "/produits/objet/" "http://produits.example.com/objet/"</pre>
 
 
    <p>Dans le deuxième exemple, nous ne mandatons la requête que si nous
@@ -71,10 +73,10 @@ ProxyPassReverse /produits/objet/ http://produits.example.com/objet/</pre>
    autre, et que vous n'êtes pas certain que tout le contenu a déjà été
    migré.</p>
 
-<pre class="prettyprint lang-config">RewriteCond %{REQUEST_FILENAME}       !-f
-RewriteCond %{REQUEST_FILENAME}       !-d
-RewriteRule ^/(.*) http://ancien.exemple.com/$1 [P]
-ProxyPassReverse / http://ancien.exemple.com/</pre>
+<pre class="prettyprint lang-config">RewriteCond "%{REQUEST_FILENAME}"       !-f
+RewriteCond "%{REQUEST_FILENAME}"       !-d
+RewriteRule "^/(.*)" "http://ancien.exemple.com/$1" [P]
+ProxyPassReverse "/" "http://ancien.exemple.com/"</pre>
 
     </dd>
 
@@ -113,7 +115,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/proxy.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

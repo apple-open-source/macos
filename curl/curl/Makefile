@@ -130,6 +130,42 @@ vc-x64: $(VC)
 	cd ..\src
 	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release
 
+vc-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release WINDOWS_SSPI=1
+
+vc-x64-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release WINDOWS_SSPI=1
+
+vc-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release USE_IDN=1
+
+vc-x64-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release USE_IDN=1
+
+vc-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release USE_IDN=1 WINDOWS_SSPI=1
+
+vc-x64-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release USE_IDN=1 WINDOWS_SSPI=1
+
 vc-zlib: $(VC)
 	cd lib
 	nmake /f Makefile.$(VC) cfg=release-zlib
@@ -142,17 +178,47 @@ vc-x64-zlib: $(VC)
 	cd ..\src
 	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib
 
+vc-zlib-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-zlib WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-zlib WINDOWS_SSPI=1
+
+vc-x64-zlib-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib WINDOWS_SSPI=1
+
+vc-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-zlib USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-zlib USE_IDN=1
+
+vc-x64-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib USE_IDN=1
+
+vc-zlib-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-zlib USE_IDN=1 WINDOWS_SSPI=1
+
+vc-x64-zlib-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib USE_IDN=1 WINDOWS_SSPI=1
+
 vc-ssl: $(VC)
 	cd lib
 	nmake /f Makefile.$(VC) cfg=release-ssl
 	cd ..\src
 	nmake /f Makefile.$(VC) cfg=release-ssl
-
-vc-winssl: $(VC)
-	cd lib
-	nmake /f Makefile.$(VC) cfg=release-winssl WINDOWS_SSPI=1
-	cd ..\src
-	nmake /f Makefile.$(VC) cfg=release-winssl WINDOWS_SSPI=1
 
 vc-x64-ssl: $(VC)
 	cd lib
@@ -160,11 +226,41 @@ vc-x64-ssl: $(VC)
 	cd ..\src
 	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl
 
-vc-x64-winssl: $(VC)
+vc-ssl-sspi: $(VC)
 	cd lib
-	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl WINDOWS_SSPI=1
+	nmake /f Makefile.$(VC) cfg=release-ssl WINDOWS_SSPI=1
 	cd ..\src
-	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl WINDOWS_SSPI=1
+	nmake /f Makefile.$(VC) cfg=release-ssl WINDOWS_SSPI=1
+
+vc-x64-ssl-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl WINDOWS_SSPI=1
+
+vc-ssl-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl USE_IDN=1
+
+vc-x64-ssl-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl USE_IDN=1
+
+vc-ssl-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl USE_IDN=1 WINDOWS_SSPI=1
+
+vc-x64-ssl-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl USE_IDN=1 WINDOWS_SSPI=1
 
 vc-ssl-zlib: $(VC)
 	cd lib
@@ -172,23 +268,143 @@ vc-ssl-zlib: $(VC)
 	cd ..\src
 	nmake /f Makefile.$(VC) cfg=release-ssl-zlib
 
-vc-winssl-zlib: $(VC)
-	cd lib
-	nmake /f Makefile.$(VC) cfg=release-winssl-zlib
-	cd ..\src
-	nmake /f Makefile.$(VC) cfg=release-winssl-zlib
-
 vc-x64-ssl-zlib: $(VC)
 	cd lib
 	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib
 	cd ..\src
 	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib
 
+vc-ssl-zlib-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl-zlib WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl-zlib WINDOWS_SSPI=1
+
+vc-x64-ssl-zlib-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib WINDOWS_SSPI=1
+
+vc-ssl-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl-zlib USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl-zlib USE_IDN=1
+
+vc-x64-ssl-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib USE_IDN=1
+
+vc-ssl-zlib-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl-zlib USE_IDN=1 WINDOWS_SSPI=1
+
+vc-x64-ssl-zlib-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib USE_IDN=1 WINDOWS_SSPI=1
+
+vc-ssl-ssh2-zlib: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib
+
+vc-x64-ssl-ssh2-zlib: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib
+
+vc-ssl-ssh2-zlib-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib WINDOWS_SSPI=1
+
+vc-x64-ssl-ssh2-zlib-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib WINDOWS_SSPI=1
+
+vc-ssl-ssh2-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib USE_IDN=1
+
+vc-x64-ssl-ssh2-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib USE_IDN=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib USE_IDN=1
+
+vc-ssl-ssh2-zlib-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-ssl-ssh2-zlib USE_IDN=1 WINDOWS_SSPI=1
+
+vc-x64-ssl-ssh2-zlib-idn-sspi: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-ssh2-zlib USE_IDN=1 WINDOWS_SSPI=1
+
+vc-winssl: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-winssl WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-winssl WINDOWS_SSPI=1
+
+vc-x64-winssl: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl WINDOWS_SSPI=1
+
+vc-winssl-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-winssl USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-winssl USE_IDN=1 WINDOWS_SSPI=1
+
+vc-x64-winssl-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl USE_IDN=1 WINDOWS_SSPI=1
+
+vc-winssl-zlib: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-winssl-zlib WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-winssl-zlib WINDOWS_SSPI=1
+
 vc-x64-winssl-zlib: $(VC)
 	cd lib
-	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl-zlib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl-zlib WINDOWS_SSPI=1
 	cd ..\src
-	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl-zlib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl-zlib WINDOWS_SSPI=1
+
+vc-winssl-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-winssl-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-winssl-zlib USE_IDN=1 WINDOWS_SSPI=1
+
+vc-x64-winssl-zlib-idn: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl-zlib USE_IDN=1 WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl-zlib USE_IDN=1 WINDOWS_SSPI=1
 
 vc-ssl-dll: $(VC)
 	cd lib
@@ -231,12 +447,6 @@ vc-zlib-dll: $(VC)
 	nmake /f Makefile.$(VC) cfg=release-zlib-dll
 	cd ..\src
 	nmake /f Makefile.$(VC) cfg=release-zlib-dll
-
-vc-sspi: $(VC)
-	cd lib
-	nmake /f Makefile.$(VC) cfg=release WINDOWS_SSPI=1
-	cd ..\src
-	nmake /f Makefile.$(VC) cfg=release WINDOWS_SSPI=1
 
 djgpp:
 	$(MAKE) -C lib -f Makefile.dj

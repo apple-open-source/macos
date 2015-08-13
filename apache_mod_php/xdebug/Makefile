@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2013 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2015 Apple Inc. All Rights Reserved.
 #
 
 # General project info
@@ -10,8 +10,21 @@ ToolType        = Library
 # Some Makefile features are available only on Snow Leopard and later.
 _OS_VERSION = $(shell sw_vers -productVersion | cut -d. -f1-2)
 
+#SDK includes
+SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)
+SDK = -isysroot $(SDKROOT)
+SDK_USR_INC = $(SDKROOT)/usr/include
+SDK_PHP = $(SDK_USR_INC)/php
+SDK_PHPZEND = $(SDK_PHP)/Zend
+SDK_PHPMAIN = $(SDK_PHP)/main
+SDK_PHPTSRM = $(SDK_PHP)/TSRM
+SDK_APACHE2 = $(SDK_USR_INC)/apache2
+
+Extra_Configure_Environment	= INSTALL_ROOT="$(DSTROOT)"\
+					  		  CFLAGS="$$RC_CFLAGS -Os -g $(SDK) -I-$(SDKROOT) -I$(SDK_USR_INC) -I$(SDK_PHP) -I$(SDK_PHPMAIN) -isystem $(SDK_PHPTSRM) -I$(SDK_PHPZEND) -isystem $(SDK_PHPZEND) -I$(SDK_APACHE2) -I$(SDKROOT)/usr/local/include" \
+					  		  LDFLAGS="$$RC_CFLAGS -Os -g -L$(SDKROOT)/usr/lib"
+					  
 # Project-specific additions.
-Extra_Environment	= INSTALL_ROOT="$(DSTROOT)"
 Extra_Configure_Flags	= --enable-xdebug --with-php-config=$(SYMROOT)/php-config
 Extra_Make_Flags        =
 

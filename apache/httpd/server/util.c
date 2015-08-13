@@ -252,7 +252,7 @@ AP_DECLARE(int) ap_os_is_path_absolute(apr_pool_t *p, const char *dir)
 
 AP_DECLARE(int) ap_is_matchexp(const char *str)
 {
-    register int x;
+    int x;
 
     for (x = 0; str[x]; x++)
         if ((str[x] == '*') || (str[x] == '?'))
@@ -528,7 +528,7 @@ AP_DECLARE(void) ap_getparents(char *name)
     while (name[l] != '\0') {
         if (name[l] == '.' && name[l + 1] == '.' && IS_SLASH(name[l + 2])
             && (l == 0 || IS_SLASH(name[l - 1]))) {
-            register int m = l + 3, n;
+            int m = l + 3, n;
 
             l = l - 2;
             if (l >= 0) {
@@ -654,7 +654,7 @@ AP_DECLARE(char *) ap_make_dirstr_parent(apr_pool_t *p, const char *s)
 
 AP_DECLARE(int) ap_count_dirs(const char *path)
 {
-    register int x, n;
+    int x, n;
 
     for (x = 0, n = 0; path[x]; x++)
         if (path[x] == '/')
@@ -970,20 +970,20 @@ AP_DECLARE(const char *) ap_pcfg_strerror(apr_pool_t *p, ap_configfile_t *cfp,
 /* Read one line from open ap_configfile_t, strip LF, increase line number */
 /* If custom handler does not define a getstr() function, read char by char */
 static apr_status_t ap_cfg_getline_core(char *buf, apr_size_t bufsize,
-                                        ap_configfile_t *cfp)
+                                        apr_size_t offset, ap_configfile_t *cfp)
 {
     apr_status_t rc;
     /* If a "get string" function is defined, use it */
     if (cfp->getstr != NULL) {
         char *cp;
-        char *cbuf = buf;
-        apr_size_t cbufsize = bufsize;
+        char *cbuf = buf + offset;
+        apr_size_t cbufsize = bufsize - offset;
 
         while (1) {
             ++cfp->line_number;
             rc = cfp->getstr(cbuf, cbufsize, cfp->param);
             if (rc == APR_EOF) {
-                if (cbuf != buf) {
+                if (cbuf != buf + offset) {
                     *cbuf = '\0';
                     break;
                 }
@@ -1001,11 +1001,11 @@ static apr_status_t ap_cfg_getline_core(char *buf, apr_size_t bufsize,
              */
             cp = cbuf;
             cp += strlen(cp);
-            if (cp > cbuf && cp[-1] == LF) {
+            if (cp > buf && cp[-1] == LF) {
                 cp--;
-                if (cp > cbuf && cp[-1] == CR)
+                if (cp > buf && cp[-1] == CR)
                     cp--;
-                if (cp > cbuf && cp[-1] == '\\') {
+                if (cp > buf && cp[-1] == '\\') {
                     cp--;
                     /*
                      * line continuation requested -
@@ -1023,19 +1023,19 @@ static apr_status_t ap_cfg_getline_core(char *buf, apr_size_t bufsize,
         }
     } else {
         /* No "get string" function defined; read character by character */
-        apr_size_t i = 0;
+        apr_size_t i = offset;
 
         if (bufsize < 2) {
             /* too small, assume caller is crazy */
             return APR_EINVAL;
         }
-        buf[0] = '\0';
+        buf[offset] = '\0';
 
         while (1) {
             char c;
             rc = cfp->getch(&c, cfp->param);
             if (rc == APR_EOF) {
-                if (i > 0)
+                if (i > offset)
                     break;
                 else
                     return APR_EOF;
@@ -1053,11 +1053,11 @@ static apr_status_t ap_cfg_getline_core(char *buf, apr_size_t bufsize,
                     break;
                 }
             }
-            else if (i >= bufsize - 2) {
-                return APR_ENOSPC;
-            }
             buf[i] = c;
             ++i;
+            if (i >= bufsize - 1) {
+                return APR_ENOSPC;
+            }
         }
         buf[i] = '\0';
     }
@@ -1091,7 +1091,7 @@ static int cfg_trim_line(char *buf)
 AP_DECLARE(apr_status_t) ap_cfg_getline(char *buf, apr_size_t bufsize,
                                         ap_configfile_t *cfp)
 {
-    apr_status_t rc = ap_cfg_getline_core(buf, bufsize, cfp);
+    apr_status_t rc = ap_cfg_getline_core(buf, bufsize, 0, cfp);
     if (rc == APR_SUCCESS)
         cfg_trim_line(buf);
     return rc;
@@ -1118,7 +1118,7 @@ AP_DECLARE(apr_status_t) ap_varbuf_cfg_getline(struct ap_varbuf *vb,
     }
 
     for (;;) {
-        rc = ap_cfg_getline_core(vb->buf + vb->strlen, vb->avail - vb->strlen, cfp);
+        rc = ap_cfg_getline_core(vb->buf, vb->avail, vb->strlen, cfp);
         if (rc == APR_ENOSPC || rc == APR_SUCCESS)
             vb->strlen += strlen(vb->buf + vb->strlen);
         if (rc != APR_ENOSPC)
@@ -1585,7 +1585,7 @@ AP_DECLARE(char *) ap_escape_shell_cmd(apr_pool_t *p, const char *str)
 
 static char x2c(const char *what)
 {
-    register char digit;
+    char digit;
 
 #if !APR_CHARSET_EBCDIC
     digit = ((what[0] >= 'A') ? ((what[0] & 0xdf) - 'A') + 10
@@ -1617,7 +1617,7 @@ static char x2c(const char *what)
 
 static int unescape_url(char *url, const char *forbid, const char *reserved)
 {
-    register int badesc, badpath;
+    int badesc, badpath;
     char *x, *y;
 
     badesc = 0;
@@ -2100,11 +2100,11 @@ AP_DECLARE(char *) ap_make_full_path(apr_pool_t *a, const char *src1,
  */
 AP_DECLARE(int) ap_is_url(const char *u)
 {
-    register int x;
+    int x;
 
     for (x = 0; u[x] != ':'; x++) {
         if ((!u[x]) ||
-            ((!apr_isalpha(u[x])) && (!apr_isdigit(u[x])) &&
+            ((!apr_isalnum(u[x])) &&
              (u[x] != '+') && (u[x] != '-') && (u[x] != '.'))) {
             return 0;
         }
@@ -2521,7 +2521,7 @@ AP_DECLARE(int) ap_parse_form_data(request_rec *r, ap_filter_t *f,
                                 APR_BLOCK_READ, HUGE_STRING_LEN);
         if (rv != APR_SUCCESS) {
             apr_brigade_destroy(bb);
-            return (rv == AP_FILTER_ERROR) ? rv : HTTP_BAD_REQUEST;
+            return ap_map_http_request_error(rv, HTTP_BAD_REQUEST);
         }
 
         for (bucket = APR_BRIGADE_FIRST(bb);

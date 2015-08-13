@@ -648,7 +648,7 @@ retry:
 		}
 		ntfs_inode_unlock_alloc(ni);
 		*nni = ni;
-		ntfs_debug("Done (added to cache).");
+		ntfs_debug("Done (added to cache; allocated_size %lld data_size %lld initialized_size %lld).", ni->allocated_size, ni->data_size, ni->initialized_size);
 		return err;
 	}
 	if (lock == LCK_RW_TYPE_EXCLUSIVE)
@@ -2070,6 +2070,28 @@ info_err:
 			ni->data_size = sle64_to_cpu(a->data_size);
 			ni->initialized_size = sle64_to_cpu(
 					a->initialized_size);
+            /*
+             * Do some basic sanity checking of the sizes in case of corruption.
+             *
+             * The on-disk sizes are unsigned, but we store them internally as
+             * signed (for convenience when mixing with off_t).  If the most
+             * significant bit were set, we'd see a negative number, when it is
+             * really a very large positive number.  We assume this is
+             * corruption, not a legitimate very large file.
+             *
+             * We require: 0 <= initialized_size <= data_size <= allocated_size
+             */
+            if (ni->initialized_size < 0 ||
+                    ni->data_size < ni->initialized_size ||
+                    ni->allocated_size < ni->data_size) {
+                ntfs_error(vol->mp, "Invalid sizes for mft_no 0x%llx "
+                           "initialized_size 0x%llx data_size 0x%llx "
+                           "allocated_size 0x%llx.", ni->mft_no,
+                           ni->initialized_size, ni->data_size,
+                           ni->allocated_size);
+                err = EIO;
+                goto err;
+            }
 		} else { /* Resident attribute. */
 			u8 *a_end, *data;
 			u32 data_len;

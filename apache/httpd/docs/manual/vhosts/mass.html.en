@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -57,20 +59,20 @@ mod_rewrite</a></li>
 
 <pre class="prettyprint lang-config">&lt;VirtualHost 111.22.33.44&gt;
     ServerName                 customer-1.example.com
-    DocumentRoot        /www/hosts/customer-1.example.com/docs
-    ScriptAlias  /cgi-bin/  /www/hosts/customer-1.example.com/cgi-bin
+    DocumentRoot        "/www/hosts/customer-1.example.com/docs"
+    ScriptAlias  "/cgi-bin/"  "/www/hosts/customer-1.example.com/cgi-bin"
 &lt;/VirtualHost&gt;
 
 &lt;VirtualHost 111.22.33.44&gt;
     ServerName                 customer-2.example.com
-    DocumentRoot        /www/hosts/customer-2.example.com/docs
-    ScriptAlias  /cgi-bin/  /www/hosts/customer-2.example.com/cgi-bin
+    DocumentRoot        "/www/hosts/customer-2.example.com/docs"
+    ScriptAlias  "/cgi-bin/"  "/www/hosts/customer-2.example.com/cgi-bin"
 &lt;/VirtualHost&gt;
 
 &lt;VirtualHost 111.22.33.44&gt;
     ServerName                 customer-N.example.com
-    DocumentRoot        /www/hosts/customer-N.example.com/docs
-    ScriptAlias  /cgi-bin/  /www/hosts/customer-N.example.com/cgi-bin
+    DocumentRoot        "/www/hosts/customer-N.example.com/docs"
+    ScriptAlias  "/cgi-bin/"  "/www/hosts/customer-N.example.com/cgi-bin"
 &lt;/VirtualHost&gt;</pre>
 
 
@@ -162,11 +164,11 @@ UseCanonicalName Off
 # this log format can be split per-virtual-host based on the first field
 # using the split-logfile utility.
 LogFormat "%V %h %l %u %t \"%r\" %s %b" vcommon
-CustomLog logs/access_log vcommon
+CustomLog "logs/access_log" vcommon
 
 # include the server name in the filenames used to satisfy requests
-VirtualDocumentRoot /www/hosts/%0/docs
-VirtualScriptAlias  /www/hosts/%0/cgi-bin</pre>
+VirtualDocumentRoot "/www/hosts/%0/docs"
+VirtualScriptAlias  "/www/hosts/%0/cgi-bin"</pre>
 
 
     <p>This configuration can be changed into an IP-based virtual
@@ -198,10 +200,10 @@ LogFormat "%V %h %l %u %t \"%r\" %s %b" vcommon
 CustomLog logs/access_log vcommon
 
 # include part of the server name in the filenames
-VirtualDocumentRoot /home/%2/www
+VirtualDocumentRoot "/home/%2/www"
 
 # single cgi-bin directory
-ScriptAlias  /cgi-bin/  /www/std-cgi/</pre>
+ScriptAlias  "/cgi-bin/"  "/www/std-cgi/"</pre>
 
 
     <p>There are examples of more complicated
@@ -226,12 +228,12 @@ ScriptAlias  /cgi-bin/  /www/std-cgi/</pre>
 
 LogFormat "%V %h %l %u %t \"%r\" %s %b" vcommon
 
-&lt;Directory /www/commercial&gt;
+&lt;Directory "/www/commercial"&gt;
     Options FollowSymLinks
     AllowOverride All
 &lt;/Directory&gt;
 
-&lt;Directory /www/homepages&gt;
+&lt;Directory "/www/homepages"&gt;
     Options FollowSymLinks
     AllowOverride None
 &lt;/Directory&gt;
@@ -239,19 +241,19 @@ LogFormat "%V %h %l %u %t \"%r\" %s %b" vcommon
 &lt;VirtualHost 111.22.33.44&gt;
     ServerName www.commercial.example.com
     
-    CustomLog logs/access_log.commercial vcommon
+    CustomLog "logs/access_log.commercial" vcommon
     
-    VirtualDocumentRoot /www/commercial/%0/docs
-    VirtualScriptAlias  /www/commercial/%0/cgi-bin
+    VirtualDocumentRoot "/www/commercial/%0/docs"
+    VirtualScriptAlias  "/www/commercial/%0/cgi-bin"
 &lt;/VirtualHost&gt;
 
 &lt;VirtualHost 111.22.33.45&gt;
     ServerName www.homepages.example.com
     
-    CustomLog logs/access_log.homepages vcommon
+    CustomLog "logs/access_log.homepages" vcommon
     
-    VirtualDocumentRoot /www/homepages/%0/docs
-    ScriptAlias         /cgi-bin/ /www/std-cgi/
+    VirtualDocumentRoot "/www/homepages/%0/docs"
+    ScriptAlias         "/cgi-bin/" "/www/std-cgi/"
 &lt;/VirtualHost&gt;</pre>
 
 
@@ -283,11 +285,11 @@ UseCanonicalName DNS
 
 # include the IP address in the logs so they may be split
 LogFormat "%A %h %l %u %t \"%r\" %s %b" vcommon
-CustomLog logs/access_log vcommon
+CustomLog "logs/access_log" vcommon
 
 # include the IP address in the filenames
-VirtualDocumentRootIP /www/hosts/%0/docs
-VirtualScriptAliasIP  /www/hosts/%0/cgi-bin</pre>
+VirtualDocumentRootIP "/www/hosts/%0/docs"
+VirtualScriptAliasIP  "/www/hosts/%0/cgi-bin"</pre>
 
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -326,7 +328,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/mass.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

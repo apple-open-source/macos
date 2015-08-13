@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 143
+Submission	= 147.1
 
 
 #
@@ -42,7 +42,7 @@ CFLAGS += -DNETSNMP_NO_INLINE
 
 DEFINES			= -DBUILD=$(Submission) \
 			-DMACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET)
-INCLUDES		= -F/System/Library/PrivateFrameworks/ -F/System/Library/Frameworks/
+INCLUDES		= -F$(SDKROOT)/System/Library/PrivateFrameworks/ -F$(SDKROOT)/System/Library/Frameworks/
 
 # For Perl to build correctly, both CFLAGS (CC_Flags) and CCFLAGS (Cxx_Flags)
 # must be properly defined.

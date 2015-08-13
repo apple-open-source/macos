@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -110,6 +110,7 @@ struct OperationConfig {
   char *cacert;
   char *capath;
   char *crlfile;
+  char *pinnedpubkey;
   char *key;
   char *key_type;
   char *key_passwd;
@@ -125,6 +126,7 @@ struct OperationConfig {
   bool globoff;
   bool use_httpget;
   bool insecure_ok;         /* set TRUE to allow insecure SSL connects */
+  bool verifystatus;
   bool create_dirs;
   bool ftp_create_dirs;
   bool ftp_skip_ip;
@@ -164,8 +166,12 @@ struct OperationConfig {
   int socksver;             /* set to CURLPROXY_SOCKS* define */
   char *socks5_gssapi_service;  /* set service name for gssapi principal
                                  * default rcmd */
+  char *proxy_service_name; /* set service name for proxy negotiation
+                             * default HTTP */
   int socks5_gssapi_nec ;   /* The NEC reference server does not protect
                              * the encryption type exchange */
+  char *service_name;       /* set negotiation service name
+                             * default HTTP */
 
   bool tcp_nodelay;
   long req_retry;           /* number of retries */
@@ -200,13 +206,15 @@ struct OperationConfig {
 #ifdef CURLDEBUG
   bool test_event_based;
 #endif
-  char *xoauth2_bearer;       /* XOAUTH2 bearer token */
-  bool nonpn;                 /* enable/disable TLS NPN extension */
-  bool noalpn;                /* enable/disable TLS ALPN extension */
-
+  char *xoauth2_bearer;           /* XOAUTH2 bearer token */
+  bool nonpn;                     /* enable/disable TLS NPN extension */
+  bool noalpn;                    /* enable/disable TLS ALPN extension */
+  char *unix_socket_path;         /* path to Unix domain socket */
+  bool falsestart;
+  bool path_as_is;
   struct GlobalConfig *global;
   struct OperationConfig *prev;
-  struct OperationConfig *next; /* Always last in the struct */
+  struct OperationConfig *next;   /* Always last in the struct */
 };
 
 struct GlobalConfig {

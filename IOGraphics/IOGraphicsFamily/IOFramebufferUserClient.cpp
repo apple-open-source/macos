@@ -201,7 +201,7 @@ IOReturn IOFramebufferUserClient::externalMethod( uint32_t selector, IOExternalM
                     2, 0, 0, 0 },
     };
 
-    if (selector > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
+    if (selector >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return (kIOReturnBadArgument);
 
     ret = super::externalMethod(selector, args, 

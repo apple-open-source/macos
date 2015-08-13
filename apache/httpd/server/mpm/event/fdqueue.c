@@ -17,7 +17,7 @@
 #include "fdqueue.h"
 #include "apr_atomic.h"
 
-static apr_uint32_t zero_pt = APR_UINT32_MAX/2;
+static const apr_uint32_t zero_pt = APR_UINT32_MAX/2;
 
 struct recycled_pool
 {
@@ -231,6 +231,7 @@ void ap_push_pool(fd_queue_info_t * queue_info,
         apr_atomic_inc32(&queue_info->recycled_pools_count);
     }
 
+    apr_pool_clear(pool_to_recycle);
     new_recycle = (struct recycled_pool *) apr_palloc(pool_to_recycle,
                                                       sizeof (*new_recycle));
     new_recycle->pool = pool_to_recycle;

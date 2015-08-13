@@ -10,6 +10,10 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+/* Unset TRE_USE_ALLOCA to avoid using the stack to hold all the state
+   info while running */
+#undef TRE_USE_ALLOCA
+
 #ifdef TRE_USE_ALLOCA
 /* AIX requires this to be the first thing in the file.	 */
 #ifndef __GNUC__

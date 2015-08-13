@@ -409,6 +409,7 @@ struct _krb5_srv_query_ctx {
     const char *path;
 
 #ifdef __APPLE__
+    int queryPostProcessingDone;
     int port;
 
     /* replys */

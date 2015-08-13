@@ -21,7 +21,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -43,7 +43,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -134,7 +134,7 @@ build_triplet = @build@
 host_triplet = @host@
 DIST_COMMON = $(srcdir)/lib/Makefile.inc $(srcdir)/src/Makefile.inc \
 	$(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(top_srcdir)/configure $(am__configure_deps) mkinstalldirs \
+	$(top_srcdir)/configure $(am__configure_deps) \
 	$(srcdir)/curl-config.in $(srcdir)/libcurl.pc.in COPYING \
 	README compile config.guess config.sub depcomp install-sh \
 	missing ltmain.sh
@@ -161,7 +161,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES = curl-config libcurl.pc
@@ -325,6 +325,7 @@ CURL_DISABLE_LDAPS = @CURL_DISABLE_LDAPS@
 CURL_DISABLE_POP3 = @CURL_DISABLE_POP3@
 CURL_DISABLE_PROXY = @CURL_DISABLE_PROXY@
 CURL_DISABLE_RTSP = @CURL_DISABLE_RTSP@
+CURL_DISABLE_SMB = @CURL_DISABLE_SMB@
 CURL_DISABLE_SMTP = @CURL_DISABLE_SMTP@
 CURL_DISABLE_TELNET = @CURL_DISABLE_TELNET@
 CURL_DISABLE_TFTP = @CURL_DISABLE_TFTP@
@@ -349,7 +350,7 @@ GREP = @GREP@
 HAVE_GNUTLS_SRP = @HAVE_GNUTLS_SRP@
 HAVE_LDAP_SSL = @HAVE_LDAP_SSL@
 HAVE_LIBZ = @HAVE_LIBZ@
-HAVE_SSLEAY_SRP = @HAVE_SSLEAY_SRP@
+HAVE_OPENSSL_SRP = @HAVE_OPENSSL_SRP@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -377,6 +378,7 @@ MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
 NROFF = @NROFF@
+NSS_LIBS = @NSS_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -401,6 +403,7 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 SSL_ENABLED = @SSL_ENABLED@
+SSL_LIBS = @SSL_LIBS@
 STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
@@ -417,7 +420,7 @@ USE_NSS = @USE_NSS@
 USE_OPENLDAP = @USE_OPENLDAP@
 USE_POLARSSL = @USE_POLARSSL@
 USE_SCHANNEL = @USE_SCHANNEL@
-USE_SSLEAY = @USE_SSLEAY@
+USE_UNIX_SOCKETS = @USE_UNIX_SOCKETS@
 USE_WINDOWS_SSPI = @USE_WINDOWS_SSPI@
 VERSION = @VERSION@
 VERSIONNUM = @VERSIONNUM@
@@ -478,93 +481,93 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4
-CMAKE_DIST = CMakeLists.txt CMake/CMakeConfigurableFile.in		\
-CMake/CurlCheckCSourceCompiles.cmake CMake/CurlCheckCSourceRuns.cmake	\
-CMake/CurlTests.c CMake/FindOpenSSL.cmake CMake/FindZLIB.cmake		\
-CMake/OtherTests.cmake CMake/Platforms/WindowsCache.cmake		\
-CMake/Utilities.cmake include/curl/curlbuild.h.cmake
+CMAKE_DIST = CMakeLists.txt CMake/CMakeConfigurableFile.in	\
+ CMake/CurlTests.c CMake/FindGSS.cmake CMake/OtherTests.cmake	\
+ CMake/Platforms/WindowsCache.cmake CMake/Utilities.cmake	\
+ include/curl/curlbuild.h.cmake CMake/Macros.cmake
 
 VC6_LIBTMPL = projects/Windows/VC6/lib/libcurl.tmpl
-VC6_LIBDSP = projects/Windows/VC6/lib/libcurl.dsp
+VC6_LIBDSP = projects/Windows/VC6/lib/libcurl.dsp.dist
 VC6_LIBDSP_DEPS = $(VC6_LIBTMPL) Makefile.am lib/Makefile.inc
 VC6_SRCTMPL = projects/Windows/VC6/src/curlsrc.tmpl
-VC6_SRCDSP = projects/Windows/VC6/src/curlsrc.dsp
+VC6_SRCDSP = projects/Windows/VC6/src/curlsrc.dsp.dist
 VC6_SRCDSP_DEPS = $(VC6_SRCTMPL) Makefile.am src/Makefile.inc
 VC7_LIBTMPL = projects/Windows/VC7/lib/libcurl.tmpl
-VC7_LIBVCPROJ = projects/Windows/VC7/lib/libcurl.vcproj
+VC7_LIBVCPROJ = projects/Windows/VC7/lib/libcurl.vcproj.dist
 VC7_LIBVCPROJ_DEPS = $(VC7_LIBTMPL) Makefile.am lib/Makefile.inc
 VC7_SRCTMPL = projects/Windows/VC7/src/curlsrc.tmpl
-VC7_SRCVCPROJ = projects/Windows/VC7/src/curlsrc.vcproj
+VC7_SRCVCPROJ = projects/Windows/VC7/src/curlsrc.vcproj.dist
 VC7_SRCVCPROJ_DEPS = $(VC7_SRCTMPL) Makefile.am src/Makefile.inc
 VC71_LIBTMPL = projects/Windows/VC7.1/lib/libcurl.tmpl
-VC71_LIBVCPROJ = projects/Windows/VC7.1/lib/libcurl.vcproj
+VC71_LIBVCPROJ = projects/Windows/VC7.1/lib/libcurl.vcproj.dist
 VC71_LIBVCPROJ_DEPS = $(VC71_LIBTMPL) Makefile.am lib/Makefile.inc
 VC71_SRCTMPL = projects/Windows/VC7.1/src/curlsrc.tmpl
-VC71_SRCVCPROJ = projects/Windows/VC7.1/src/curlsrc.vcproj
+VC71_SRCVCPROJ = projects/Windows/VC7.1/src/curlsrc.vcproj.dist
 VC71_SRCVCPROJ_DEPS = $(VC71_SRCTMPL) Makefile.am src/Makefile.inc
 VC8_LIBTMPL = projects/Windows/VC8/lib/libcurl.tmpl
-VC8_LIBVCPROJ = projects/Windows/VC8/lib/libcurl.vcproj
+VC8_LIBVCPROJ = projects/Windows/VC8/lib/libcurl.vcproj.dist
 VC8_LIBVCPROJ_DEPS = $(VC8_LIBTMPL) Makefile.am lib/Makefile.inc
 VC8_SRCTMPL = projects/Windows/VC8/src/curlsrc.tmpl
-VC8_SRCVCPROJ = projects/Windows/VC8/src/curlsrc.vcproj
+VC8_SRCVCPROJ = projects/Windows/VC8/src/curlsrc.vcproj.dist
 VC8_SRCVCPROJ_DEPS = $(VC8_SRCTMPL) Makefile.am src/Makefile.inc
 VC9_LIBTMPL = projects/Windows/VC9/lib/libcurl.tmpl
-VC9_LIBVCPROJ = projects/Windows/VC9/lib/libcurl.vcproj
+VC9_LIBVCPROJ = projects/Windows/VC9/lib/libcurl.vcproj.dist
 VC9_LIBVCPROJ_DEPS = $(VC9_LIBTMPL) Makefile.am lib/Makefile.inc
 VC9_SRCTMPL = projects/Windows/VC9/src/curlsrc.tmpl
-VC9_SRCVCPROJ = projects/Windows/VC9/src/curlsrc.vcproj
+VC9_SRCVCPROJ = projects/Windows/VC9/src/curlsrc.vcproj.dist
 VC9_SRCVCPROJ_DEPS = $(VC9_SRCTMPL) Makefile.am src/Makefile.inc
 VC10_LIBTMPL = projects/Windows/VC10/lib/libcurl.tmpl
-VC10_LIBVCXPROJ = projects/Windows/VC10/lib/libcurl.vcxproj
+VC10_LIBVCXPROJ = projects/Windows/VC10/lib/libcurl.vcxproj.dist
 VC10_LIBVCXPROJ_DEPS = $(VC10_LIBTMPL) Makefile.am lib/Makefile.inc
 VC10_SRCTMPL = projects/Windows/VC10/src/curlsrc.tmpl
-VC10_SRCVCXPROJ = projects/Windows/VC10/src/curlsrc.vcxproj
+VC10_SRCVCXPROJ = projects/Windows/VC10/src/curlsrc.vcxproj.dist
 VC10_SRCVCXPROJ_DEPS = $(VC10_SRCTMPL) Makefile.am src/Makefile.inc
 VC11_LIBTMPL = projects/Windows/VC11/lib/libcurl.tmpl
-VC11_LIBVCXPROJ = projects/Windows/VC11/lib/libcurl.vcxproj
+VC11_LIBVCXPROJ = projects/Windows/VC11/lib/libcurl.vcxproj.dist
 VC11_LIBVCXPROJ_DEPS = $(VC11_LIBTMPL) Makefile.am lib/Makefile.inc
 VC11_SRCTMPL = projects/Windows/VC11/src/curlsrc.tmpl
-VC11_SRCVCXPROJ = projects/Windows/VC11/src/curlsrc.vcxproj
+VC11_SRCVCXPROJ = projects/Windows/VC11/src/curlsrc.vcxproj.dist
 VC11_SRCVCXPROJ_DEPS = $(VC11_SRCTMPL) Makefile.am src/Makefile.inc
 VC12_LIBTMPL = projects/Windows/VC12/lib/libcurl.tmpl
-VC12_LIBVCXPROJ = projects/Windows/VC12/lib/libcurl.vcxproj
+VC12_LIBVCXPROJ = projects/Windows/VC12/lib/libcurl.vcxproj.dist
 VC12_LIBVCXPROJ_DEPS = $(VC12_LIBTMPL) Makefile.am lib/Makefile.inc
 VC12_SRCTMPL = projects/Windows/VC12/src/curlsrc.tmpl
-VC12_SRCVCXPROJ = projects/Windows/VC12/src/curlsrc.vcxproj
+VC12_SRCVCXPROJ = projects/Windows/VC12/src/curlsrc.vcxproj.dist
 VC12_SRCVCXPROJ_DEPS = $(VC12_SRCTMPL) Makefile.am src/Makefile.inc
 VC_DIST = projects/README	\
  projects/build-openssl.bat	\
- projects/Windows/VC6/curl.dsw	\
- projects/Windows/VC6/lib/libcurl.dsw $(VC6_LIBDSP)	\
- projects/Windows/VC6/src/curlsrc.dsw $(VC6_SRCDSP)	\
- projects/Windows/VC7/curl.sln	\
- projects/Windows/VC7/lib/libcurl.sln $(VC7_LIBVCPROJ)	\
- projects/Windows/VC7/src/curlsrc.sln $(VC7_SRCVCPROJ)	\
- projects/Windows/VC7.1/curl.sln	\
- projects/Windows/VC7.1/lib/libcurl.sln $(VC71_LIBVCPROJ)	\
- projects/Windows/VC7.1/src/curlsrc.sln $(VC71_SRCVCPROJ)	\
- projects/Windows/VC8/curl.sln	\
- projects/Windows/VC8/lib/libcurl.sln $(VC8_LIBVCPROJ)	\
- projects/Windows/VC8/src/curlsrc.sln $(VC8_SRCVCPROJ)	\
- projects/Windows/VC9/curl.sln	\
- projects/Windows/VC9/lib/libcurl.sln $(VC9_LIBVCPROJ)	\
- projects/Windows/VC9/src/curlsrc.sln $(VC9_SRCVCPROJ)	\
- projects/Windows/VC10/curl.sln	\
- projects/Windows/VC10/lib/libcurl.sln $(VC10_LIBVCXPROJ)	\
- projects/Windows/VC10/src/curlsrc.sln $(VC10_SRCVCXPROJ)	\
- projects/Windows/VC11/curl.sln	\
- projects/Windows/VC11/lib/libcurl.sln $(VC11_LIBVCXPROJ)	\
- projects/Windows/VC11/src/curlsrc.sln $(VC11_SRCVCXPROJ)	\
- projects/Windows/VC12/curl.sln	\
- projects/Windows/VC12/lib/libcurl.sln $(VC12_LIBVCXPROJ)	\
- projects/Windows/VC12/src/curlsrc.sln $(VC12_SRCVCXPROJ)
+ projects/checksrc.bat	\
+ projects/Windows/VC6/curl-all.dsw	\
+ projects/Windows/VC6/lib/libcurl.dsw \
+ projects/Windows/VC6/src/curlsrc.dsw \
+ projects/Windows/VC7/curl-all.sln	\
+ projects/Windows/VC7/lib/libcurl.sln 	\
+ projects/Windows/VC7/src/curlsrc.sln 	\
+ projects/Windows/VC7.1/curl-all.sln	\
+ projects/Windows/VC7.1/lib/libcurl.sln \
+ projects/Windows/VC7.1/src/curlsrc.sln \
+ projects/Windows/VC8/curl-all.sln	\
+ projects/Windows/VC8/lib/libcurl.sln 	\
+ projects/Windows/VC8/src/curlsrc.sln 	\
+ projects/Windows/VC9/curl-all.sln	\
+ projects/Windows/VC9/lib/libcurl.sln 	\
+ projects/Windows/VC9/src/curlsrc.sln 	\
+ projects/Windows/VC10/curl-all.sln	\
+ projects/Windows/VC10/lib/libcurl.sln 	\
+ projects/Windows/VC10/src/curlsrc.sln  \
+ projects/Windows/VC11/curl-all.sln	\
+ projects/Windows/VC11/lib/libcurl.sln 	\
+ projects/Windows/VC11/src/curlsrc.sln 	\
+ projects/Windows/VC12/curl-all.sln	\
+ projects/Windows/VC12/lib/libcurl.sln 	\
+ projects/Windows/VC12/src/curlsrc.sln
 
 WINBUILD_DIST = winbuild/BUILD.WINDOWS.txt winbuild/gen_resp_file.bat	\
  winbuild/MakefileBuild.vc winbuild/Makefile.vc				\
  winbuild/Makefile.msvc.names
 
 EXTRA_DIST = CHANGES COPYING maketgz Makefile.dist curl-config.in	\
- RELEASE-NOTES buildconf libcurl.pc.in MacOSX-Framework	\
+ RELEASE-NOTES buildconf libcurl.pc.in MacOSX-Framework scripts/zsh.pl	\
  $(CMAKE_DIST) $(VC_DIST) $(WINBUILD_DIST) lib/libcurl.vers.in
 
 CLEANFILES = $(VC6_LIBDSP) $(VC6_SRCDSP) $(VC7_LIBVCPROJ) $(VC7_SRCVCPROJ)	\
@@ -577,50 +580,52 @@ SUBDIRS = lib src include
 DIST_SUBDIRS = $(SUBDIRS) tests packages docs
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libcurl.pc
-LIB_VTLS_CFILES = vtls/openssl.c vtls/gtls.c vtls/vtls.c vtls/nss.c	\
-  vtls/qssl.c vtls/polarssl.c vtls/polarssl_threadlock.c vtls/axtls.c	\
-  vtls/cyassl.c vtls/curl_schannel.c vtls/curl_darwinssl.c vtls/gskit.c
+LIB_VTLS_CFILES = vtls/openssl.c vtls/gtls.c vtls/vtls.c vtls/nss.c     \
+  vtls/polarssl.c vtls/polarssl_threadlock.c vtls/axtls.c               \
+  vtls/cyassl.c vtls/schannel.c vtls/darwinssl.c vtls/gskit.c
 
-LIB_VTLS_HFILES = vtls/qssl.h vtls/openssl.h vtls/vtls.h vtls/gtls.h	\
-  vtls/nssg.h vtls/polarssl.h vtls/polarssl_threadlock.h vtls/axtls.h	\
-  vtls/cyassl.h vtls/curl_schannel.h vtls/curl_darwinssl.h vtls/gskit.h
+LIB_VTLS_HFILES = vtls/openssl.h vtls/vtls.h vtls/gtls.h                \
+  vtls/nssg.h vtls/polarssl.h vtls/polarssl_threadlock.h vtls/axtls.h   \
+  vtls/cyassl.h vtls/schannel.h vtls/darwinssl.h vtls/gskit.h
 
-LIB_CFILES = file.c timeval.c base64.c hostip.c progress.c formdata.c	\
-  cookie.c http.c sendf.c ftp.c url.c dict.c if2ip.c speedcheck.c	\
-  ldap.c version.c getenv.c escape.c mprintf.c telnet.c netrc.c		\
-  getinfo.c transfer.c strequal.c easy.c security.c curl_fnmatch.c	\
-  fileinfo.c ftplistparser.c wildcard.c krb5.c memdebug.c http_chunks.c	\
-  strtok.c connect.c llist.c hash.c multi.c content_encoding.c share.c	\
-  http_digest.c md4.c md5.c http_negotiate.c inet_pton.c strtoofft.c	\
-  strerror.c amigaos.c hostasyn.c hostip4.c hostip6.c hostsyn.c		\
-  inet_ntop.c parsedate.c select.c tftp.c splay.c strdup.c socks.c	\
-  ssh.c rawstr.c curl_addrinfo.c socks_gssapi.c socks_sspi.c		\
-  curl_sspi.c slist.c nonblock.c curl_memrchr.c imap.c pop3.c smtp.c	\
-  pingpong.c rtsp.c curl_threads.c warnless.c hmac.c curl_rtmp.c	\
-  openldap.c curl_gethostname.c gopher.c idn_win32.c			\
-  http_negotiate_sspi.c http_proxy.c non-ascii.c asyn-ares.c		\
-  asyn-thread.c curl_gssapi.c curl_ntlm.c curl_ntlm_wb.c		\
-  curl_ntlm_core.c curl_ntlm_msgs.c curl_sasl.c curl_multibyte.c	\
-  hostcheck.c bundles.c conncache.c pipeline.c dotdot.c x509asn1.c	\
-  http2.c curl_sasl_sspi.c
+LIB_CFILES = file.c timeval.c base64.c hostip.c progress.c formdata.c   \
+  cookie.c http.c sendf.c ftp.c url.c dict.c if2ip.c speedcheck.c       \
+  ldap.c version.c getenv.c escape.c mprintf.c telnet.c netrc.c         \
+  getinfo.c transfer.c strequal.c easy.c security.c curl_fnmatch.c      \
+  fileinfo.c ftplistparser.c wildcard.c krb5.c memdebug.c http_chunks.c \
+  strtok.c connect.c llist.c hash.c multi.c content_encoding.c share.c  \
+  http_digest.c md4.c md5.c http_negotiate.c inet_pton.c strtoofft.c    \
+  strerror.c amigaos.c hostasyn.c hostip4.c hostip6.c hostsyn.c         \
+  inet_ntop.c parsedate.c select.c tftp.c splay.c strdup.c socks.c      \
+  ssh.c rawstr.c curl_addrinfo.c socks_gssapi.c socks_sspi.c            \
+  curl_sspi.c slist.c nonblock.c curl_memrchr.c imap.c pop3.c smtp.c    \
+  pingpong.c rtsp.c curl_threads.c warnless.c hmac.c curl_rtmp.c        \
+  openldap.c curl_gethostname.c gopher.c idn_win32.c                    \
+  http_negotiate_sspi.c http_proxy.c non-ascii.c asyn-ares.c            \
+  asyn-thread.c curl_gssapi.c curl_ntlm.c curl_ntlm_wb.c                \
+  curl_ntlm_core.c curl_ntlm_msgs.c curl_sasl.c curl_multibyte.c        \
+  hostcheck.c conncache.c pipeline.c dotdot.c x509asn1.c                \
+  http2.c curl_sasl_sspi.c smb.c curl_sasl_gssapi.c curl_endian.c       \
+  curl_des.c
 
-LIB_HFILES = arpa_telnet.h netrc.h file.h timeval.h hostip.h progress.h	\
-  formdata.h cookie.h http.h sendf.h ftp.h url.h dict.h if2ip.h		\
-  speedcheck.h urldata.h curl_ldap.h escape.h telnet.h getinfo.h	\
-  strequal.h curl_sec.h memdebug.h http_chunks.h curl_fnmatch.h		\
-  wildcard.h fileinfo.h ftplistparser.h strtok.h connect.h llist.h	\
-  hash.h content_encoding.h share.h curl_md4.h curl_md5.h http_digest.h	\
-  http_negotiate.h inet_pton.h amigaos.h strtoofft.h strerror.h		\
-  inet_ntop.h curlx.h curl_memory.h curl_setup.h transfer.h select.h	\
-  easyif.h multiif.h parsedate.h tftp.h sockaddr.h splay.h strdup.h	\
-  socks.h ssh.h curl_base64.h rawstr.h curl_addrinfo.h curl_sspi.h	\
-  slist.h nonblock.h curl_memrchr.h imap.h pop3.h smtp.h pingpong.h	\
-  rtsp.h curl_threads.h warnless.h curl_hmac.h curl_rtmp.h		\
-  curl_gethostname.h gopher.h http_proxy.h non-ascii.h asyn.h		\
-  curl_ntlm.h curl_gssapi.h curl_ntlm_wb.h curl_ntlm_core.h		\
-  curl_ntlm_msgs.h curl_sasl.h curl_multibyte.h hostcheck.h bundles.h	\
-  conncache.h curl_setup_once.h multihandle.h setup-vms.h pipeline.h	\
-  dotdot.h x509asn1.h http2.h sigpipe.h
+LIB_HFILES = arpa_telnet.h netrc.h file.h timeval.h hostip.h progress.h \
+  formdata.h cookie.h http.h sendf.h ftp.h url.h dict.h if2ip.h         \
+  speedcheck.h urldata.h curl_ldap.h escape.h telnet.h getinfo.h        \
+  strequal.h curl_sec.h memdebug.h http_chunks.h curl_fnmatch.h         \
+  wildcard.h fileinfo.h ftplistparser.h strtok.h connect.h llist.h      \
+  hash.h content_encoding.h share.h curl_md4.h curl_md5.h http_digest.h \
+  http_negotiate.h inet_pton.h amigaos.h strtoofft.h strerror.h         \
+  inet_ntop.h curlx.h curl_memory.h curl_setup.h transfer.h select.h    \
+  easyif.h multiif.h parsedate.h tftp.h sockaddr.h splay.h strdup.h     \
+  socks.h ssh.h curl_base64.h rawstr.h curl_addrinfo.h curl_sspi.h      \
+  slist.h nonblock.h curl_memrchr.h imap.h pop3.h smtp.h pingpong.h     \
+  rtsp.h curl_threads.h warnless.h curl_hmac.h curl_rtmp.h              \
+  curl_gethostname.h gopher.h http_proxy.h non-ascii.h asyn.h           \
+  curl_ntlm.h curl_gssapi.h curl_ntlm_wb.h curl_ntlm_core.h             \
+  curl_ntlm_msgs.h curl_sasl.h curl_multibyte.h hostcheck.h             \
+  conncache.h curl_setup_once.h multihandle.h setup-vms.h pipeline.h    \
+  dotdot.h x509asn1.h http2.h sigpipe.h smb.h curl_endian.h curl_des.h  \
+  curl_printf.h
 
 LIB_RCFILES = libcurl.rc
 CSOURCES = $(LIB_CFILES) $(LIB_VTLS_CFILES)
@@ -630,7 +635,6 @@ HHEADERS = $(LIB_HFILES) $(LIB_VTLS_HFILES)
 # the official API, but we re-use the code here to avoid duplication.
 CURLX_CFILES = \
 	../lib/strtoofft.c \
-	../lib/strdup.c \
 	../lib/rawstr.c \
 	../lib/nonblock.c \
 	../lib/warnless.c
@@ -638,7 +642,6 @@ CURLX_CFILES = \
 CURLX_HFILES = \
 	../lib/curl_setup.h \
 	../lib/strtoofft.h \
-	../lib/strdup.h \
 	../lib/rawstr.h \
 	../lib/nonblock.h \
 	../lib/warnless.h
@@ -674,6 +677,7 @@ CURL_CFILES = \
 	tool_panykey.c \
 	tool_paramhlp.c \
 	tool_parsecfg.c \
+	tool_strdup.c \
 	tool_setopt.c \
 	tool_sleep.c \
 	tool_urlglob.c \
@@ -718,6 +722,7 @@ CURL_HFILES = \
 	tool_setopt.h \
 	tool_setup.h \
 	tool_sleep.h \
+	tool_strdup.h \
 	tool_urlglob.h \
 	tool_util.h \
 	tool_version.h \
@@ -1280,7 +1285,7 @@ html:
 pdf:
 	cd docs; make pdf
 
-check: test examples
+check: test examples check-docs
 
 @CROSSCOMPILING_TRUE@test-full: test
 @CROSSCOMPILING_TRUE@test-torture: test
@@ -1302,6 +1307,9 @@ check: test examples
 
 examples:
 	@(cd docs/examples; $(MAKE) check)
+
+check-docs:
+	@(cd docs/libcurl; $(MAKE) check)
 
 # This is a hook to have 'make clean' also clean up the docs and the tests
 # dir. The extra check for the Makefiles being present is necessary because

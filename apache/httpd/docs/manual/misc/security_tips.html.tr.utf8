@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -330,7 +332,7 @@
 
     <p>Sunucu yapılandırma dosyanıza şunu yerleştirin:</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/"&gt;
     AllowOverride None
 &lt;/Directory&gt;</pre>
 
@@ -339,6 +341,7 @@
       dizinlerde <code>.htaccess</code> dosyalarının kullanımını engellemiş
       olursunuz.</p>
 
+    <p>Bu ayar Apache 2.3.9 itibariyle öntanımlıdır.</p>
   </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="protectserverfiles" id="protectserverfiles">Sunucu dosyalarının öntanımlı olarak korunması</a></h2>
@@ -361,7 +364,7 @@
       olursunuz. Bu işlemin sonuçlarının önünü almak için sunucu yapılandırma
       dosyanıza şunları yazın:</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/"&gt;
     Require all denied
 &lt;/Directory&gt;</pre>
 
@@ -370,17 +373,17 @@
       Erişime izin vermek istediğiniz dizinler için uygun <code class="directive"><a href="../mod/core.html#directory">Directory</a></code> bölümleri eklemeniz yeterli
       olacaktır. Örnek:</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /usr/users/*/public_html&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/usr/users/*/public_html"&gt;
     Require all granted
 &lt;/Directory&gt;
-&lt;Directory /usr/local/httpd&gt;
+&lt;Directory "/usr/local/httpd"&gt;
     Require all granted
 &lt;/Directory&gt;</pre>
 
 
     <p><code class="directive"><a href="../mod/core.html#location">Location</a></code> ve <code class="directive"><a href="../mod/core.html#directory">Directory</a></code> yönergelerinin etkileşimine de
-      özellikle önem vermelisiniz; örneğin <code>&lt;Directory /&gt;</code>
-      erişimi yasaklarken bir <code>&lt;Location /&gt;</code> yönergesi bunu
+      özellikle önem vermelisiniz; örneğin <code>&lt;Directory "/"&gt;</code>
+      erişimi yasaklarken bir <code>&lt;Location "/"&gt;</code> yönergesi bunu
       ortadan kaldırabilir.</p>
 
     <p><code class="directive"><a href="../mod/mod_userdir.html#userdir">UserDir</a></code> yönergesi de size
@@ -474,7 +477,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/misc/security_tips.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -169,7 +169,7 @@ IOExternalMethod * IOAccelerationUserClient::getTargetAndMethodForIndex(
                     kIOUCScalarIScalarO, 2, 0 },
     };
 
-    if (index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
+    if (index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return (NULL);
 
     *targetP = this;

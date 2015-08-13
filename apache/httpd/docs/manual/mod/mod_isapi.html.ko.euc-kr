@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="EUC-KR"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+<meta content="text/html; charset=EUC-KR" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -47,7 +49,12 @@
     직접 연락하길 바란다. <strong>제발 이런 문제를 아파치
     메일링리스트나 버그보고 페이지에 올리지 <em>마라</em>.</strong></p>
 </div>
-<div id="quickview"><h3 class="directives">지시어들</h3>
+<div id="quickview"><h3>주제</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#usage">사용법</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#notes">추가 설명</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#journal">개발자 정보</a></li>
+</ul><h3 class="directives">지시어들</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#isapiappendlogtoerrors">ISAPIAppendLogToErrors</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#isapiappendlogtoquery">ISAPIAppendLogToQuery</a></li>
@@ -56,12 +63,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#isapilognotsupported">ISAPILogNotSupported</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#isapireadaheadbuffer">ISAPIReadAheadBuffer</a></li>
 </ul>
-<h3>주제</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#usage">사용법</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#notes">추가 설명</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#journal">개발자 정보</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="usage" id="usage">사용법</a></h2>
@@ -336,7 +338,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_isapi.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

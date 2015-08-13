@@ -332,7 +332,7 @@ case $host in
       dnl solaris 8 and above don't have a thundering herd
       dnl not sure about rev's before this one.
       case `uname -r` in
-        5.[567]*)
+        5.[[567]]*)
             ;;
         * )
             APR_SETVAR(SINGLE_LISTEN_UNSERIALIZED_ACCEPT, [1])
@@ -774,7 +774,7 @@ AC_ARG_ENABLE(v4-mapped,APACHE_HELP_STRING(--enable-v4-mapped,Allow IPv6 sockets
 ],
 [
     case $host in
-    *freebsd[1234].*)
+    *freebsd[[1234]].*)
         v4mapped=yes
         ;;
     *freebsd*|*netbsd*|*openbsd*)

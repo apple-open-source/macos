@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2014 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,10 +41,10 @@
 #include <netsmb/netbios.h>
 
 #define SMBFS_VERMAJ	3
-#define SMBFS_VERMIN	0100
+#define SMBFS_VERMIN	0200
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 3.0.1"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_LANMAN	"SMBFS 3.0.2"	/* Needs to match SMBFS_VERSION */
 #define SMBFS_NATIVEOS	"Mac OS X 10.10"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 

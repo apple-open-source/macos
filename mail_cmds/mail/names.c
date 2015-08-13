@@ -305,6 +305,9 @@ outof(names, fo, hp)
 	char *date, *fname;
 	FILE *fout, *fin;
 
+	if (value("expandaddr") == NULL)
+		return(names);
+
 	top = names;
 	np = names;
 	(void)time(&now);

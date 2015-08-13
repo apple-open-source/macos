@@ -293,9 +293,35 @@ void AppleTPSession::makeCertTemplate(
 	CSSM_BOOL		freeRawKey = CSSM_FALSE;
 	
 	rawCert = NULL;
+    
+    /* 
+     * Set Signature Algorithm OID and parameters
+     */
 	algId.algorithm = sigOid;
-	algId.parameters.Data = NULL;
-	algId.parameters.Length = 0;
+    
+    /* NULL params - skip for ECDSA */
+    CSSM_ALGORITHMS algorithmType = 0;
+    cssmOidToAlg(&sigOid, &algorithmType);
+    switch(algorithmType) {
+        case CSSM_ALGID_SHA1WithECDSA:
+        case CSSM_ALGID_SHA224WithECDSA:
+        case CSSM_ALGID_SHA256WithECDSA:
+        case CSSM_ALGID_SHA384WithECDSA:
+        case CSSM_ALGID_SHA512WithECDSA:
+        case CSSM_ALGID_ECDSA_SPECIFIED:
+            algId.parameters.Data = NULL;
+            algId.parameters.Length = 0;
+            break;
+        default:
+            static const uint8 encNull[2] = { SEC_ASN1_NULL, 0 };
+            CSSM_DATA encNullData;
+            encNullData.Data = (uint8 *)encNull;
+            encNullData.Length = 2;
+            
+            algId.parameters = encNullData;
+            break;
+    }
+
 	
 	/*
 	 * Convert possible ref public key to raw format as required by CL.

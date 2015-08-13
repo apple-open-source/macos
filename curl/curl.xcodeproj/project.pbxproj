@@ -259,10 +259,38 @@
 		FD0DFE5714A16C7100D0DD1C /* tftpd.c in Sources */ = {isa = PBXBuildFile; fileRef = FD0DFE5614A16C7100D0DD1C /* tftpd.c */; };
 		FD0DFE5814A16C8F00D0DD1C /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = FD0DFE4814A16B9F00D0DD1C /* util.c */; };
 		FD0DFE5A14A16C9900D0DD1C /* fake_ntlm.c in Sources */ = {isa = PBXBuildFile; fileRef = FD0DFE5914A16C9900D0DD1C /* fake_ntlm.c */; };
-		FD4C39FD173C6DE500664FD3 /* bundles.c in Sources */ = {isa = PBXBuildFile; fileRef = FD4C39F4173C6D7500664FD3 /* bundles.c */; };
 		FD4C39FE173C6DEB00664FD3 /* conncache.c in Sources */ = {isa = PBXBuildFile; fileRef = FD4C39F6173C6D7500664FD3 /* conncache.c */; };
 		FD4C3A01173C6E0400664FD3 /* pipeline.c in Sources */ = {isa = PBXBuildFile; fileRef = FD4C39FF173C6DF900664FD3 /* pipeline.c */; };
 		FD560D69173C6CA200A6E968 /* tool_hugehelp.c in Sources */ = {isa = PBXBuildFile; fileRef = FD560D67173C6CA200A6E968 /* tool_hugehelp.c */; };
+		FD5753F51B55DE52004F1257 /* libcurl-symbols.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753F41B55DE2C004F1257 /* libcurl-symbols.3 */; };
+		FD57540B1B55E0E9004F1257 /* CURLMOPT_CHUNK_LENGTH_PENALTY_SIZE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753F61B55DEFE004F1257 /* CURLMOPT_CHUNK_LENGTH_PENALTY_SIZE.3 */; };
+		FD57540C1B55E0E9004F1257 /* CURLMOPT_CONTENT_LENGTH_PENALTY_SIZE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753F71B55DEFE004F1257 /* CURLMOPT_CONTENT_LENGTH_PENALTY_SIZE.3 */; };
+		FD57540D1B55E0E9004F1257 /* CURLMOPT_MAXCONNECTS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753FB1B55DEFE004F1257 /* CURLMOPT_MAXCONNECTS.3 */; };
+		FD57540E1B55E0E9004F1257 /* CURLMOPT_MAX_HOST_CONNECTIONS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753F81B55DEFE004F1257 /* CURLMOPT_MAX_HOST_CONNECTIONS.3 */; };
+		FD57540F1B55E0E9004F1257 /* CURLMOPT_MAX_PIPELINE_LENGTH.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753F91B55DEFE004F1257 /* CURLMOPT_MAX_PIPELINE_LENGTH.3 */; };
+		FD5754101B55E0E9004F1257 /* CURLMOPT_MAX_TOTAL_CONNECTIONS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753FA1B55DEFE004F1257 /* CURLMOPT_MAX_TOTAL_CONNECTIONS.3 */; };
+		FD5754111B55E0E9004F1257 /* CURLMOPT_PIPELINING.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753FE1B55DEFE004F1257 /* CURLMOPT_PIPELINING.3 */; };
+		FD5754121B55E0E9004F1257 /* CURLMOPT_PIPELINING_SERVER_BL.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753FC1B55DEFE004F1257 /* CURLMOPT_PIPELINING_SERVER_BL.3 */; };
+		FD5754131B55E0E9004F1257 /* CURLMOPT_PIPELINING_SITE_BL.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753FD1B55DEFE004F1257 /* CURLMOPT_PIPELINING_SITE_BL.3 */; };
+		FD5754141B55E0E9004F1257 /* CURLMOPT_SOCKETDATA.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5753FF1B55DEFE004F1257 /* CURLMOPT_SOCKETDATA.3 */; };
+		FD5754151B55E0E9004F1257 /* CURLMOPT_SOCKETFUNCTION.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754001B55DEFE004F1257 /* CURLMOPT_SOCKETFUNCTION.3 */; };
+		FD5754161B55E0E9004F1257 /* CURLMOPT_TIMERDATA.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754011B55DEFE004F1257 /* CURLMOPT_TIMERDATA.3 */; };
+		FD5754171B55E0E9004F1257 /* CURLMOPT_TIMERFUNCTION.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754021B55DEFE004F1257 /* CURLMOPT_TIMERFUNCTION.3 */; };
+		FD5754181B55E0E9004F1257 /* CURLOPT_PATH_AS_IS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754031B55DEFE004F1257 /* CURLOPT_PATH_AS_IS.3 */; };
+		FD5754191B55E0E9004F1257 /* CURLOPT_PINNEDPUBLICKEY.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754041B55DEFE004F1257 /* CURLOPT_PINNEDPUBLICKEY.3 */; };
+		FD57541A1B55E0E9004F1257 /* CURLOPT_PIPEWAIT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754051B55DEFE004F1257 /* CURLOPT_PIPEWAIT.3 */; };
+		FD57541B1B55E0E9004F1257 /* CURLOPT_PROXY_SERVICE_NAME.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754061B55DEFE004F1257 /* CURLOPT_PROXY_SERVICE_NAME.3 */; };
+		FD57541C1B55E0E9004F1257 /* CURLOPT_SERVICE_NAME.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754071B55DEFE004F1257 /* CURLOPT_SERVICE_NAME.3 */; };
+		FD57541D1B55E0E9004F1257 /* CURLOPT_SSL_FALSESTART.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754081B55DEFE004F1257 /* CURLOPT_SSL_FALSESTART.3 */; };
+		FD57541E1B55E0E9004F1257 /* CURLOPT_SSL_VERIFYSTATUS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD5754091B55DEFE004F1257 /* CURLOPT_SSL_VERIFYSTATUS.3 */; };
+		FD57541F1B55E0E9004F1257 /* CURLOPT_UNIX_SOCKET_PATH.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FD57540A1B55DEFE004F1257 /* CURLOPT_UNIX_SOCKET_PATH.3 */; };
+		FD60D0E41B5490CB0084FA3C /* tool_strdup.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0E21B5490CB0084FA3C /* tool_strdup.c */; };
+		FD60D0E71B5491D90084FA3C /* smb.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0E51B5491D90084FA3C /* smb.c */; };
+		FD60D0EF1B54928A0084FA3C /* curl_sasl_gssapi.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0EE1B5492560084FA3C /* curl_sasl_gssapi.c */; };
+		FD60D0F01B5492930084FA3C /* curl_endian.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0EB1B5492560084FA3C /* curl_endian.c */; };
+		FD60D0F11B5492960084FA3C /* curl_des.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0E91B5492560084FA3C /* curl_des.c */; };
+		FD60D0F61B5492E70084FA3C /* schannel.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0F41B5492D00084FA3C /* schannel.c */; };
+		FD60D0F71B5492EB0084FA3C /* darwinssl.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0F21B5492D00084FA3C /* darwinssl.c */; };
 		FD7F96D3169E6E53000707BF /* tool_metalink.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96D1169E6E53000707BF /* tool_metalink.c */; };
 		FD7F96D9169E6F73000707BF /* amigaos.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96D6169E6F68000707BF /* amigaos.c */; };
 		FD7F96E6169E6FE3000707BF /* curl_multibyte.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96DC169E6FE3000707BF /* curl_multibyte.c */; };
@@ -278,13 +306,10 @@
 		FDB9BB8D1981B6C800195172 /* gtls.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB781981B5C600195172 /* gtls.c */; };
 		FDB9BB8E1981B6CC00195172 /* vtls.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB841981B5C600195172 /* vtls.c */; };
 		FDB9BB8F1981B6D100195172 /* nss.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB7A1981B5C600195172 /* nss.c */; };
-		FDB9BB901981B6D600195172 /* qssl.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB821981B5C600195172 /* qssl.c */; };
 		FDB9BB911981B6DA00195172 /* polarssl.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB7E1981B5C600195172 /* polarssl.c */; };
 		FDB9BB921981B6DF00195172 /* polarssl_threadlock.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB801981B5C600195172 /* polarssl_threadlock.c */; };
 		FDB9BB931981B6E300195172 /* axtls.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB6E1981B5C600195172 /* axtls.c */; };
 		FDB9BB941981B6E800195172 /* cyassl.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB741981B5C600195172 /* cyassl.c */; };
-		FDB9BB951981B6EC00195172 /* curl_schannel.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB721981B5C600195172 /* curl_schannel.c */; };
-		FDB9BB961981B6F200195172 /* curl_darwinssl.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB701981B5C600195172 /* curl_darwinssl.c */; };
 		FDB9BB971981B6F500195172 /* gskit.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB9BB761981B5C600195172 /* gskit.c */; };
 		FDC61C15149833D2005BBE36 /* tool_binmode.c in Sources */ = {isa = PBXBuildFile; fileRef = FDC61BC9149833D2005BBE36 /* tool_binmode.c */; };
 		FDC61C16149833D2005BBE36 /* tool_bname.c in Sources */ = {isa = PBXBuildFile; fileRef = FDC61BCB149833D2005BBE36 /* tool_bname.c */; };
@@ -351,7 +376,6 @@
 		FDC61C8314983DB2005BBE36 /* nonblock.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A6CF12455686007EDB1C /* nonblock.c */; };
 		FDC61C8414983DBE005BBE36 /* rawstr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A6E212455686007EDB1C /* rawstr.c */; };
 		FDC61C8514983DC7005BBE36 /* strtoofft.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A71612455686007EDB1C /* strtoofft.c */; };
-		FDC61C8614983DCA005BBE36 /* strdup.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A70E12455686007EDB1C /* strdup.c */; };
 		FDDC12661981DE3F002F032D /* CURLOPT_ACCEPT_ENCODING.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11911981DD85002F032D /* CURLOPT_ACCEPT_ENCODING.3 */; };
 		FDDC12671981DE3F002F032D /* CURLOPT_ACCEPTTIMEOUT_MS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11931981DDED002F032D /* CURLOPT_ACCEPTTIMEOUT_MS.3 */; };
 		FDDC12681981DE3F002F032D /* CURLOPT_ADDRESS_SCOPE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11941981DDED002F032D /* CURLOPT_ADDRESS_SCOPE.3 */; };
@@ -656,8 +680,21 @@
 			dstPath = "$(CURL_PREFIX)/share/man/man3";
 			dstSubfolderSpec = 0;
 			files = (
-				FDDC12661981DE3F002F032D /* CURLOPT_ACCEPT_ENCODING.3 in Install man3 */,
+				FD57540B1B55E0E9004F1257 /* CURLMOPT_CHUNK_LENGTH_PENALTY_SIZE.3 in Install man3 */,
+				FD57540C1B55E0E9004F1257 /* CURLMOPT_CONTENT_LENGTH_PENALTY_SIZE.3 in Install man3 */,
+				FD57540D1B55E0E9004F1257 /* CURLMOPT_MAXCONNECTS.3 in Install man3 */,
+				FD57540E1B55E0E9004F1257 /* CURLMOPT_MAX_HOST_CONNECTIONS.3 in Install man3 */,
+				FD57540F1B55E0E9004F1257 /* CURLMOPT_MAX_PIPELINE_LENGTH.3 in Install man3 */,
+				FD5754101B55E0E9004F1257 /* CURLMOPT_MAX_TOTAL_CONNECTIONS.3 in Install man3 */,
+				FD5754111B55E0E9004F1257 /* CURLMOPT_PIPELINING.3 in Install man3 */,
+				FD5754121B55E0E9004F1257 /* CURLMOPT_PIPELINING_SERVER_BL.3 in Install man3 */,
+				FD5754131B55E0E9004F1257 /* CURLMOPT_PIPELINING_SITE_BL.3 in Install man3 */,
+				FD5754141B55E0E9004F1257 /* CURLMOPT_SOCKETDATA.3 in Install man3 */,
+				FD5754151B55E0E9004F1257 /* CURLMOPT_SOCKETFUNCTION.3 in Install man3 */,
+				FD5754161B55E0E9004F1257 /* CURLMOPT_TIMERDATA.3 in Install man3 */,
+				FD5754171B55E0E9004F1257 /* CURLMOPT_TIMERFUNCTION.3 in Install man3 */,
 				FDDC12671981DE3F002F032D /* CURLOPT_ACCEPTTIMEOUT_MS.3 in Install man3 */,
+				FDDC12661981DE3F002F032D /* CURLOPT_ACCEPT_ENCODING.3 in Install man3 */,
 				FDDC12681981DE3F002F032D /* CURLOPT_ADDRESS_SCOPE.3 in Install man3 */,
 				FDDC12691981DE3F002F032D /* CURLOPT_APPEND.3 in Install man3 */,
 				FDDC126A1981DE3F002F032D /* CURLOPT_AUTOREFERER.3 in Install man3 */,
@@ -670,9 +707,9 @@
 				FDDC12711981DE3F002F032D /* CURLOPT_CHUNK_END_FUNCTION.3 in Install man3 */,
 				FDDC12721981DE3F002F032D /* CURLOPT_CLOSESOCKETDATA.3 in Install man3 */,
 				FDDC12731981DE3F002F032D /* CURLOPT_CLOSESOCKETFUNCTION.3 in Install man3 */,
-				FDDC12741981DE3F002F032D /* CURLOPT_CONNECT_ONLY.3 in Install man3 */,
-				FDDC12751981DE3F002F032D /* CURLOPT_CONNECTTIMEOUT_MS.3 in Install man3 */,
 				FDDC12761981DE3F002F032D /* CURLOPT_CONNECTTIMEOUT.3 in Install man3 */,
+				FDDC12751981DE3F002F032D /* CURLOPT_CONNECTTIMEOUT_MS.3 in Install man3 */,
+				FDDC12741981DE3F002F032D /* CURLOPT_CONNECT_ONLY.3 in Install man3 */,
 				FDDC12771981DE3F002F032D /* CURLOPT_CONV_FROM_NETWORK_FUNCTION.3 in Install man3 */,
 				FDDC12781981DE3F002F032D /* CURLOPT_CONV_FROM_UTF8_FUNCTION.3 in Install man3 */,
 				FDDC12791981DE3F002F032D /* CURLOPT_CONV_TO_NETWORK_FUNCTION.3 in Install man3 */,
@@ -704,6 +741,8 @@
 				FDDC12931981DE3F002F032D /* CURLOPT_FOLLOWLOCATION.3 in Install man3 */,
 				FDDC12941981DE3F002F032D /* CURLOPT_FORBID_REUSE.3 in Install man3 */,
 				FDDC12951981DE3F002F032D /* CURLOPT_FRESH_CONNECT.3 in Install man3 */,
+				FDDC12A01981DE3F002F032D /* CURLOPT_FTPPORT.3 in Install man3 */,
+				FDDC12A11981DE3F002F032D /* CURLOPT_FTPSSLAUTH.3 in Install man3 */,
 				FDDC12961981DE3F002F032D /* CURLOPT_FTP_ACCOUNT.3 in Install man3 */,
 				FDDC12971981DE3F002F032D /* CURLOPT_FTP_ALTERNATIVE_TO_USER.3 in Install man3 */,
 				FDDC12981981DE3F002F032D /* CURLOPT_FTP_CREATE_MISSING_DIRS.3 in Install man3 */,
@@ -714,25 +753,23 @@
 				FDDC129D1981DE3F002F032D /* CURLOPT_FTP_USE_EPRT.3 in Install man3 */,
 				FDDC129E1981DE3F002F032D /* CURLOPT_FTP_USE_EPSV.3 in Install man3 */,
 				FDDC129F1981DE3F002F032D /* CURLOPT_FTP_USE_PRET.3 in Install man3 */,
-				FDDC12A01981DE3F002F032D /* CURLOPT_FTPPORT.3 in Install man3 */,
-				FDDC12A11981DE3F002F032D /* CURLOPT_FTPSSLAUTH.3 in Install man3 */,
 				FDDC12A21981DE3F002F032D /* CURLOPT_GSSAPI_DELEGATION.3 in Install man3 */,
 				FDDC12A31981DE3F002F032D /* CURLOPT_HEADER.3 in Install man3 */,
 				FDDC12A41981DE3F002F032D /* CURLOPT_HEADERDATA.3 in Install man3 */,
 				FDDC12A51981DE3F002F032D /* CURLOPT_HEADERFUNCTION.3 in Install man3 */,
 				FDDC12A61981DE3F002F032D /* CURLOPT_HEADEROPT.3 in Install man3 */,
-				FDDC12A71981DE3F002F032D /* CURLOPT_HTTP_CONTENT_DECODING.3 in Install man3 */,
-				FDDC12A81981DE3F002F032D /* CURLOPT_HTTP_TRANSFER_DECODING.3 in Install man3 */,
-				FDDC12A91981DE3F002F032D /* CURLOPT_HTTP_VERSION.3 in Install man3 */,
 				FDDC12AA1981DE3F002F032D /* CURLOPT_HTTP200ALIASES.3 in Install man3 */,
 				FDDC12AB1981DE3F002F032D /* CURLOPT_HTTPAUTH.3 in Install man3 */,
 				FDDC12AC1981DE3F002F032D /* CURLOPT_HTTPGET.3 in Install man3 */,
 				FDDC12AD1981DE3F002F032D /* CURLOPT_HTTPHEADER.3 in Install man3 */,
 				FDDC12AE1981DE3F002F032D /* CURLOPT_HTTPPOST.3 in Install man3 */,
 				FDDC12AF1981DE3F002F032D /* CURLOPT_HTTPPROXYTUNNEL.3 in Install man3 */,
+				FDDC12A71981DE3F002F032D /* CURLOPT_HTTP_CONTENT_DECODING.3 in Install man3 */,
+				FDDC12A81981DE3F002F032D /* CURLOPT_HTTP_TRANSFER_DECODING.3 in Install man3 */,
+				FDDC12A91981DE3F002F032D /* CURLOPT_HTTP_VERSION.3 in Install man3 */,
 				FDDC12B01981DE3F002F032D /* CURLOPT_IGNORE_CONTENT_LENGTH.3 in Install man3 */,
-				FDDC12B11981DE3F002F032D /* CURLOPT_INFILESIZE_LARGE.3 in Install man3 */,
 				FDDC12B21981DE40002F032D /* CURLOPT_INFILESIZE.3 in Install man3 */,
+				FDDC12B11981DE3F002F032D /* CURLOPT_INFILESIZE_LARGE.3 in Install man3 */,
 				FDDC12B31981DE40002F032D /* CURLOPT_INTERFACE.3 in Install man3 */,
 				FDDC12B41981DE40002F032D /* CURLOPT_INTERLEAVEDATA.3 in Install man3 */,
 				FDDC12B51981DE40002F032D /* CURLOPT_INTERLEAVEFUNCTION.3 in Install man3 */,
@@ -750,14 +787,14 @@
 				FDDC12C11981DE40002F032D /* CURLOPT_MAIL_AUTH.3 in Install man3 */,
 				FDDC12C21981DE40002F032D /* CURLOPT_MAIL_FROM.3 in Install man3 */,
 				FDDC12C31981DE40002F032D /* CURLOPT_MAIL_RCPT.3 in Install man3 */,
+				FDDC12C61981DE40002F032D /* CURLOPT_MAXCONNECTS.3 in Install man3 */,
+				FDDC12C81981DE40002F032D /* CURLOPT_MAXFILESIZE.3 in Install man3 */,
+				FDDC12C71981DE40002F032D /* CURLOPT_MAXFILESIZE_LARGE.3 in Install man3 */,
+				FDDC12C91981DE40002F032D /* CURLOPT_MAXREDIRS.3 in Install man3 */,
 				FDDC12C41981DE40002F032D /* CURLOPT_MAX_RECV_SPEED_LARGE.3 in Install man3 */,
 				FDDC12C51981DE40002F032D /* CURLOPT_MAX_SEND_SPEED_LARGE.3 in Install man3 */,
-				FDDC12C61981DE40002F032D /* CURLOPT_MAXCONNECTS.3 in Install man3 */,
-				FDDC12C71981DE40002F032D /* CURLOPT_MAXFILESIZE_LARGE.3 in Install man3 */,
-				FDDC12C81981DE40002F032D /* CURLOPT_MAXFILESIZE.3 in Install man3 */,
-				FDDC12C91981DE40002F032D /* CURLOPT_MAXREDIRS.3 in Install man3 */,
-				FDDC12CA1981DE40002F032D /* CURLOPT_NETRC_FILE.3 in Install man3 */,
 				FDDC12CB1981DE40002F032D /* CURLOPT_NETRC.3 in Install man3 */,
+				FDDC12CA1981DE40002F032D /* CURLOPT_NETRC_FILE.3 in Install man3 */,
 				FDDC12CC1981DE40002F032D /* CURLOPT_NEW_DIRECTORY_PERMS.3 in Install man3 */,
 				FDDC12CD1981DE40002F032D /* CURLOPT_NEW_FILE_PERMS.3 in Install man3 */,
 				FDDC12CE1981DE40002F032D /* CURLOPT_NOBODY.3 in Install man3 */,
@@ -767,11 +804,14 @@
 				FDDC12D21981DE40002F032D /* CURLOPT_OPENSOCKETDATA.3 in Install man3 */,
 				FDDC12D31981DE40002F032D /* CURLOPT_OPENSOCKETFUNCTION.3 in Install man3 */,
 				FDDC12D41981DE40002F032D /* CURLOPT_PASSWORD.3 in Install man3 */,
+				FD5754181B55E0E9004F1257 /* CURLOPT_PATH_AS_IS.3 in Install man3 */,
+				FD5754191B55E0E9004F1257 /* CURLOPT_PINNEDPUBLICKEY.3 in Install man3 */,
+				FD57541A1B55E0E9004F1257 /* CURLOPT_PIPEWAIT.3 in Install man3 */,
 				FDDC12D51981DE40002F032D /* CURLOPT_PORT.3 in Install man3 */,
 				FDDC12D61981DE40002F032D /* CURLOPT_POST.3 in Install man3 */,
 				FDDC12D71981DE40002F032D /* CURLOPT_POSTFIELDS.3 in Install man3 */,
-				FDDC12D81981DE40002F032D /* CURLOPT_POSTFIELDSIZE_LARGE.3 in Install man3 */,
 				FDDC12D91981DE40002F032D /* CURLOPT_POSTFIELDSIZE.3 in Install man3 */,
+				FDDC12D81981DE40002F032D /* CURLOPT_POSTFIELDSIZE_LARGE.3 in Install man3 */,
 				FDDC12DA1981DE40002F032D /* CURLOPT_POSTQUOTE.3 in Install man3 */,
 				FDDC12DB1981DE40002F032D /* CURLOPT_POSTREDIR.3 in Install man3 */,
 				FDDC12DC1981DE40002F032D /* CURLOPT_PREQUOTE.3 in Install man3 */,
@@ -779,7 +819,6 @@
 				FDDC12DE1981DE40002F032D /* CURLOPT_PROGRESSDATA.3 in Install man3 */,
 				FDDC12DF1981DE40002F032D /* CURLOPT_PROGRESSFUNCTION.3 in Install man3 */,
 				FDDC12E01981DE40002F032D /* CURLOPT_PROTOCOLS.3 in Install man3 */,
-				FDDC12E11981DE40002F032D /* CURLOPT_PROXY_TRANSFER_MODE.3 in Install man3 */,
 				FDDC12E21981DE40002F032D /* CURLOPT_PROXY.3 in Install man3 */,
 				FDDC12E31981DE40002F032D /* CURLOPT_PROXYAUTH.3 in Install man3 */,
 				FDDC12E41981DE40002F032D /* CURLOPT_PROXYHEADER.3 in Install man3 */,
@@ -788,6 +827,8 @@
 				FDDC12E71981DE40002F032D /* CURLOPT_PROXYTYPE.3 in Install man3 */,
 				FDDC12E81981DE40002F032D /* CURLOPT_PROXYUSERNAME.3 in Install man3 */,
 				FDDC12E91981DE40002F032D /* CURLOPT_PROXYUSERPWD.3 in Install man3 */,
+				FD57541B1B55E0E9004F1257 /* CURLOPT_PROXY_SERVICE_NAME.3 in Install man3 */,
+				FDDC12E11981DE40002F032D /* CURLOPT_PROXY_TRANSFER_MODE.3 in Install man3 */,
 				FDDC12EA1981DE40002F032D /* CURLOPT_PUT.3 in Install man3 */,
 				FDDC12EB1981DE40002F032D /* CURLOPT_QUOTE.3 in Install man3 */,
 				FDDC12EC1981DE40002F032D /* CURLOPT_RANDOM_FILE.3 in Install man3 */,
@@ -797,8 +838,8 @@
 				FDDC12F01981DE40002F032D /* CURLOPT_REDIR_PROTOCOLS.3 in Install man3 */,
 				FDDC12F11981DE40002F032D /* CURLOPT_REFERER.3 in Install man3 */,
 				FDDC12F21981DE40002F032D /* CURLOPT_RESOLVE.3 in Install man3 */,
-				FDDC12F31981DE40002F032D /* CURLOPT_RESUME_FROM_LARGE.3 in Install man3 */,
 				FDDC12F41981DE40002F032D /* CURLOPT_RESUME_FROM.3 in Install man3 */,
+				FDDC12F31981DE40002F032D /* CURLOPT_RESUME_FROM_LARGE.3 in Install man3 */,
 				FDDC12F51981DE41002F032D /* CURLOPT_RTSP_CLIENT_CSEQ.3 in Install man3 */,
 				FDDC12F61981DE41002F032D /* CURLOPT_RTSP_REQUEST.3 in Install man3 */,
 				FDDC12F71981DE41002F032D /* CURLOPT_RTSP_SERVER_CSEQ.3 in Install man3 */,
@@ -808,6 +849,7 @@
 				FDDC12FB1981DE41002F032D /* CURLOPT_SASL_IR.3 in Install man3 */,
 				FDDC12FC1981DE41002F032D /* CURLOPT_SEEKDATA.3 in Install man3 */,
 				FDDC12FD1981DE41002F032D /* CURLOPT_SEEKFUNCTION.3 in Install man3 */,
+				FD57541C1B55E0E9004F1257 /* CURLOPT_SERVICE_NAME.3 in Install man3 */,
 				FDDC12FE1981DE41002F032D /* CURLOPT_SHARE.3 in Install man3 */,
 				FDDC12FF1981DE41002F032D /* CURLOPT_SOCKOPTDATA.3 in Install man3 */,
 				FDDC13001981DE41002F032D /* CURLOPT_SOCKOPTFUNCTION.3 in Install man3 */,
@@ -820,22 +862,24 @@
 				FDDC13071981DE41002F032D /* CURLOPT_SSH_KNOWNHOSTS.3 in Install man3 */,
 				FDDC13081981DE41002F032D /* CURLOPT_SSH_PRIVATE_KEYFILE.3 in Install man3 */,
 				FDDC13091981DE41002F032D /* CURLOPT_SSH_PUBLIC_KEYFILE.3 in Install man3 */,
+				FDDC13131981DE41002F032D /* CURLOPT_SSLCERT.3 in Install man3 */,
+				FDDC13141981DE41002F032D /* CURLOPT_SSLCERTTYPE.3 in Install man3 */,
+				FDDC13161981DE41002F032D /* CURLOPT_SSLENGINE.3 in Install man3 */,
+				FDDC13151981DE41002F032D /* CURLOPT_SSLENGINE_DEFAULT.3 in Install man3 */,
+				FDDC13171981DE41002F032D /* CURLOPT_SSLKEY.3 in Install man3 */,
+				FDDC13181981DE41002F032D /* CURLOPT_SSLKEYTYPE.3 in Install man3 */,
+				FDDC13191981DE41002F032D /* CURLOPT_SSLVERSION.3 in Install man3 */,
 				FDDC130A1981DE41002F032D /* CURLOPT_SSL_CIPHER_LIST.3 in Install man3 */,
 				FDDC130B1981DE41002F032D /* CURLOPT_SSL_CTX_DATA.3 in Install man3 */,
 				FDDC130C1981DE41002F032D /* CURLOPT_SSL_CTX_FUNCTION.3 in Install man3 */,
 				FDDC130D1981DE41002F032D /* CURLOPT_SSL_ENABLE_ALPN.3 in Install man3 */,
 				FDDC130E1981DE41002F032D /* CURLOPT_SSL_ENABLE_NPN.3 in Install man3 */,
+				FD57541D1B55E0E9004F1257 /* CURLOPT_SSL_FALSESTART.3 in Install man3 */,
 				FDDC130F1981DE41002F032D /* CURLOPT_SSL_OPTIONS.3 in Install man3 */,
 				FDDC13101981DE41002F032D /* CURLOPT_SSL_SESSIONID_CACHE.3 in Install man3 */,
 				FDDC13111981DE41002F032D /* CURLOPT_SSL_VERIFYHOST.3 in Install man3 */,
 				FDDC13121981DE41002F032D /* CURLOPT_SSL_VERIFYPEER.3 in Install man3 */,
-				FDDC13131981DE41002F032D /* CURLOPT_SSLCERT.3 in Install man3 */,
-				FDDC13141981DE41002F032D /* CURLOPT_SSLCERTTYPE.3 in Install man3 */,
-				FDDC13151981DE41002F032D /* CURLOPT_SSLENGINE_DEFAULT.3 in Install man3 */,
-				FDDC13161981DE41002F032D /* CURLOPT_SSLENGINE.3 in Install man3 */,
-				FDDC13171981DE41002F032D /* CURLOPT_SSLKEY.3 in Install man3 */,
-				FDDC13181981DE41002F032D /* CURLOPT_SSLKEYTYPE.3 in Install man3 */,
-				FDDC13191981DE41002F032D /* CURLOPT_SSLVERSION.3 in Install man3 */,
+				FD57541E1B55E0E9004F1257 /* CURLOPT_SSL_VERIFYSTATUS.3 in Install man3 */,
 				FDDC131A1981DE41002F032D /* CURLOPT_STDERR.3 in Install man3 */,
 				FDDC131B1981DE41002F032D /* CURLOPT_TCP_KEEPALIVE.3 in Install man3 */,
 				FDDC131C1981DE41002F032D /* CURLOPT_TCP_KEEPIDLE.3 in Install man3 */,
@@ -844,21 +888,22 @@
 				FDDC131F1981DE41002F032D /* CURLOPT_TELNETOPTIONS.3 in Install man3 */,
 				FDDC13201981DE41002F032D /* CURLOPT_TFTP_BLKSIZE.3 in Install man3 */,
 				FDDC13211981DE41002F032D /* CURLOPT_TIMECONDITION.3 in Install man3 */,
-				FDDC13221981DE41002F032D /* CURLOPT_TIMEOUT_MS.3 in Install man3 */,
 				FDDC13231981DE41002F032D /* CURLOPT_TIMEOUT.3 in Install man3 */,
+				FDDC13221981DE41002F032D /* CURLOPT_TIMEOUT_MS.3 in Install man3 */,
 				FDDC13241981DE42002F032D /* CURLOPT_TIMEVALUE.3 in Install man3 */,
 				FDDC13251981DE42002F032D /* CURLOPT_TLSAUTH_PASSWORD.3 in Install man3 */,
 				FDDC13261981DE42002F032D /* CURLOPT_TLSAUTH_TYPE.3 in Install man3 */,
 				FDDC13271981DE42002F032D /* CURLOPT_TLSAUTH_USERNAME.3 in Install man3 */,
-				FDDC13281981DE42002F032D /* CURLOPT_TRANSFER_ENCODING.3 in Install man3 */,
 				FDDC13291981DE42002F032D /* CURLOPT_TRANSFERTEXT.3 in Install man3 */,
+				FDDC13281981DE42002F032D /* CURLOPT_TRANSFER_ENCODING.3 in Install man3 */,
+				FD57541F1B55E0E9004F1257 /* CURLOPT_UNIX_SOCKET_PATH.3 in Install man3 */,
 				FDDC132A1981DE42002F032D /* CURLOPT_UNRESTRICTED_AUTH.3 in Install man3 */,
 				FDDC132B1981DE42002F032D /* CURLOPT_UPLOAD.3 in Install man3 */,
 				FDDC132C1981DE42002F032D /* CURLOPT_URL.3 in Install man3 */,
-				FDDC132D1981DE42002F032D /* CURLOPT_USE_SSL.3 in Install man3 */,
 				FDDC132E1981DE42002F032D /* CURLOPT_USERAGENT.3 in Install man3 */,
 				FDDC132F1981DE42002F032D /* CURLOPT_USERNAME.3 in Install man3 */,
 				FDDC13301981DE42002F032D /* CURLOPT_USERPWD.3 in Install man3 */,
+				FDDC132D1981DE42002F032D /* CURLOPT_USE_SSL.3 in Install man3 */,
 				FDDC13311981DE42002F032D /* CURLOPT_VERBOSE.3 in Install man3 */,
 				FDDC13321981DE42002F032D /* CURLOPT_WILDCARDMATCH.3 in Install man3 */,
 				FDDC13331981DE42002F032D /* CURLOPT_WRITEDATA.3 in Install man3 */,
@@ -918,6 +963,7 @@
 				FD07CD97149AC6C6004DE255 /* libcurl-errors.3 in Install man3 */,
 				FD07CD98149AC6C6004DE255 /* libcurl-multi.3 in Install man3 */,
 				FD07CD99149AC6C6004DE255 /* libcurl-share.3 in Install man3 */,
+				FD5753F51B55DE52004F1257 /* libcurl-symbols.3 in Install man3 */,
 				FD07CD9A149AC6C6004DE255 /* libcurl-tutorial.3 in Install man3 */,
 				FD07CD9B149AC6C6004DE255 /* libcurl.3 in Install man3 */,
 			);
@@ -1162,8 +1208,6 @@
 		FD0DFE5314A16C5100D0DD1C /* sws.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sws.c; sourceTree = "<group>"; };
 		FD0DFE5614A16C7100D0DD1C /* tftpd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tftpd.c; sourceTree = "<group>"; };
 		FD0DFE5914A16C9900D0DD1C /* fake_ntlm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fake_ntlm.c; sourceTree = "<group>"; };
-		FD4C39F4173C6D7500664FD3 /* bundles.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bundles.c; sourceTree = "<group>"; };
-		FD4C39F5173C6D7500664FD3 /* bundles.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bundles.h; sourceTree = "<group>"; };
 		FD4C39F6173C6D7500664FD3 /* conncache.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = conncache.c; sourceTree = "<group>"; };
 		FD4C39F7173C6D7500664FD3 /* conncache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = conncache.h; sourceTree = "<group>"; };
 		FD4C39F8173C6D7500664FD3 /* curl_setup_once.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_setup_once.h; sourceTree = "<group>"; };
@@ -1174,6 +1218,42 @@
 		FD4C3A03173C6E5400664FD3 /* setup-vms.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "setup-vms.h"; sourceTree = "<group>"; };
 		FD560D67173C6CA200A6E968 /* tool_hugehelp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tool_hugehelp.c; sourceTree = "<group>"; };
 		FD560D68173C6CA200A6E968 /* tool_hugehelp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tool_hugehelp.h; sourceTree = "<group>"; };
+		FD5753F41B55DE2C004F1257 /* libcurl-symbols.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = "libcurl-symbols.3"; sourceTree = "<group>"; };
+		FD5753F61B55DEFE004F1257 /* CURLMOPT_CHUNK_LENGTH_PENALTY_SIZE.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_CHUNK_LENGTH_PENALTY_SIZE.3; sourceTree = "<group>"; };
+		FD5753F71B55DEFE004F1257 /* CURLMOPT_CONTENT_LENGTH_PENALTY_SIZE.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_CONTENT_LENGTH_PENALTY_SIZE.3; sourceTree = "<group>"; };
+		FD5753F81B55DEFE004F1257 /* CURLMOPT_MAX_HOST_CONNECTIONS.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_MAX_HOST_CONNECTIONS.3; sourceTree = "<group>"; };
+		FD5753F91B55DEFE004F1257 /* CURLMOPT_MAX_PIPELINE_LENGTH.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_MAX_PIPELINE_LENGTH.3; sourceTree = "<group>"; };
+		FD5753FA1B55DEFE004F1257 /* CURLMOPT_MAX_TOTAL_CONNECTIONS.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_MAX_TOTAL_CONNECTIONS.3; sourceTree = "<group>"; };
+		FD5753FB1B55DEFE004F1257 /* CURLMOPT_MAXCONNECTS.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_MAXCONNECTS.3; sourceTree = "<group>"; };
+		FD5753FC1B55DEFE004F1257 /* CURLMOPT_PIPELINING_SERVER_BL.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_PIPELINING_SERVER_BL.3; sourceTree = "<group>"; };
+		FD5753FD1B55DEFE004F1257 /* CURLMOPT_PIPELINING_SITE_BL.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_PIPELINING_SITE_BL.3; sourceTree = "<group>"; };
+		FD5753FE1B55DEFE004F1257 /* CURLMOPT_PIPELINING.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_PIPELINING.3; sourceTree = "<group>"; };
+		FD5753FF1B55DEFE004F1257 /* CURLMOPT_SOCKETDATA.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_SOCKETDATA.3; sourceTree = "<group>"; };
+		FD5754001B55DEFE004F1257 /* CURLMOPT_SOCKETFUNCTION.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_SOCKETFUNCTION.3; sourceTree = "<group>"; };
+		FD5754011B55DEFE004F1257 /* CURLMOPT_TIMERDATA.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_TIMERDATA.3; sourceTree = "<group>"; };
+		FD5754021B55DEFE004F1257 /* CURLMOPT_TIMERFUNCTION.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLMOPT_TIMERFUNCTION.3; sourceTree = "<group>"; };
+		FD5754031B55DEFE004F1257 /* CURLOPT_PATH_AS_IS.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_PATH_AS_IS.3; sourceTree = "<group>"; };
+		FD5754041B55DEFE004F1257 /* CURLOPT_PINNEDPUBLICKEY.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_PINNEDPUBLICKEY.3; sourceTree = "<group>"; };
+		FD5754051B55DEFE004F1257 /* CURLOPT_PIPEWAIT.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_PIPEWAIT.3; sourceTree = "<group>"; };
+		FD5754061B55DEFE004F1257 /* CURLOPT_PROXY_SERVICE_NAME.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_PROXY_SERVICE_NAME.3; sourceTree = "<group>"; };
+		FD5754071B55DEFE004F1257 /* CURLOPT_SERVICE_NAME.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_SERVICE_NAME.3; sourceTree = "<group>"; };
+		FD5754081B55DEFE004F1257 /* CURLOPT_SSL_FALSESTART.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_SSL_FALSESTART.3; sourceTree = "<group>"; };
+		FD5754091B55DEFE004F1257 /* CURLOPT_SSL_VERIFYSTATUS.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_SSL_VERIFYSTATUS.3; sourceTree = "<group>"; };
+		FD57540A1B55DEFE004F1257 /* CURLOPT_UNIX_SOCKET_PATH.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CURLOPT_UNIX_SOCKET_PATH.3; sourceTree = "<group>"; };
+		FD60D0E21B5490CB0084FA3C /* tool_strdup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tool_strdup.c; sourceTree = "<group>"; };
+		FD60D0E31B5490CB0084FA3C /* tool_strdup.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tool_strdup.h; sourceTree = "<group>"; };
+		FD60D0E51B5491D90084FA3C /* smb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smb.c; sourceTree = "<group>"; };
+		FD60D0E61B5491D90084FA3C /* smb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = smb.h; sourceTree = "<group>"; };
+		FD60D0E91B5492560084FA3C /* curl_des.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = curl_des.c; sourceTree = "<group>"; };
+		FD60D0EA1B5492560084FA3C /* curl_des.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_des.h; sourceTree = "<group>"; };
+		FD60D0EB1B5492560084FA3C /* curl_endian.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = curl_endian.c; sourceTree = "<group>"; };
+		FD60D0EC1B5492560084FA3C /* curl_endian.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_endian.h; sourceTree = "<group>"; };
+		FD60D0ED1B5492560084FA3C /* curl_printf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_printf.h; sourceTree = "<group>"; };
+		FD60D0EE1B5492560084FA3C /* curl_sasl_gssapi.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = curl_sasl_gssapi.c; sourceTree = "<group>"; };
+		FD60D0F21B5492D00084FA3C /* darwinssl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = darwinssl.c; sourceTree = "<group>"; };
+		FD60D0F31B5492D00084FA3C /* darwinssl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = darwinssl.h; sourceTree = "<group>"; };
+		FD60D0F41B5492D00084FA3C /* schannel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = schannel.c; sourceTree = "<group>"; };
+		FD60D0F51B5492D00084FA3C /* schannel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = schannel.h; sourceTree = "<group>"; };
 		FD7F96D1169E6E53000707BF /* tool_metalink.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tool_metalink.c; sourceTree = "<group>"; };
 		FD7F96D2169E6E53000707BF /* tool_metalink.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tool_metalink.h; sourceTree = "<group>"; };
 		FD7F96D4169E6E69000707BF /* tool_setup.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tool_setup.h; sourceTree = "<group>"; };
@@ -1195,10 +1275,6 @@
 		FDB9BB6C1981B5C600195172 /* sigpipe.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sigpipe.h; sourceTree = "<group>"; };
 		FDB9BB6E1981B5C600195172 /* axtls.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = axtls.c; sourceTree = "<group>"; };
 		FDB9BB6F1981B5C600195172 /* axtls.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = axtls.h; sourceTree = "<group>"; };
-		FDB9BB701981B5C600195172 /* curl_darwinssl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = curl_darwinssl.c; sourceTree = "<group>"; };
-		FDB9BB711981B5C600195172 /* curl_darwinssl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_darwinssl.h; sourceTree = "<group>"; };
-		FDB9BB721981B5C600195172 /* curl_schannel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = curl_schannel.c; sourceTree = "<group>"; };
-		FDB9BB731981B5C600195172 /* curl_schannel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_schannel.h; sourceTree = "<group>"; };
 		FDB9BB741981B5C600195172 /* cyassl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cyassl.c; sourceTree = "<group>"; };
 		FDB9BB751981B5C600195172 /* cyassl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cyassl.h; sourceTree = "<group>"; };
 		FDB9BB761981B5C600195172 /* gskit.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = gskit.c; sourceTree = "<group>"; };
@@ -1213,8 +1289,6 @@
 		FDB9BB7F1981B5C600195172 /* polarssl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = polarssl.h; sourceTree = "<group>"; };
 		FDB9BB801981B5C600195172 /* polarssl_threadlock.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = polarssl_threadlock.c; sourceTree = "<group>"; };
 		FDB9BB811981B5C600195172 /* polarssl_threadlock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = polarssl_threadlock.h; sourceTree = "<group>"; };
-		FDB9BB821981B5C600195172 /* qssl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = qssl.c; sourceTree = "<group>"; };
-		FDB9BB831981B5C600195172 /* qssl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = qssl.h; sourceTree = "<group>"; };
 		FDB9BB841981B5C600195172 /* vtls.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vtls.c; sourceTree = "<group>"; };
 		FDB9BB851981B5C600195172 /* vtls.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vtls.h; sourceTree = "<group>"; };
 		FDB9BB861981B5C600195172 /* x509asn1.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = x509asn1.c; sourceTree = "<group>"; };
@@ -1644,8 +1718,6 @@
 				FDC61C6014983982005BBE36 /* asyn-thread.c */,
 				FDC61C7914983A17005BBE36 /* asyn.h */,
 				FC41A64F12455686007EDB1C /* base64.c */,
-				FD4C39F4173C6D7500664FD3 /* bundles.c */,
-				FD4C39F5173C6D7500664FD3 /* bundles.h */,
 				FD4C39F6173C6D7500664FD3 /* conncache.c */,
 				FD4C39F7173C6D7500664FD3 /* conncache.h */,
 				FC41A65B12455686007EDB1C /* connect.c */,
@@ -1657,6 +1729,10 @@
 				FC41A66112455686007EDB1C /* curl_addrinfo.c */,
 				FC41A66212455686007EDB1C /* curl_addrinfo.h */,
 				FC41A66312455686007EDB1C /* curl_base64.h */,
+				FD60D0E91B5492560084FA3C /* curl_des.c */,
+				FD60D0EA1B5492560084FA3C /* curl_des.h */,
+				FD60D0EB1B5492560084FA3C /* curl_endian.c */,
+				FD60D0EC1B5492560084FA3C /* curl_endian.h */,
 				FC41A66712455686007EDB1C /* curl_fnmatch.c */,
 				FC41A66812455686007EDB1C /* curl_fnmatch.h */,
 				FDC61C43149838D7005BBE36 /* curl_gethostname.c */,
@@ -1680,10 +1756,12 @@
 				FDC61C69149839A7005BBE36 /* curl_ntlm_msgs.h */,
 				FDC61C6A149839A8005BBE36 /* curl_ntlm_wb.c */,
 				FDC61C6B149839A8005BBE36 /* curl_ntlm_wb.h */,
+				FD60D0ED1B5492560084FA3C /* curl_printf.h */,
 				FC41A67112455686007EDB1C /* curl_rtmp.c */,
 				FC41A67212455686007EDB1C /* curl_rtmp.h */,
 				FD7F96DE169E6FE3000707BF /* curl_sasl.c */,
 				FD7F96DF169E6FE3000707BF /* curl_sasl.h */,
+				FD60D0EE1B5492560084FA3C /* curl_sasl_gssapi.c */,
 				FDB9BB661981B59200195172 /* curl_sasl_sspi.c */,
 				FDB9BB671981B59200195172 /* curl_sec.h */,
 				FD4C39F9173C6D7500664FD3 /* curl_setup.h */,
@@ -1796,6 +1874,8 @@
 				FDB9BB6C1981B5C600195172 /* sigpipe.h */,
 				FC41A6FA12455686007EDB1C /* slist.c */,
 				FC41A6FB12455686007EDB1C /* slist.h */,
+				FD60D0E51B5491D90084FA3C /* smb.c */,
+				FD60D0E61B5491D90084FA3C /* smb.h */,
 				FC41A6FC12455686007EDB1C /* smtp.c */,
 				FC41A6FD12455686007EDB1C /* smtp.h */,
 				FC41A6FE12455686007EDB1C /* sockaddr.h */,
@@ -1911,6 +1991,8 @@
 				FD7F96D4169E6E69000707BF /* tool_setup.h */,
 				FDC61C06149833D2005BBE36 /* tool_sleep.c */,
 				FDC61C07149833D2005BBE36 /* tool_sleep.h */,
+				FD60D0E21B5490CB0084FA3C /* tool_strdup.c */,
+				FD60D0E31B5490CB0084FA3C /* tool_strdup.h */,
 				FDC61C08149833D2005BBE36 /* tool_urlglob.c */,
 				FDC61C09149833D2005BBE36 /* tool_urlglob.h */,
 				FDC61C0A149833D2005BBE36 /* tool_util.c */,
@@ -2032,6 +2114,7 @@
 				FD07CD43149AC5BF004DE255 /* libcurl-errors.3 */,
 				FD07CD46149AC5BF004DE255 /* libcurl-multi.3 */,
 				FD07CD49149AC5BF004DE255 /* libcurl-share.3 */,
+				FD5753F41B55DE2C004F1257 /* libcurl-symbols.3 */,
 				FD07CD4C149AC5BF004DE255 /* libcurl-tutorial.3 */,
 				FD07CD4F149AC5BF004DE255 /* libcurl.3 */,
 				FDDC11921981DD8E002F032D /* opts */,
@@ -2068,12 +2151,10 @@
 			children = (
 				FDB9BB6E1981B5C600195172 /* axtls.c */,
 				FDB9BB6F1981B5C600195172 /* axtls.h */,
-				FDB9BB701981B5C600195172 /* curl_darwinssl.c */,
-				FDB9BB711981B5C600195172 /* curl_darwinssl.h */,
-				FDB9BB721981B5C600195172 /* curl_schannel.c */,
-				FDB9BB731981B5C600195172 /* curl_schannel.h */,
 				FDB9BB741981B5C600195172 /* cyassl.c */,
 				FDB9BB751981B5C600195172 /* cyassl.h */,
+				FD60D0F21B5492D00084FA3C /* darwinssl.c */,
+				FD60D0F31B5492D00084FA3C /* darwinssl.h */,
 				FDB9BB761981B5C600195172 /* gskit.c */,
 				FDB9BB771981B5C600195172 /* gskit.h */,
 				FDB9BB781981B5C600195172 /* gtls.c */,
@@ -2086,8 +2167,8 @@
 				FDB9BB7F1981B5C600195172 /* polarssl.h */,
 				FDB9BB801981B5C600195172 /* polarssl_threadlock.c */,
 				FDB9BB811981B5C600195172 /* polarssl_threadlock.h */,
-				FDB9BB821981B5C600195172 /* qssl.c */,
-				FDB9BB831981B5C600195172 /* qssl.h */,
+				FD60D0F41B5492D00084FA3C /* schannel.c */,
+				FD60D0F51B5492D00084FA3C /* schannel.h */,
 				FDB9BB841981B5C600195172 /* vtls.c */,
 				FDB9BB851981B5C600195172 /* vtls.h */,
 			);
@@ -2097,8 +2178,21 @@
 		FDDC11921981DD8E002F032D /* opts */ = {
 			isa = PBXGroup;
 			children = (
-				FDDC11911981DD85002F032D /* CURLOPT_ACCEPT_ENCODING.3 */,
+				FD5753F61B55DEFE004F1257 /* CURLMOPT_CHUNK_LENGTH_PENALTY_SIZE.3 */,
+				FD5753F71B55DEFE004F1257 /* CURLMOPT_CONTENT_LENGTH_PENALTY_SIZE.3 */,
+				FD5753FB1B55DEFE004F1257 /* CURLMOPT_MAXCONNECTS.3 */,
+				FD5753F81B55DEFE004F1257 /* CURLMOPT_MAX_HOST_CONNECTIONS.3 */,
+				FD5753F91B55DEFE004F1257 /* CURLMOPT_MAX_PIPELINE_LENGTH.3 */,
+				FD5753FA1B55DEFE004F1257 /* CURLMOPT_MAX_TOTAL_CONNECTIONS.3 */,
+				FD5753FE1B55DEFE004F1257 /* CURLMOPT_PIPELINING.3 */,
+				FD5753FC1B55DEFE004F1257 /* CURLMOPT_PIPELINING_SERVER_BL.3 */,
+				FD5753FD1B55DEFE004F1257 /* CURLMOPT_PIPELINING_SITE_BL.3 */,
+				FD5753FF1B55DEFE004F1257 /* CURLMOPT_SOCKETDATA.3 */,
+				FD5754001B55DEFE004F1257 /* CURLMOPT_SOCKETFUNCTION.3 */,
+				FD5754011B55DEFE004F1257 /* CURLMOPT_TIMERDATA.3 */,
+				FD5754021B55DEFE004F1257 /* CURLMOPT_TIMERFUNCTION.3 */,
 				FDDC11931981DDED002F032D /* CURLOPT_ACCEPTTIMEOUT_MS.3 */,
+				FDDC11911981DD85002F032D /* CURLOPT_ACCEPT_ENCODING.3 */,
 				FDDC11941981DDED002F032D /* CURLOPT_ADDRESS_SCOPE.3 */,
 				FDDC11951981DDED002F032D /* CURLOPT_APPEND.3 */,
 				FDDC11961981DDED002F032D /* CURLOPT_AUTOREFERER.3 */,
@@ -2111,9 +2205,9 @@
 				FDDC119D1981DDED002F032D /* CURLOPT_CHUNK_END_FUNCTION.3 */,
 				FDDC119E1981DDED002F032D /* CURLOPT_CLOSESOCKETDATA.3 */,
 				FDDC119F1981DDED002F032D /* CURLOPT_CLOSESOCKETFUNCTION.3 */,
-				FDDC11A01981DDED002F032D /* CURLOPT_CONNECT_ONLY.3 */,
-				FDDC11A11981DDED002F032D /* CURLOPT_CONNECTTIMEOUT_MS.3 */,
 				FDDC11A21981DDED002F032D /* CURLOPT_CONNECTTIMEOUT.3 */,
+				FDDC11A11981DDED002F032D /* CURLOPT_CONNECTTIMEOUT_MS.3 */,
+				FDDC11A01981DDED002F032D /* CURLOPT_CONNECT_ONLY.3 */,
 				FDDC11A31981DDED002F032D /* CURLOPT_CONV_FROM_NETWORK_FUNCTION.3 */,
 				FDDC11A41981DDED002F032D /* CURLOPT_CONV_FROM_UTF8_FUNCTION.3 */,
 				FDDC11A51981DDED002F032D /* CURLOPT_CONV_TO_NETWORK_FUNCTION.3 */,
@@ -2145,6 +2239,8 @@
 				FDDC11BF1981DDED002F032D /* CURLOPT_FOLLOWLOCATION.3 */,
 				FDDC11C01981DDED002F032D /* CURLOPT_FORBID_REUSE.3 */,
 				FDDC11C11981DDED002F032D /* CURLOPT_FRESH_CONNECT.3 */,
+				FDDC11CC1981DDED002F032D /* CURLOPT_FTPPORT.3 */,
+				FDDC11CD1981DDED002F032D /* CURLOPT_FTPSSLAUTH.3 */,
 				FDDC11C21981DDED002F032D /* CURLOPT_FTP_ACCOUNT.3 */,
 				FDDC11C31981DDED002F032D /* CURLOPT_FTP_ALTERNATIVE_TO_USER.3 */,
 				FDDC11C41981DDED002F032D /* CURLOPT_FTP_CREATE_MISSING_DIRS.3 */,
@@ -2155,25 +2251,23 @@
 				FDDC11C91981DDED002F032D /* CURLOPT_FTP_USE_EPRT.3 */,
 				FDDC11CA1981DDED002F032D /* CURLOPT_FTP_USE_EPSV.3 */,
 				FDDC11CB1981DDED002F032D /* CURLOPT_FTP_USE_PRET.3 */,
-				FDDC11CC1981DDED002F032D /* CURLOPT_FTPPORT.3 */,
-				FDDC11CD1981DDED002F032D /* CURLOPT_FTPSSLAUTH.3 */,
 				FDDC11CE1981DDED002F032D /* CURLOPT_GSSAPI_DELEGATION.3 */,
 				FDDC11CF1981DDED002F032D /* CURLOPT_HEADER.3 */,
 				FDDC11D01981DDED002F032D /* CURLOPT_HEADERDATA.3 */,
 				FDDC11D11981DDED002F032D /* CURLOPT_HEADERFUNCTION.3 */,
 				FDDC11D21981DDED002F032D /* CURLOPT_HEADEROPT.3 */,
-				FDDC11D31981DDED002F032D /* CURLOPT_HTTP_CONTENT_DECODING.3 */,
-				FDDC11D41981DDED002F032D /* CURLOPT_HTTP_TRANSFER_DECODING.3 */,
-				FDDC11D51981DDED002F032D /* CURLOPT_HTTP_VERSION.3 */,
 				FDDC11D61981DDED002F032D /* CURLOPT_HTTP200ALIASES.3 */,
 				FDDC11D71981DDED002F032D /* CURLOPT_HTTPAUTH.3 */,
 				FDDC11D81981DDED002F032D /* CURLOPT_HTTPGET.3 */,
 				FDDC11D91981DDED002F032D /* CURLOPT_HTTPHEADER.3 */,
 				FDDC11DA1981DDED002F032D /* CURLOPT_HTTPPOST.3 */,
 				FDDC11DB1981DDED002F032D /* CURLOPT_HTTPPROXYTUNNEL.3 */,
+				FDDC11D31981DDED002F032D /* CURLOPT_HTTP_CONTENT_DECODING.3 */,
+				FDDC11D41981DDED002F032D /* CURLOPT_HTTP_TRANSFER_DECODING.3 */,
+				FDDC11D51981DDED002F032D /* CURLOPT_HTTP_VERSION.3 */,
 				FDDC11DC1981DDED002F032D /* CURLOPT_IGNORE_CONTENT_LENGTH.3 */,
-				FDDC11DD1981DDED002F032D /* CURLOPT_INFILESIZE_LARGE.3 */,
 				FDDC11DE1981DDED002F032D /* CURLOPT_INFILESIZE.3 */,
+				FDDC11DD1981DDED002F032D /* CURLOPT_INFILESIZE_LARGE.3 */,
 				FDDC11DF1981DDED002F032D /* CURLOPT_INTERFACE.3 */,
 				FDDC11E01981DDED002F032D /* CURLOPT_INTERLEAVEDATA.3 */,
 				FDDC11E11981DDED002F032D /* CURLOPT_INTERLEAVEFUNCTION.3 */,
@@ -2191,14 +2285,14 @@
 				FDDC11ED1981DDED002F032D /* CURLOPT_MAIL_AUTH.3 */,
 				FDDC11EE1981DDED002F032D /* CURLOPT_MAIL_FROM.3 */,
 				FDDC11EF1981DDED002F032D /* CURLOPT_MAIL_RCPT.3 */,
+				FDDC11F21981DDED002F032D /* CURLOPT_MAXCONNECTS.3 */,
+				FDDC11F41981DDED002F032D /* CURLOPT_MAXFILESIZE.3 */,
+				FDDC11F31981DDED002F032D /* CURLOPT_MAXFILESIZE_LARGE.3 */,
+				FDDC11F51981DDED002F032D /* CURLOPT_MAXREDIRS.3 */,
 				FDDC11F01981DDED002F032D /* CURLOPT_MAX_RECV_SPEED_LARGE.3 */,
 				FDDC11F11981DDED002F032D /* CURLOPT_MAX_SEND_SPEED_LARGE.3 */,
-				FDDC11F21981DDED002F032D /* CURLOPT_MAXCONNECTS.3 */,
-				FDDC11F31981DDED002F032D /* CURLOPT_MAXFILESIZE_LARGE.3 */,
-				FDDC11F41981DDED002F032D /* CURLOPT_MAXFILESIZE.3 */,
-				FDDC11F51981DDED002F032D /* CURLOPT_MAXREDIRS.3 */,
-				FDDC11F61981DDED002F032D /* CURLOPT_NETRC_FILE.3 */,
 				FDDC11F71981DDED002F032D /* CURLOPT_NETRC.3 */,
+				FDDC11F61981DDED002F032D /* CURLOPT_NETRC_FILE.3 */,
 				FDDC11F81981DDED002F032D /* CURLOPT_NEW_DIRECTORY_PERMS.3 */,
 				FDDC11F91981DDED002F032D /* CURLOPT_NEW_FILE_PERMS.3 */,
 				FDDC11FA1981DDED002F032D /* CURLOPT_NOBODY.3 */,
@@ -2208,11 +2302,14 @@
 				FDDC11FE1981DDED002F032D /* CURLOPT_OPENSOCKETDATA.3 */,
 				FDDC11FF1981DDED002F032D /* CURLOPT_OPENSOCKETFUNCTION.3 */,
 				FDDC12001981DDED002F032D /* CURLOPT_PASSWORD.3 */,
+				FD5754031B55DEFE004F1257 /* CURLOPT_PATH_AS_IS.3 */,
+				FD5754041B55DEFE004F1257 /* CURLOPT_PINNEDPUBLICKEY.3 */,
+				FD5754051B55DEFE004F1257 /* CURLOPT_PIPEWAIT.3 */,
 				FDDC12011981DDED002F032D /* CURLOPT_PORT.3 */,
 				FDDC12021981DDED002F032D /* CURLOPT_POST.3 */,
 				FDDC12031981DDED002F032D /* CURLOPT_POSTFIELDS.3 */,
-				FDDC12041981DDED002F032D /* CURLOPT_POSTFIELDSIZE_LARGE.3 */,
 				FDDC12051981DDED002F032D /* CURLOPT_POSTFIELDSIZE.3 */,
+				FDDC12041981DDED002F032D /* CURLOPT_POSTFIELDSIZE_LARGE.3 */,
 				FDDC12061981DDED002F032D /* CURLOPT_POSTQUOTE.3 */,
 				FDDC12071981DDED002F032D /* CURLOPT_POSTREDIR.3 */,
 				FDDC12081981DDED002F032D /* CURLOPT_PREQUOTE.3 */,
@@ -2220,7 +2317,6 @@
 				FDDC120A1981DDED002F032D /* CURLOPT_PROGRESSDATA.3 */,
 				FDDC120B1981DDED002F032D /* CURLOPT_PROGRESSFUNCTION.3 */,
 				FDDC120C1981DDED002F032D /* CURLOPT_PROTOCOLS.3 */,
-				FDDC120D1981DDED002F032D /* CURLOPT_PROXY_TRANSFER_MODE.3 */,
 				FDDC120E1981DDED002F032D /* CURLOPT_PROXY.3 */,
 				FDDC120F1981DDED002F032D /* CURLOPT_PROXYAUTH.3 */,
 				FDDC12101981DDED002F032D /* CURLOPT_PROXYHEADER.3 */,
@@ -2229,6 +2325,8 @@
 				FDDC12131981DDED002F032D /* CURLOPT_PROXYTYPE.3 */,
 				FDDC12141981DDED002F032D /* CURLOPT_PROXYUSERNAME.3 */,
 				FDDC12151981DDED002F032D /* CURLOPT_PROXYUSERPWD.3 */,
+				FD5754061B55DEFE004F1257 /* CURLOPT_PROXY_SERVICE_NAME.3 */,
+				FDDC120D1981DDED002F032D /* CURLOPT_PROXY_TRANSFER_MODE.3 */,
 				FDDC12161981DDED002F032D /* CURLOPT_PUT.3 */,
 				FDDC12171981DDED002F032D /* CURLOPT_QUOTE.3 */,
 				FDDC12181981DDED002F032D /* CURLOPT_RANDOM_FILE.3 */,
@@ -2238,8 +2336,8 @@
 				FDDC121C1981DDED002F032D /* CURLOPT_REDIR_PROTOCOLS.3 */,
 				FDDC121D1981DDED002F032D /* CURLOPT_REFERER.3 */,
 				FDDC121E1981DDED002F032D /* CURLOPT_RESOLVE.3 */,
-				FDDC121F1981DDED002F032D /* CURLOPT_RESUME_FROM_LARGE.3 */,
 				FDDC12201981DDED002F032D /* CURLOPT_RESUME_FROM.3 */,
+				FDDC121F1981DDED002F032D /* CURLOPT_RESUME_FROM_LARGE.3 */,
 				FDDC12211981DDED002F032D /* CURLOPT_RTSP_CLIENT_CSEQ.3 */,
 				FDDC12221981DDED002F032D /* CURLOPT_RTSP_REQUEST.3 */,
 				FDDC12231981DDED002F032D /* CURLOPT_RTSP_SERVER_CSEQ.3 */,
@@ -2249,6 +2347,7 @@
 				FDDC12271981DDED002F032D /* CURLOPT_SASL_IR.3 */,
 				FDDC12281981DDED002F032D /* CURLOPT_SEEKDATA.3 */,
 				FDDC12291981DDED002F032D /* CURLOPT_SEEKFUNCTION.3 */,
+				FD5754071B55DEFE004F1257 /* CURLOPT_SERVICE_NAME.3 */,
 				FDDC122A1981DDED002F032D /* CURLOPT_SHARE.3 */,
 				FDDC122B1981DDED002F032D /* CURLOPT_SOCKOPTDATA.3 */,
 				FDDC122C1981DDED002F032D /* CURLOPT_SOCKOPTFUNCTION.3 */,
@@ -2261,22 +2360,24 @@
 				FDDC12331981DDED002F032D /* CURLOPT_SSH_KNOWNHOSTS.3 */,
 				FDDC12341981DDED002F032D /* CURLOPT_SSH_PRIVATE_KEYFILE.3 */,
 				FDDC12351981DDED002F032D /* CURLOPT_SSH_PUBLIC_KEYFILE.3 */,
+				FDDC123F1981DDEE002F032D /* CURLOPT_SSLCERT.3 */,
+				FDDC12401981DDEE002F032D /* CURLOPT_SSLCERTTYPE.3 */,
+				FDDC12421981DDEE002F032D /* CURLOPT_SSLENGINE.3 */,
+				FDDC12411981DDEE002F032D /* CURLOPT_SSLENGINE_DEFAULT.3 */,
+				FDDC12431981DDEE002F032D /* CURLOPT_SSLKEY.3 */,
+				FDDC12441981DDEE002F032D /* CURLOPT_SSLKEYTYPE.3 */,
+				FDDC12451981DDEE002F032D /* CURLOPT_SSLVERSION.3 */,
 				FDDC12361981DDEE002F032D /* CURLOPT_SSL_CIPHER_LIST.3 */,
 				FDDC12371981DDEE002F032D /* CURLOPT_SSL_CTX_DATA.3 */,
 				FDDC12381981DDEE002F032D /* CURLOPT_SSL_CTX_FUNCTION.3 */,
 				FDDC12391981DDEE002F032D /* CURLOPT_SSL_ENABLE_ALPN.3 */,
 				FDDC123A1981DDEE002F032D /* CURLOPT_SSL_ENABLE_NPN.3 */,
+				FD5754081B55DEFE004F1257 /* CURLOPT_SSL_FALSESTART.3 */,
 				FDDC123B1981DDEE002F032D /* CURLOPT_SSL_OPTIONS.3 */,
 				FDDC123C1981DDEE002F032D /* CURLOPT_SSL_SESSIONID_CACHE.3 */,
 				FDDC123D1981DDEE002F032D /* CURLOPT_SSL_VERIFYHOST.3 */,
 				FDDC123E1981DDEE002F032D /* CURLOPT_SSL_VERIFYPEER.3 */,
-				FDDC123F1981DDEE002F032D /* CURLOPT_SSLCERT.3 */,
-				FDDC12401981DDEE002F032D /* CURLOPT_SSLCERTTYPE.3 */,
-				FDDC12411981DDEE002F032D /* CURLOPT_SSLENGINE_DEFAULT.3 */,
-				FDDC12421981DDEE002F032D /* CURLOPT_SSLENGINE.3 */,
-				FDDC12431981DDEE002F032D /* CURLOPT_SSLKEY.3 */,
-				FDDC12441981DDEE002F032D /* CURLOPT_SSLKEYTYPE.3 */,
-				FDDC12451981DDEE002F032D /* CURLOPT_SSLVERSION.3 */,
+				FD5754091B55DEFE004F1257 /* CURLOPT_SSL_VERIFYSTATUS.3 */,
 				FDDC12461981DDEE002F032D /* CURLOPT_STDERR.3 */,
 				FDDC12471981DDEE002F032D /* CURLOPT_TCP_KEEPALIVE.3 */,
 				FDDC12481981DDEE002F032D /* CURLOPT_TCP_KEEPIDLE.3 */,
@@ -2285,21 +2386,22 @@
 				FDDC124B1981DDEE002F032D /* CURLOPT_TELNETOPTIONS.3 */,
 				FDDC124C1981DDEE002F032D /* CURLOPT_TFTP_BLKSIZE.3 */,
 				FDDC124D1981DDEE002F032D /* CURLOPT_TIMECONDITION.3 */,
-				FDDC124E1981DDEE002F032D /* CURLOPT_TIMEOUT_MS.3 */,
 				FDDC124F1981DDEE002F032D /* CURLOPT_TIMEOUT.3 */,
+				FDDC124E1981DDEE002F032D /* CURLOPT_TIMEOUT_MS.3 */,
 				FDDC12501981DDEE002F032D /* CURLOPT_TIMEVALUE.3 */,
 				FDDC12511981DDEE002F032D /* CURLOPT_TLSAUTH_PASSWORD.3 */,
 				FDDC12521981DDEE002F032D /* CURLOPT_TLSAUTH_TYPE.3 */,
 				FDDC12531981DDEE002F032D /* CURLOPT_TLSAUTH_USERNAME.3 */,
-				FDDC12541981DDEE002F032D /* CURLOPT_TRANSFER_ENCODING.3 */,
 				FDDC12551981DDEE002F032D /* CURLOPT_TRANSFERTEXT.3 */,
+				FDDC12541981DDEE002F032D /* CURLOPT_TRANSFER_ENCODING.3 */,
+				FD57540A1B55DEFE004F1257 /* CURLOPT_UNIX_SOCKET_PATH.3 */,
 				FDDC12561981DDEE002F032D /* CURLOPT_UNRESTRICTED_AUTH.3 */,
 				FDDC12571981DDEE002F032D /* CURLOPT_UPLOAD.3 */,
 				FDDC12581981DDEE002F032D /* CURLOPT_URL.3 */,
-				FDDC12591981DDEE002F032D /* CURLOPT_USE_SSL.3 */,
 				FDDC125A1981DDEE002F032D /* CURLOPT_USERAGENT.3 */,
 				FDDC125B1981DDEE002F032D /* CURLOPT_USERNAME.3 */,
 				FDDC125C1981DDEE002F032D /* CURLOPT_USERPWD.3 */,
+				FDDC12591981DDEE002F032D /* CURLOPT_USE_SSL.3 */,
 				FDDC125D1981DDEE002F032D /* CURLOPT_VERBOSE.3 */,
 				FDDC125E1981DDEE002F032D /* CURLOPT_WILDCARDMATCH.3 */,
 				FDDC125F1981DDEE002F032D /* CURLOPT_WRITEDATA.3 */,
@@ -2681,24 +2783,26 @@
 				FD7F96E8169E6FE3000707BF /* curl_sasl.c in Sources */,
 				FD7F96E6169E6FE3000707BF /* curl_multibyte.c in Sources */,
 				FD7F96EC169E6FE3000707BF /* hostcheck.c in Sources */,
-				FD4C39FD173C6DE500664FD3 /* bundles.c in Sources */,
 				FD4C39FE173C6DEB00664FD3 /* conncache.c in Sources */,
 				FD4C3A01173C6E0400664FD3 /* pipeline.c in Sources */,
 				FDB9BB881981B68300195172 /* dotdot.c in Sources */,
 				FDB9BB891981B69500195172 /* x509asn1.c in Sources */,
 				FDB9BB8A1981B69C00195172 /* http2.c in Sources */,
 				FDB9BB8B1981B6A400195172 /* curl_sasl_sspi.c in Sources */,
+				FD60D0E71B5491D90084FA3C /* smb.c in Sources */,
+				FD60D0EF1B54928A0084FA3C /* curl_sasl_gssapi.c in Sources */,
+				FD60D0F01B5492930084FA3C /* curl_endian.c in Sources */,
+				FD60D0F11B5492960084FA3C /* curl_des.c in Sources */,
 				FDB9BB8C1981B6C300195172 /* openssl.c in Sources */,
 				FDB9BB8D1981B6C800195172 /* gtls.c in Sources */,
 				FDB9BB8E1981B6CC00195172 /* vtls.c in Sources */,
 				FDB9BB8F1981B6D100195172 /* nss.c in Sources */,
-				FDB9BB901981B6D600195172 /* qssl.c in Sources */,
 				FDB9BB911981B6DA00195172 /* polarssl.c in Sources */,
 				FDB9BB921981B6DF00195172 /* polarssl_threadlock.c in Sources */,
 				FDB9BB931981B6E300195172 /* axtls.c in Sources */,
 				FDB9BB941981B6E800195172 /* cyassl.c in Sources */,
-				FDB9BB951981B6EC00195172 /* curl_schannel.c in Sources */,
-				FDB9BB961981B6F200195172 /* curl_darwinssl.c in Sources */,
+				FD60D0F61B5492E70084FA3C /* schannel.c in Sources */,
+				FD60D0F71B5492EB0084FA3C /* darwinssl.c in Sources */,
 				FDB9BB971981B6F500195172 /* gskit.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2737,6 +2841,7 @@
 				FDC61C2F149833D2005BBE36 /* tool_panykey.c in Sources */,
 				FDC61C30149833D2005BBE36 /* tool_paramhlp.c in Sources */,
 				FDC61C31149833D2005BBE36 /* tool_parsecfg.c in Sources */,
+				FD60D0E41B5490CB0084FA3C /* tool_strdup.c in Sources */,
 				FDC61C32149833D2005BBE36 /* tool_setopt.c in Sources */,
 				FDC61C33149833D2005BBE36 /* tool_sleep.c in Sources */,
 				FDC61C34149833D2005BBE36 /* tool_urlglob.c in Sources */,
@@ -2746,7 +2851,6 @@
 				FDC61C38149833D2005BBE36 /* tool_writeout.c in Sources */,
 				FDC61C39149833D2005BBE36 /* tool_xattr.c in Sources */,
 				FDC61C8514983DC7005BBE36 /* strtoofft.c in Sources */,
-				FDC61C8614983DCA005BBE36 /* strdup.c in Sources */,
 				FDC61C8414983DBE005BBE36 /* rawstr.c in Sources */,
 				FDC61C8314983DB2005BBE36 /* nonblock.c in Sources */,
 				FDB9BB651981B52200195172 /* warnless.c in Sources */,

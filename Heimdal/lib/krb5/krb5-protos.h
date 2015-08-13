@@ -9311,6 +9311,14 @@ krb5_write_safe_message (
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_xfree (void *ptr);
 
+krb5_error_code
+krb5_kcm_ntlm_challenge (
+	krb5_context context,
+	uint8_t chal[8]);
+
+krb5_error_code
+krb5_kcm_check_ntlm_challenge(krb5_context context, uint8_t chal[8], krb5_boolean *detectedReflection);
+
 #ifdef __cplusplus
 }
 #endif

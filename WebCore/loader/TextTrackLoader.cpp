@@ -127,12 +127,8 @@ void TextTrackLoader::notifyFinished(CachedResource* resource)
     ASSERT(m_resource == resource);
 
     Document* document = toDocument(m_scriptExecutionContext);
-    if (!m_crossOriginMode.isNull()
-        && !document->securityOrigin()->canRequest(resource->response().url())
-        && !resource->passesAccessControlCheck(document->securityOrigin())) {
-
+    if (!m_crossOriginMode.isNull() && !resource->passesSameOriginPolicyCheck(*document->securityOrigin()))
         corsPolicyPreventedLoad();
-    }
 
     if (m_state != Failed) {
         processNewCueData(resource);
@@ -151,13 +147,17 @@ void TextTrackLoader::notifyFinished(CachedResource* resource)
     cancelLoad();
 }
 
-bool TextTrackLoader::load(const URL& url, const String& crossOriginMode)
+bool TextTrackLoader::load(const URL& url, const String& crossOriginMode, bool isInitiatingElementInUserAgentShadowTree)
 {
     cancelLoad();
 
     ASSERT(m_scriptExecutionContext->isDocument());
     Document* document = toDocument(m_scriptExecutionContext);
-    CachedResourceRequest cueRequest(ResourceRequest(document->completeURL(url)));
+
+    ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
+    options.setContentSecurityPolicyImposition(isInitiatingElementInUserAgentShadowTree ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck);
+
+    CachedResourceRequest cueRequest(ResourceRequest(document->completeURL(url)), options);
 
     if (!crossOriginMode.isNull()) {
         m_crossOriginMode = crossOriginMode;

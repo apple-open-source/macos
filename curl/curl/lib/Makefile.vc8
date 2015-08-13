@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1999 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1999 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -65,11 +65,11 @@
 !INCLUDE ..\winbuild\Makefile.msvc.names
 
 !IFNDEF OPENSSL_PATH
-OPENSSL_PATH   = ../../openssl-0.9.8y
+OPENSSL_PATH   = ../../openssl-1.0.2a
 !ENDIF
 
 !IFNDEF LIBSSH2_PATH
-LIBSSH2_PATH   = ../../libssh2-1.4.3
+LIBSSH2_PATH   = ../../libssh2-1.5.0
 !ENDIF
 
 !IFNDEF ZLIB_PATH
@@ -90,7 +90,7 @@ MACHINE  = X86
 # If, for some reason the Windows SDK is installed but not installed
 # in the default location, you can specify WINDOWS_SDK_PATH.
 # It can be downloaded from:
-# http://www.microsoft.com/msdownload/platformsdk/sdkupdate/
+# https://msdn.microsoft.com/windows/bb980924.aspx
 
 # WINDOWS_SSPI = 1
 
@@ -105,7 +105,7 @@ WINDOWS_SDK_PATH = "$(PROGRAMFILES)\Microsoft SDK"
 
 CCNODBG      = cl.exe /O2 /DNDEBUG
 CCDEBUG      = cl.exe /Od /Gm /Zi /D_DEBUG /RTC1
-CFLAGSSSL    = /DUSE_SSLEAY /DUSE_OPENSSL /I "$(OPENSSL_PATH)/inc32" /I "$(OPENSSL_PATH)/inc32/openssl"
+CFLAGSSSL    = /DUSE_OPENSSL /I "$(OPENSSL_PATH)/inc32" /I "$(OPENSSL_PATH)/inc32/openssl"
 CFLAGSWINSSL = /DUSE_SCHANNEL
 CFLAGSSSH2   = /DUSE_LIBSSH2 /DCURL_DISABLE_LDAP /DHAVE_LIBSSH2 /DHAVE_LIBSSH2_H /DLIBSSH2_WIN32 /DLIBSSH2_LIBRARY /I "$(LIBSSH2_PATH)/include"
 CFLAGSZLIB   = /DHAVE_ZLIB_H /DHAVE_ZLIB /DHAVE_LIBZ /I "$(ZLIB_PATH)"
@@ -128,6 +128,10 @@ CFLAGS = $(CFLAGS) /DUSE_WINDOWS_SSPI /I$(WINDOWS_SDK_PATH)\include
 
 !IFDEF USE_IPV6
 CFLAGS = $(CFLAGS) /DUSE_IPV6
+!ENDIF
+
+!IFDEF USE_IDN
+CFLAGS = $(CFLAGS) /DUSE_WIN32_IDN /DWANT_IDN_PROTOTYPES
 !ENDIF
 
 ##############################################################
@@ -423,7 +427,7 @@ CFGSET   = TRUE
 TARGET = $(LIBCURL_DYN_LIB_DBG)
 DIROBJ = $(CFG)
 LNK    = $(LNKDLL) $(WINLIBS) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(LIBCURL_IMP_LIB_DBG) /PDB:$(DIROBJ)\$(LIBCURL_DYN_LIB_PDB)
-CC     = $(CCDEBUG) $(RTLIBD) 
+CC     = $(CCDEBUG) $(RTLIBD)
 CFGSET = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -524,13 +528,13 @@ X_OBJS= \
 	$(DIROBJ)\asyn-thread.obj \
 	$(DIROBJ)\axtls.obj \
 	$(DIROBJ)\base64.obj \
-	$(DIROBJ)\bundles.obj \
 	$(DIROBJ)\conncache.obj \
 	$(DIROBJ)\connect.obj \
 	$(DIROBJ)\content_encoding.obj \
 	$(DIROBJ)\cookie.obj \
 	$(DIROBJ)\curl_addrinfo.obj \
-	$(DIROBJ)\curl_darwinssl.obj \
+	$(DIROBJ)\curl_des.obj \
+	$(DIROBJ)\curl_endian.obj \
 	$(DIROBJ)\curl_fnmatch.obj \
 	$(DIROBJ)\curl_gethostname.obj \
 	$(DIROBJ)\curl_gssapi.obj \
@@ -542,11 +546,12 @@ X_OBJS= \
 	$(DIROBJ)\curl_ntlm_wb.obj \
 	$(DIROBJ)\curl_rtmp.obj \
 	$(DIROBJ)\curl_sasl.obj \
+	$(DIROBJ)\curl_sasl_gssapi.obj \
 	$(DIROBJ)\curl_sasl_sspi.obj \
-	$(DIROBJ)\curl_schannel.obj \
 	$(DIROBJ)\curl_sspi.obj \
 	$(DIROBJ)\curl_threads.obj \
 	$(DIROBJ)\cyassl.obj \
+	$(DIROBJ)\darwinssl.obj \
 	$(DIROBJ)\dict.obj \
 	$(DIROBJ)\dotdot.obj \
 	$(DIROBJ)\easy.obj \
@@ -599,14 +604,15 @@ X_OBJS= \
 	$(DIROBJ)\polarssl_threadlock.obj \
 	$(DIROBJ)\pop3.obj \
 	$(DIROBJ)\progress.obj \
-	$(DIROBJ)\qssl.obj \
 	$(DIROBJ)\rawstr.obj \
 	$(DIROBJ)\rtsp.obj \
+	$(DIROBJ)\schannel.obj \
 	$(DIROBJ)\security.obj \
 	$(DIROBJ)\select.obj \
 	$(DIROBJ)\sendf.obj \
 	$(DIROBJ)\share.obj \
 	$(DIROBJ)\slist.obj \
+	$(DIROBJ)\smb.obj \
 	$(DIROBJ)\smtp.obj \
 	$(DIROBJ)\socks.obj \
 	$(DIROBJ)\socks_gssapi.obj \

@@ -98,7 +98,7 @@ static int proxy_balancer_canon(request_rec *r, char *url)
     if (path == NULL)
         return HTTP_BAD_REQUEST;
 
-    r->filename = apr_pstrcat(r->pool, "proxy:", BALANCER_PREFIX, host,
+    r->filename = apr_pstrcat(r->pool, "proxy:" BALANCER_PREFIX, host,
             "/", path, (search) ? "?" : "", (search) ? search : "", NULL);
 
     r->path_info = apr_pstrcat(r->pool, "/", path, NULL);
@@ -655,7 +655,7 @@ static int proxy_balancer_post_request(proxy_worker *worker,
         && (apr_table_get(r->notes, "proxy_timedout")) != NULL) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02460)
                       "%s: Forcing worker (%s) into error state "
-                      "due to timeout and 'failonstatus' parameter being set",
+                      "due to timeout and 'failontimeout' parameter being set",
                        balancer->s->name, ap_proxy_worker_name(r->pool, worker));
         worker->s->status |= PROXY_WORKER_IN_ERROR;
         worker->s->error_time = apr_time_now();
@@ -1040,7 +1040,7 @@ static int balancer_handler(request_rec *r)
         rv = ap_get_brigade(r->input_filters, ib, AP_MODE_READBYTES,
                                 APR_BLOCK_READ, len);
         if (rv != APR_SUCCESS) {
-            return HTTP_INTERNAL_SERVER_ERROR;
+            return ap_map_http_request_error(rv, HTTP_BAD_REQUEST);
         }
         apr_brigade_flatten(ib, buf, &len);
         buf[len] = '\0';

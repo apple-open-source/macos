@@ -50,7 +50,6 @@
 #endif /* HAVE_SETAUTHDB */
 #include <pwd.h>
 #include <grp.h>
-#include <membership.h>
 
 #include "sudo.h"
 #include "redblack.h"

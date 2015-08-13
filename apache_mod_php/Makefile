@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Commands
-Submission      = 94
+Submission      = 98
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
@@ -19,42 +19,57 @@ Environment	= YACC=/usr/local/bin/bison-1.28 \
 			MAKEOBJDIR="$(BuildDirectory)" \
 			INSTALL_ROOT="$(DSTROOT)" \
 			TMPDIR="$(TMPDIR)" TEMPDIR="$(TMPDIR)" 
+
+#SDK variables for configure
+SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)
+SDK = -isysroot $(SDKROOT)
+APXS = $(shell xcrun -find -sdk $(SDKROOT) apxs)
+SDKUSRDIR = $(SDKROOT)$(USRDIR)
+OPENSSL_INCDIR = $(SDKUSRDIR)/local
+OPENSSL_LIBDIR = $(SDKUSRDIR)
+OPENSSL_DIRS = "$(OPENSSL_INCDIR) $(OPENSSL_LIBDIR)"
+			
 # This allows extra variables to be passed _just_ to configure.
-Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os -g" \
-					LDFLAGS="$$RC_CFLAGS -Os -g" \
+Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os -g $(SDK) -I$(SDKROOT)/usr/include -I$(SDKROOT)/usr/include/apache2" \
+					LDFLAGS="$$RC_CFLAGS -Os -g -L$(SDKROOT)/usr/lib" \
 					EXTRA_LIBS="-lresolv" \
+					EXTRA_CFLAGS="-I$(SDKROOT)/usr/include/apache2" \
+					SDKROOT="$(SDKROOT)" \
 					EXTRA_LDFLAGS_PROGRAM="-mdynamic-no-pic"
+
 
 build_host_target_alias=`$SHELL "$(Sources)/config.guess"`
 # The configure flags are ordered to match current output of ./configure --help.
 # Extra indentation represents suboptions.
 Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
+			--with-libdir=lib \
 			--with-apxs2=$(USRSBINDIR)/apxs \
 			--enable-cli \
+			--with-iconv=$(SDKUSRDIR) \
 			--with-config-file-path=/etc \
 			--with-config-file-scan-dir=/Library/Server/Web/Config/php \
-			--with-libxml-dir=$(USRDIR) \
-			--with-openssl=$(USRDIR) \
-			--with-kerberos=$(USRDIR) \
-			--with-zlib=$(USRDIR) \
+			--with-libxml-dir=$(SDKUSRDIR) \
+			--with-openssl=$(OPENSSL_DIRS) \
+			--with-kerberos=$(SDKUSRDIR) \
+			--with-zlib=$(SDKUSRDIR) \
 			--enable-bcmath \
-			--with-bz2=$(USRDIR) \
+			--with-bz2=$(SDKUSRDIR) \
 			--enable-calendar \
 			--disable-cgi \
-			--with-curl=$(USRDIR) \
+			--with-curl=$(SDKUSRDIR) \
 			--enable-dba \
-			--with-ndbm=$(USRDIR) \
+			--with-ndbm=$(SDKUSRDIR) \
 			--enable-exif \
 			--enable-fpm \
 			--enable-ftp \
-			--with-png-dir=no \
 			--with-gd \
+			--with-png-dir=$(DSTROOT)$(USRDIR)/local \
 			--with-jpeg-dir=$(DSTROOT)$(USRDIR)/local \
 			--enable-gd-native-ttf \
-			--with-icu-dir=$(USRDIR) \
-			--with-ldap=$(USRDIR)\
-			--with-ldap-sasl=$(USRDIR) \
-			--with-libedit=$(USRDIR) \
+			--with-icu-dir=$(SDKUSRDIR) \
+			--with-ldap=$(SDKUSRDIR)\
+			--with-ldap-sasl=$(SDKUSRDIR) \
+			--with-libedit=$(SDKUSRDIR) \
 			--enable-mbstring \
 			--enable-mbregex \
 			--with-mysql=mysqlnd \
@@ -63,32 +78,33 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--with-pear=no\
 			--with-pdo-mysql=mysqlnd \
 			--with-mysql-sock=/var/mysql/mysql.sock \
-			--with-readline=$(USRDIR) \
+			--with-readline=$(SDKUSRDIR) \
 			--enable-shmop \
-			--with-snmp=$(USRDIR) \
+			--with-snmp=$(SDKUSRDIR) \
 			--enable-soap \
 			--enable-sockets \
 			--enable-sysvmsg --enable-sysvsem --enable-sysvshm \
-			--with-tidy \
+			--with-tidy=$(SDKUSRDIR) \
 			--enable-wddx \
 			--with-xmlrpc \
-			--with-iconv-dir=$(USRDIR) \
-			--with-xsl=$(USRDIR) \
+			--with-iconv-dir=$(SDKUSRDIR) \
+			--with-xsl=$(SDKUSRDIR) \
 			--enable-zend-multibyte \
+			--with-apxs2=$(APXS) \
 			--enable-zip
 
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.5.24
+AEP_Version	= 5.5.27
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  \
 			MacOSX_build.patch \
-			iconv.patch pear.patch phar.patch 
+			iconv.patch pear.patch phar.patch
 AEP_ConfigDir	= $(ETCDIR)
 AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1
-Dependencies	= libjpeg 
+Dependencies	= libpng libjpeg
 GnuAfterInstall = archive-strip-binaries install-macosx install-xdebug install-open-source-files # needs a path adjustment
 
 
@@ -329,8 +345,10 @@ Install_Flags	= DESTDIR="$(DSTROOT)"
 # by the included files above, this must be performed after the includes.
 #
 # The PCRE library is only installed on Snow Leopard and later.
-ifneq ($(strip $(wildcard $(USRDIR)/local/include/pcre.*)),)
-Extra_Configure_Flags	+= --with-pcre-regex=$(USRDIR)
+#
+# use pcre files found on the build system at $(SDKUSRDIR)/local/include
+ifneq ($(strip $(wildcard $(SDKUSRDIR)/local/include/pcre.*)),)
+Extra_Configure_Flags	+= --with-pcre-regex=$(SDKUSRDIR)
 endif
 
 # Build rules
@@ -374,7 +392,7 @@ install-macosx:
 	@echo "Installing PEAR phar for installation at setup time."
 	$(INSTALL_FILE) $(SRCROOT)/install-pear-nozlib.phar $(DSTROOT)$(USRLIBDIR)/php
 	@echo "Fixing PEAR configuration file..."
-	if [ -e $(DSTROOT)/$(USRLIBDIR)/php/pearcmd.php ]; then	\
+	if [ -e $(DSTROOT)/$(USRLIBDIR)/php/pear/pearcmd.php ]; then	\
 		$(CP) $(DSTROOT)/$(USRLIBDIR)/php/pearcmd.php $(PEAR_Cmd);	\
 		$(PATCH) -l $(PEAR_Cmd) $(SRCROOT)/patches/pearcmd.patch;	\
 		$(PEAR) -C $(DSTROOT)$(ETCDIR)/pear.conf config-set \

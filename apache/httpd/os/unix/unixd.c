@@ -74,7 +74,7 @@ AP_DECLARE(void) ap_unixd_set_rlimit(cmd_parms *cmd, struct rlimit **plimit,
         return;
     }
 
-    if (*(str = ap_getword_conf(cmd->pool, &arg)) != '\0') {
+    if (*(str = ap_getword_conf(cmd->temp_pool, &arg)) != '\0') {
         if (!strcasecmp(str, "max")) {
             cur = limit->rlim_max;
         }
@@ -88,7 +88,7 @@ AP_DECLARE(void) ap_unixd_set_rlimit(cmd_parms *cmd, struct rlimit **plimit,
         return;
     }
 
-    if (arg2 && (*(str = ap_getword_conf(cmd->pool, &arg2)) != '\0')) {
+    if (arg2 && (*(str = ap_getword_conf(cmd->temp_pool, &arg2)) != '\0')) {
         max = atol(str);
     }
 
@@ -522,8 +522,8 @@ pid_t os_fork(const char *user)
 
         pid = ufork(username);
         if (pid == -1 && errno == EPERM) {
-            ap_log_error(APLOG_MARK, APLOG_EMERG, errno,
-                         ap_server_conf, APLOGNO(02181) "ufork: Possible mis-configuration "
+            ap_log_error(APLOG_MARK, APLOG_EMERG, errno, ap_server_conf,
+                         APLOGNO(02181) "ufork: Possible mis-configuration "
                          "for user %s - Aborting.", user);
             exit(1);
         }

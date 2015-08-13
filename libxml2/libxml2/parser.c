@@ -130,6 +130,29 @@ xmlParserEntityCheck(xmlParserCtxtPtr ctxt, size_t size,
         return (0);
     if (ctxt->lastError.code == XML_ERR_ENTITY_LOOP)
         return (1);
+
+    /*
+     * This may look absurd but is needed to detect
+     * entities problems
+     */
+    if ((ent != NULL) && (ent->etype != XML_INTERNAL_PREDEFINED_ENTITY) &&
+	(ent->content != NULL) && (ent->checked == 0)) {
+	unsigned long oldnbent = ctxt->nbentities;
+	xmlChar *rep;
+
+	ent->checked = 1;
+
+	rep = xmlStringDecodeEntities(ctxt, ent->content,
+				  XML_SUBSTITUTE_REF, 0, 0, 0);
+
+	ent->checked = (ctxt->nbentities - oldnbent + 1) * 2;
+	if (rep != NULL) {
+	    if (xmlStrchr(rep, '<'))
+		ent->checked |= 1;
+	    xmlFree(rep);
+	    rep = NULL;
+	}
+    }
     if (replacement != 0) {
 	if (replacement < XML_MAX_TEXT_LENGTH)
 	    return(0);
@@ -189,9 +212,12 @@ xmlParserEntityCheck(xmlParserCtxtPtr ctxt, size_t size,
             return (0);
     } else {
         /*
-         * strange we got no data for checking just return
+         * strange we got no data for checking
          */
-        return (0);
+	if (((ctxt->lastError.code != XML_ERR_UNDECLARED_ENTITY) &&
+	     (ctxt->lastError.code != XML_WAR_UNDECLARED_ENTITY)) ||
+	    (ctxt->nbentities <= 10000))
+	    return (0);
     }
     xmlFatalErr(ctxt, XML_ERR_ENTITY_LOOP, NULL);
     return (1);
@@ -2584,6 +2610,7 @@ xmlParserHandlePEReference(xmlParserCtxtPtr ctxt) {
 				      name, NULL);
 		    ctxt->valid = 0;
 		}
+		xmlParserEntityCheck(ctxt, 0, NULL, 0);
 	    } else if (ctxt->input->free != deallocblankswrapper) {
 		    input = xmlNewBlanksWrapperInputStream(ctxt, entity);
 		    if (xmlPushInput(ctxt, input) < 0)
@@ -2593,6 +2620,23 @@ xmlParserHandlePEReference(xmlParserCtxtPtr ctxt) {
 		    (entity->etype == XML_EXTERNAL_PARAMETER_ENTITY)) {
 		    xmlChar start[4];
 		    xmlCharEncoding enc;
+
+		    /*
+		     * Note: external parameter entities will not be loaded, it
+		     * is not required for a non-validating parser, unless the
+		     * option of validating, or substituting entities were
+		     * given. Doing so is far more secure as the parser will
+		     * only process data coming from the document entity by
+		     * default.
+		     */
+                    if ((entity->etype == XML_EXTERNAL_PARAMETER_ENTITY) &&
+		        ((ctxt->options & XML_PARSE_NOENT) == 0) &&
+			((ctxt->options & XML_PARSE_DTDVALID) == 0) &&
+			((ctxt->options & XML_PARSE_DTDLOAD) == 0) &&
+			((ctxt->options & XML_PARSE_DTDATTR) == 0) &&
+			(ctxt->replaceEntities == 0) &&
+			(ctxt->validate == 0))
+			return;
 
 		    /*
 		     * handle the extra spaces added before and after
@@ -2737,6 +2781,7 @@ xmlStringLenDecodeEntities(xmlParserCtxtPtr ctxt, const xmlChar *str, int len,
 	    if ((ctxt->lastError.code == XML_ERR_ENTITY_LOOP) ||
 	        (ctxt->lastError.code == XML_ERR_INTERNAL_ERROR))
 	        goto int_error;
+	    xmlParserEntityCheck(ctxt, 0, ent, 0);
 	    if (ent != NULL)
 	        ctxt->nbentities += ent->checked / 2;
 	    if ((ent != NULL) &&
@@ -2788,6 +2833,7 @@ xmlStringLenDecodeEntities(xmlParserCtxtPtr ctxt, const xmlChar *str, int len,
 	    ent = xmlParseStringPEReference(ctxt, &str);
 	    if (ctxt->lastError.code == XML_ERR_ENTITY_LOOP)
 	        goto int_error;
+	    xmlParserEntityCheck(ctxt, 0, ent, 0);
 	    if (ent != NULL)
 	        ctxt->nbentities += ent->checked / 2;
 	    if (ent != NULL) {
@@ -5603,6 +5649,7 @@ xmlParseEntityDecl(xmlParserCtxtPtr ctxt) {
 	if (RAW != '>') {
 	    xmlFatalErrMsgStr(ctxt, XML_ERR_ENTITY_NOT_FINISHED,
 	            "xmlParseEntityDecl: entity %s not terminated\n", name);
+	    xmlStopParser(ctxt);
 	} else {
 	    if (input != ctxt->input) {
 		xmlFatalErrMsg(ctxt, XML_ERR_ENTITY_BOUNDARY,
@@ -6714,6 +6761,8 @@ xmlParseConditionalSections(xmlParserCtxtPtr ctxt) {
 	SKIP_BLANKS;
 	if (RAW != '[') {
 	    xmlFatalErr(ctxt, XML_ERR_CONDSEC_INVALID, NULL);
+	    xmlStopParser(ctxt);
+	    return;
 	} else {
 	    if (ctxt->input->id != id) {
 		xmlValidityError(ctxt, XML_ERR_ENTITY_BOUNDARY,
@@ -6774,6 +6823,8 @@ xmlParseConditionalSections(xmlParserCtxtPtr ctxt) {
 	SKIP_BLANKS;
 	if (RAW != '[') {
 	    xmlFatalErr(ctxt, XML_ERR_CONDSEC_INVALID, NULL);
+	    xmlStopParser(ctxt);
+	    return;
 	} else {
 	    if (ctxt->input->id != id) {
 		xmlValidityError(ctxt, XML_ERR_ENTITY_BOUNDARY,
@@ -6829,6 +6880,8 @@ xmlParseConditionalSections(xmlParserCtxtPtr ctxt) {
 
     } else {
 	xmlFatalErr(ctxt, XML_ERR_CONDSEC_INVALID_KEYWORD, NULL);
+	xmlStopParser(ctxt);
+	return;
     }
 
     if (RAW == 0)
@@ -7286,6 +7339,7 @@ xmlParseReference(xmlParserCtxtPtr ctxt) {
 		   (ret != XML_WAR_UNDECLARED_ENTITY)) {
 	    xmlFatalErrMsgStr(ctxt, XML_ERR_UNDECLARED_ENTITY,
 		     "Entity '%s' failed to parse\n", ent->name);
+	    xmlParserEntityCheck(ctxt, 0, ent, 0);
 	} else if (list != NULL) {
 	    xmlFreeNodeList(list);
 	    list = NULL;
@@ -7392,7 +7446,7 @@ xmlParseReference(xmlParserCtxtPtr ctxt) {
 		/*
 		 * We are copying here, make sure there is no abuse
 		 */
-		ctxt->sizeentcopy += ent->length;
+		ctxt->sizeentcopy += ent->length + 5;
 		if (xmlParserEntityCheck(ctxt, 0, ent, ctxt->sizeentcopy))
 		    return;
 
@@ -7440,7 +7494,7 @@ xmlParseReference(xmlParserCtxtPtr ctxt) {
 		/*
 		 * We are copying here, make sure there is no abuse
 		 */
-		ctxt->sizeentcopy += ent->length;
+		ctxt->sizeentcopy += ent->length + 5;
 		if (xmlParserEntityCheck(ctxt, 0, ent, ctxt->sizeentcopy))
 		    return;
 
@@ -7626,6 +7680,7 @@ xmlParseEntityRef(xmlParserCtxtPtr ctxt) {
 		ctxt->sax->reference(ctxt->userData, name);
 	    }
 	}
+	xmlParserEntityCheck(ctxt, 0, ent, 0);
 	ctxt->valid = 0;
     }
 
@@ -7819,6 +7874,7 @@ xmlParseStringEntityRef(xmlParserCtxtPtr ctxt, const xmlChar ** str) {
 			  "Entity '%s' not defined\n",
 			  name);
 	}
+	xmlParserEntityCheck(ctxt, 0, ent, 0);
 	/* TODO ? check regressions ctxt->valid = 0; */
     }
 
@@ -7978,6 +8034,7 @@ xmlParsePEReference(xmlParserCtxtPtr ctxt)
 			  name, NULL);
 	    ctxt->valid = 0;
 	}
+	xmlParserEntityCheck(ctxt, 0, NULL, 0);
     } else {
 	/*
 	 * Internal checking in case the entity quest barfed
@@ -8217,6 +8274,7 @@ xmlParseStringPEReference(xmlParserCtxtPtr ctxt, const xmlChar **str) {
 			  name, NULL);
 	    ctxt->valid = 0;
 	}
+	xmlParserEntityCheck(ctxt, 0, NULL, 0);
     } else {
 	/*
 	 * Internal checking in case the entity quest barfed
@@ -12591,6 +12649,9 @@ xmlIOParseDTD(xmlSAXHandlerPtr sax, xmlParserInputBufferPtr input,
 	return(NULL);
     }
 
+    /* We are loading a DTD */
+    ctxt->options |= XML_PARSE_DTDLOAD;
+
     /*
      * Set-up the SAX context
      */
@@ -12717,6 +12778,9 @@ xmlSAXParseDTD(xmlSAXHandlerPtr sax, const xmlChar *ExternalID,
     if (ctxt == NULL) {
 	return(NULL);
     }
+
+    /* We are loading a DTD */
+    ctxt->options |= XML_PARSE_DTDLOAD;
 
     /*
      * Set-up the SAX context

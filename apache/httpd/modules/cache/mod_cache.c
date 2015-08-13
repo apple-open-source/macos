@@ -234,6 +234,11 @@ static int cache_quick_handler(request_rec *r, int lookup)
                     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv,
                             r, APLOGNO(00752) "Cache locked for url, not caching "
                             "response: %s", r->uri);
+                    /* cache_select() may have added conditional headers */
+                    if (cache->stale_headers) {
+                        r->headers_in = cache->stale_headers;
+                    }
+
                 }
             }
             else {
@@ -636,7 +641,6 @@ static int cache_handler(request_rec *r)
 static apr_status_t cache_out_filter(ap_filter_t *f, apr_bucket_brigade *in)
 {
     request_rec *r = f->r;
-    apr_bucket *e;
     cache_request_rec *cache = (cache_request_rec *)f->ctx;
 
     if (!cache) {
@@ -652,10 +656,8 @@ static apr_status_t cache_out_filter(ap_filter_t *f, apr_bucket_brigade *in)
             "cache: running CACHE_OUT filter");
 
     /* clean out any previous response up to EOS, if any */
-    for (e = APR_BRIGADE_FIRST(in);
-         e != APR_BRIGADE_SENTINEL(in);
-         e = APR_BUCKET_NEXT(e))
-    {
+    while (!APR_BRIGADE_EMPTY(in)) {
+        apr_bucket *e = APR_BRIGADE_FIRST(in);
         if (APR_BUCKET_IS_EOS(e)) {
             apr_bucket_brigade *bb = apr_brigade_create(r->pool,
                     r->connection->bucket_alloc);
@@ -1201,6 +1203,8 @@ static apr_status_t cache_save_filter(ap_filter_t *f, apr_bucket_brigade *in)
         apr_table_unset(r->headers_in, "If-Range");
         apr_table_unset(r->headers_in, "If-Unmodified-Since");
 
+        /* Currently HTTP_NOT_MODIFIED, and after the redirect, handlers won't think to set status to HTTP_OK */
+        r->status = HTTP_OK; 
         ap_internal_redirect(r->unparsed_uri, r);
 
         return APR_SUCCESS;

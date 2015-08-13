@@ -195,7 +195,7 @@ static const char *set_use_digest_algorithm(cmd_parms *cmd, void *config,
                            "AuthBasicUseDigestAlgorithm: ", alg, NULL);
     }
 
-    conf->use_digest_algorithm = apr_pstrdup(cmd->pool, alg);
+    conf->use_digest_algorithm = alg;
     conf->use_digest_algorithm_set = 1;
 
     return NULL;
@@ -315,8 +315,8 @@ static int authenticate_basic_user(request_rec *r)
 
     /* We need an authentication realm. */
     if (!ap_auth_name(r)) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR,
-                      0, r, APLOGNO(01615) "need AuthName: %s", r->uri);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01615)
+                      "need AuthName: %s", r->uri);
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -428,7 +428,7 @@ static int authenticate_basic_user(request_rec *r)
             break;
         }
 
-        /* If we're returning 403, tell them to try again. */
+        /* If we're returning 401, tell them to try again. */
         if (return_code == HTTP_UNAUTHORIZED) {
             note_basic_auth_failure(r);
         }

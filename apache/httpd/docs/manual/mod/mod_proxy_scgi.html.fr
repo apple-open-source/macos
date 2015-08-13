@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr"><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -50,16 +52,16 @@
       votre réseau, mais aussi pour l'Internet au sens large.</p>
     </div>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><h3>Sujets</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#examples">Exemples</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#env">Variables d'environnement</a></li>
+</ul><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#proxyscgiinternalredirect">ProxySCGIInternalRedirect</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#proxyscgisendfile">ProxySCGISendfile</a></li>
 </ul>
-<h3>Sujets</h3>
-<ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#examples">Exemples</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#env">Variables d'environnement</a></li>
-</ul><h3>Voir aussi</h3>
+<h3>Voir aussi</h3>
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></li>
 <li><code class="module"><a href="../mod/mod_proxy_balancer.html">mod_proxy_balancer</a></code></li>
@@ -81,18 +83,18 @@
     déjà cités. <code class="module"><a href="../mod/mod_lbmethod_byrequests.html">mod_lbmethod_byrequests</a></code> est le module
     par défaut et sera utilisé dans cet exemple de configuration.</p>
 
-    <div class="example"><h3>Passerelle à répartition de charge</h3><pre class="prettyprint lang-config">ProxyPass /scgi-bin/ balancer://somecluster/
-&lt;Proxy balancer://somecluster&gt;
-    BalancerMember scgi://localhost:4000
-    BalancerMember scgi://localhost:4001
+    <div class="example"><h3>Passerelle à répartition de charge</h3><pre class="prettyprint lang-config">ProxyPass "/scgi-bin/" "balancer://somecluster/"
+&lt;Proxy "balancer://somecluster"&gt;
+    BalancerMember "scgi://localhost:4000"
+    BalancerMember "scgi://localhost:4001"
 &lt;/Proxy&gt;</pre>
 </div>
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="env" id="env">Variables d'environnement</a></h2>
     <p>En plus des directives de configuration qui permettent de
-    contrôler le comportement de <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code>, de
-    nombreuses <dfn>variables d'environnement</dfn> permettent de
+    contrôler le comportement de <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code>, une
+    <dfn>variable d'environnement</dfn> peut aussi
     contrôler le fournisseur de protocole SCGI :</p>
     <dl>
         <dt>proxy-scgi-pathinfo</dt>
@@ -104,40 +106,53 @@
 	3.3 de la RFC 3875. Si au contraire vous souhaitez que
 	<code class="module"><a href="../mod/mod_proxy_scgi.html">mod_proxy_scgi</a></code> génère une estimation la plus
 	précise possible de <var>PATH_INFO</var>, définissez cette
-	variable d'environnement.</dd>
+	variable d'environnement. La variable doit être définie avant
+	que la directive <code class="directive"><a href="../mod/env.html#setenv">SetEnv</a></code> ne soit effective. Il est possible
+	d'utiliser à la	place la directive <code class="directive"><a href="../mod/setenv.html#setenvif">SetEnvIf</a></code> : <code>SetEnvIf Request_URI . proxy-scgi-pathinfo</code>
+	</dd>
     </dl>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="ProxySCGIInternalRedirect" id="ProxySCGIInternalRedirect">ProxySCGIInternalRedirect</a> <a name="proxyscgiinternalredirect" id="proxyscgiinternalredirect">Directive</a></h2>
+<div class="directive-section"><h2><a name="proxyscgiinternalredirect" id="proxyscgiinternalredirect">Directive</a> <a name="ProxySCGIInternalRedirect" id="ProxySCGIInternalRedirect">ProxySCGIInternalRedirect</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Active ou désactive les réponses de redirection interne en
 provenance du serveur cible.</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>ProxySCGIInternalRedirect On|Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>ProxySCGIInternalRedirect On|Off|<var>Headername</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>ProxySCGIInternalRedirect On</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel, répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy_scgi</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Le paramètre <var>Headername</var> est disponible depuis
+la version 2.4.13 du serveur HTTP Apache.</td></tr>
 </table>
     <p>La directive <code class="directive">ProxySCGIInternalRedirect</code>
     permet au serveur cible de rediriger en interne la passerelle vers
     une URL différente. Cette fonctionnalité trouve son origine dans
     <code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code> qui redirige la réponse en interne si
     l'état de la réponse est <code>OK</code> (<code>200</code>), et si
-    la réponse contient un en-tête <code>Location</code> dont la valeur
+    la réponse contient un en-tête <code>Location</code>
+    (ou un autre en-tête défini) dont la valeur
     débute par un slash (<code>/</code>). Cette valeur est interprétée
     comme une nouvelle URL locale vers laquelle Apache httpd effectue sa
     redirection.</p>
 
     <p>De ce point de vue, <code class="module"><a href="../mod/mod_proxy_scgi.html">mod_proxy_scgi</a></code> fait la même
     chose que <code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code>, mais vous pouvez en plus
-    désactiver la fonctionnalité.</p>
+    désactiver la fonctionnalité ou spécifier
+    l'utilisation d'un en-tête autre que <code>Location</code>.</p>
 
-    <div class="example"><h3>Exemple</h3><pre class="prettyprint lang-config">ProxySCGIInternalRedirect Off</pre>
+    <div class="example"><h3>Exemple</h3><pre class="prettyprint lang-config">    ProxySCGIInternalRedirect Off
+# Django et certains autres frameworks qualifient pleinement les "URLs
+# locales" définies par l'application ; il faut donc utiliser un autre
+# en-tête.
+&lt;Location /django-app/&gt;
+    ProxySCGIInternalRedirect X-Location
+&lt;/Location&gt;</pre>
 </div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="ProxySCGISendfile" id="ProxySCGISendfile">ProxySCGISendfile</a> <a name="proxyscgisendfile" id="proxyscgisendfile">Directive</a></h2>
+<div class="directive-section"><h2><a name="proxyscgisendfile" id="proxyscgisendfile">Directive</a> <a name="ProxySCGISendfile" id="ProxySCGISendfile">ProxySCGISendfile</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Active l'évaluation du pseudo en-tête de réponse
 <var>X-Sendfile</var></td></tr>
@@ -206,7 +221,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_proxy_scgi.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

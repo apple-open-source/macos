@@ -489,7 +489,9 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
                 memset(properties->model_info, 0, (SMB_MAXFNAMELEN * 2));
                 /* only when we are mac to mac */
                 if ((vcp->vc_misc_flags & SMBV_OSX_SERVER) && vcp->vc_model_info) {
-                    memcpy(properties->model_info, vcp->vc_model_info, strlen(vcp->vc_model_info));
+					strlcpy(properties->model_info,
+							vcp->vc_model_info,
+							sizeof(properties->model_info));
                 }
 			}
 

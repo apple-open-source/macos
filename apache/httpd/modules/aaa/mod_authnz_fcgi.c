@@ -406,13 +406,12 @@ enum {
  *
  * Returns 0 if it can't find the end of the headers, and 1 if it found the
  * end of the headers. */
-static int handle_headers(request_rec *r,
-                          int *state,
-                          char *readbuf)
+static int handle_headers(request_rec *r, int *state,
+                          const char *readbuf, apr_size_t readlen)
 {
     const char *itr = readbuf;
 
-    while (*itr) {
+    while (readlen--) {
         if (*itr == '\r') {
             switch (*state) {
                 case HDR_STATE_GOT_CRLF:
@@ -472,7 +471,7 @@ static apr_status_t handle_response(const fcgi_provider_conf *conf,
 {
     apr_bucket *b;
     apr_bucket_brigade *ob;
-    apr_size_t orspbuflen;
+    apr_size_t orspbuflen = 0;
     apr_status_t rv = APR_SUCCESS;
     const char *fn = "handle_response";
     int header_state = HDR_STATE_READING_HEADERS;
@@ -555,7 +554,8 @@ static apr_status_t handle_response(const fcgi_provider_conf *conf,
                 APR_BRIGADE_INSERT_TAIL(ob, b);
 
                 if (!seen_end_of_headers) {
-                    int st = handle_headers(r, &header_state, readbuf);
+                    int st = handle_headers(r, &header_state,
+                                            readbuf, readbuflen);
 
                     if (st == 1) {
                         int status;
@@ -642,6 +642,10 @@ static apr_status_t handle_response(const fcgi_provider_conf *conf,
                           "%d", fn, type);
             break;
         }
+        /* Leave on above switch's inner error. */
+        if (rv != APR_SUCCESS) {
+            break;
+        }
 
         /*
          * Read/discard any trailing padding.
@@ -698,7 +702,7 @@ static void req_rsp(request_rec *r, const fcgi_provider_conf *conf,
 {
     const char *fn = "req_rsp";
     apr_pool_t *temp_pool;
-    apr_size_t orspbuflen;
+    apr_size_t orspbuflen = 0;
     apr_socket_t *s;
     apr_status_t rv;
     apr_table_t *saved_subprocess_env = 
@@ -1164,7 +1168,7 @@ static const char *fcgi_define_provider(cmd_parms *cmd,
     char *host;
     const char *err, *stype;
     fcgi_provider_conf *conf = apr_pcalloc(cmd->pool, sizeof(*conf));
-    int ca = 0, rc;
+    int ca = 0, rc, port;
 
     fcgi_backend_regex = ap_rxplus_compile(cmd->pool, FCGI_BACKEND_REGEX_STR);
     if (!fcgi_backend_regex) {
@@ -1227,8 +1231,8 @@ static const char *fcgi_define_provider(cmd_parms *cmd,
         host[strlen(host) - 1] = '\0';
     }
 
-    conf->port = atoi(ap_rxplus_pmatch(cmd->pool, fcgi_backend_regex, 2));
-    if (conf->port > 65535) {
+    port = atoi(ap_rxplus_pmatch(cmd->pool, fcgi_backend_regex, 2));
+    if (port > 65535) {
         return apr_pstrcat(cmd->pool,
                            dname, ": backend-address '",
                            argv[ca],
@@ -1238,6 +1242,7 @@ static const char *fcgi_define_provider(cmd_parms *cmd,
 
     conf->backend = argv[ca];
     conf->host = host;
+    conf->port = port;
     ca++;
 
     rv = apr_sockaddr_info_get(&conf->backend_addrs, conf->host,

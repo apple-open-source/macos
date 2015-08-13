@@ -163,10 +163,11 @@ static void uldap_connection_close(util_ldap_connection_t *ldc)
          /* mark our connection as available for reuse */
          ldc->freed = apr_time_now();
          ldc->r = NULL;
-#if APR_HAS_THREADS
-         apr_thread_mutex_unlock(ldc->lock);
-#endif
      }
+
+#if APR_HAS_THREADS
+     apr_thread_mutex_unlock(ldc->lock);
+#endif
 }
 
 
@@ -374,7 +375,7 @@ static int uldap_connection_init(request_rec *r,
 
     if (ldc->ChaseReferrals != AP_LDAP_CHASEREFERRALS_SDKDEFAULT) {
         /* Set options for rebind and referrals. */
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, APLOGNO(01278)
+        ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, r->server, APLOGNO(01278)
                 "LDAP: Setting referrals to %s.",
                 ((ldc->ChaseReferrals == AP_LDAP_CHASEREFERRALS_ON) ? "On" : "Off"));
         apr_ldap_set_option(r->pool, ldc->ldap,
@@ -1095,13 +1096,19 @@ static int uldap_cache_compare(request_rec *r, util_ldap_connection_t *ldc,
                     ldc->reason = "Comparison no such attribute (cached)";
                 }
                 else {
-                    ldc->reason = "Comparison undefined (cached)";
+                    ldc->reason = apr_psprintf(r->pool, 
+                                              "Comparison undefined: (%d): %s (adding to cache)", 
+                                              result, ldap_err2string(result));
                 }
 
                 /* record the result code to return with the reason... */
                 result = compare_nodep->result;
                 /* and unlock this read lock */
                 LDAP_CACHE_UNLOCK();
+
+                ap_log_rerror(APLOG_MARK, APLOG_TRACE5, 0, r, 
+                              "ldap_compare_s(%pp, %s, %s, %s) = %s (cached)", 
+                              ldc->ldap, dn, attrib, value, ldap_err2string(result));
                 return result;
             }
         }
@@ -1185,19 +1192,26 @@ start_over:
             }
             LDAP_CACHE_UNLOCK();
         }
+
         if (LDAP_COMPARE_TRUE == result) {
             ldc->reason = "Comparison true (adding to cache)";
-            return LDAP_COMPARE_TRUE;
         }
         else if (LDAP_COMPARE_FALSE == result) {
             ldc->reason = "Comparison false (adding to cache)";
-            return LDAP_COMPARE_FALSE;
+        }
+        else if (LDAP_NO_SUCH_ATTRIBUTE == result) {
+            ldc->reason = "Comparison no such attribute (adding to cache)";
         }
         else {
-            ldc->reason = "Comparison no such attribute (adding to cache)";
-            return LDAP_NO_SUCH_ATTRIBUTE;
+            ldc->reason = apr_psprintf(r->pool, 
+                                       "Comparison undefined: (%d): %s (adding to cache)", 
+                                        result, ldap_err2string(result));
         }
     }
+
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE5, 0, r, 
+                  "ldap_compare_s(%pp, %s, %s, %s) = %s", 
+                  ldc->ldap, dn, attrib, value, ldap_err2string(result));
     return result;
 }
 
@@ -1824,7 +1838,7 @@ start_over:
          * combination, which might be reused unintentionally next time this
          * connection is used from the connection pool.
          */
-        ldc->must_rebind = 0;
+        ldc->must_rebind = 1;
         ap_log_rerror(APLOG_MARK, APLOG_TRACE5, 0, r, "LDC %pp used for authn, must be rebound", ldc);
     }
 
@@ -2717,8 +2731,8 @@ static const char *util_ldap_set_op_timeout(cmd_parms *cmd,
 }
 
 static const char *util_ldap_set_conn_ttl(cmd_parms *cmd,
-                                            void *dummy,
-                                            const char *val)
+                                          void *dummy,
+                                          const char *val)
 {
     apr_interval_time_t timeout;
     util_ldap_state_t *st =
@@ -2726,19 +2740,20 @@ static const char *util_ldap_set_conn_ttl(cmd_parms *cmd,
                                                   &ldap_module);
 
     if (ap_timeout_parameter_parse(val, &timeout, "s") != APR_SUCCESS) {
-        return "LDAPConnPoolTTL has wrong format";
+        return "LDAPConnectionPoolTTL has wrong format";
     }
 
     if (timeout < 0) {
         /* reserve -1 for default value */
-        timeout =  AP_LDAP_CONNPOOL_INFINITE;
+        timeout = AP_LDAP_CONNPOOL_INFINITE;
     }
     st->connection_pool_ttl = timeout;
     return NULL;
 }
+
 static const char *util_ldap_set_retry_delay(cmd_parms *cmd,
-                                            void *dummy,
-                                            const char *val)
+                                             void *dummy,
+                                             const char *val)
 {
     apr_interval_time_t timeout;
     util_ldap_state_t *st =
@@ -2763,8 +2778,8 @@ static const char *util_ldap_set_retry_delay(cmd_parms *cmd,
 }
 
 static const char *util_ldap_set_retries(cmd_parms *cmd,
-                                            void *dummy,
-                                            const char *val)
+                                         void *dummy,
+                                         const char *val)
 {
     util_ldap_state_t *st =
         (util_ldap_state_t *)ap_get_module_config(cmd->server->module_config,

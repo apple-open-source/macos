@@ -20,6 +20,10 @@
 
 module AP_MODULE_DECLARE_DATA proxy_fcgi_module;
 
+typedef struct {
+    int need_dirwalk;
+} fcgi_req_config_t;
+
 /*
  * Canonicalise http-like URLs.
  * scheme is the scheme for the URL
@@ -29,8 +33,11 @@ module AP_MODULE_DECLARE_DATA proxy_fcgi_module;
 static int proxy_fcgi_canon(request_rec *r, char *url)
 {
     char *host, sport[7];
-    const char *err, *path;
+    const char *err;
+    char *path;
     apr_port_t port, def_port;
+    fcgi_req_config_t *rconf = NULL;
+    const char *pathinfo_type = NULL;
 
     if (strncasecmp(url, "fcgi:", 5) == 0) {
         url += 5;
@@ -76,11 +83,51 @@ static int proxy_fcgi_canon(request_rec *r, char *url)
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01060)
                   "set r->filename to %s", r->filename);
 
-    if (apr_table_get(r->subprocess_env, "proxy-fcgi-pathinfo")) {
-        r->path_info = apr_pstrcat(r->pool, "/", path, NULL);
+    rconf = ap_get_module_config(r->request_config, &proxy_fcgi_module);
+    if (rconf == NULL) { 
+        rconf = apr_pcalloc(r->pool, sizeof(fcgi_req_config_t));
+        ap_set_module_config(r->request_config, &proxy_fcgi_module, rconf);
+    }
 
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01061)
-                      "set r->path_info to %s", r->path_info);
+    if (NULL != (pathinfo_type = apr_table_get(r->subprocess_env, "proxy-fcgi-pathinfo"))) {
+        /* It has to be on disk for this to work */
+        if (!strcasecmp(pathinfo_type, "full")) { 
+            rconf->need_dirwalk = 1;
+            ap_unescape_url_keep2f(path, 0);
+        }
+        else if (!strcasecmp(pathinfo_type, "first-dot")) { 
+            char *split = ap_strchr(path, '.');
+            if (split) { 
+                char *slash = ap_strchr(split, '/');
+                if (slash) { 
+                    r->path_info = apr_pstrdup(r->pool, slash);
+                    ap_unescape_url_keep2f(r->path_info, 0);
+                    *slash = '\0'; /* truncate path */
+                }
+            }
+        }
+        else if (!strcasecmp(pathinfo_type, "last-dot")) { 
+            char *split = ap_strrchr(path, '.');
+            if (split) { 
+                char *slash = ap_strchr(split, '/');
+                if (slash) { 
+                    r->path_info = apr_pstrdup(r->pool, slash);
+                    ap_unescape_url_keep2f(r->path_info, 0);
+                    *slash = '\0'; /* truncate path */
+                }
+            }
+        }
+        else { 
+            /* before proxy-fcgi-pathinfo had multi-values. This requires the
+             * the FCGI server to fixup PATH_INFO because it's the entire path
+             */
+            r->path_info = apr_pstrcat(r->pool, "/", path, NULL);
+            if (!strcasecmp(pathinfo_type, "unescape")) { 
+                ap_unescape_url_keep2f(r->path_info, 0);
+            }
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01061)
+                    "set r->path_info to %s", r->path_info);
+        }
     }
 
     return OK;
@@ -178,7 +225,9 @@ static apr_status_t send_begin_request(proxy_conn_rec *conn,
     ap_fcgi_fill_in_header(&header, AP_FCGI_BEGIN_REQUEST, request_id,
                            sizeof(abrb), 0);
 
-    ap_fcgi_fill_in_request_body(&brb, AP_FCGI_RESPONDER, AP_FCGI_KEEP_CONN);
+    ap_fcgi_fill_in_request_body(&brb, AP_FCGI_RESPONDER,
+                                 ap_proxy_connection_reusable(conn)
+                                     ? AP_FCGI_KEEP_CONN : 0);
 
     ap_fcgi_header_to_array(&header, farray);
     ap_fcgi_begin_request_body_to_array(&brb, abrb);
@@ -204,9 +253,26 @@ static apr_status_t send_environment(proxy_conn_rec *conn, request_rec *r,
     apr_status_t rv;
     apr_size_t avail_len, len, required_len;
     int next_elem, starting_elem;
+    char *proxyfilename = r->filename;
+    fcgi_req_config_t *rconf = ap_get_module_config(r->request_config, &proxy_fcgi_module);
+
+    if (rconf) { 
+       if (rconf->need_dirwalk) { 
+          ap_directory_walk(r);
+       }
+    }
+
+    /* Strip balancer prefix */
+    if (r->filename && !strncmp(r->filename, "proxy:balancer://", 17)) { 
+        char *newfname = apr_pstrdup(r->pool, r->filename+17);
+        newfname = ap_strchr(newfname, '/');
+        r->filename = newfname;
+    }
 
     ap_add_common_vars(r);
     ap_add_cgi_vars(r);
+ 
+    r->filename = proxyfilename;
 
     /* XXX are there any FastCGI specific env vars we need to send? */
 
@@ -219,17 +285,15 @@ static apr_status_t send_environment(proxy_conn_rec *conn, request_rec *r,
     envarr = apr_table_elts(r->subprocess_env);
     elts = (const apr_table_entry_t *) envarr->elts;
 
-#ifdef FCGI_DUMP_ENV_VARS
-    {
+    if (APLOGrtrace8(r)) {
         int i;
         
         for (i = 0; i < envarr->nelts; ++i) {
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01062)
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE8, 0, r, APLOGNO(01062)
                           "sending env var '%s' value '%s'",
                           elts[i].key, elts[i].val);
         }
     }
-#endif
 
     /* Send envvars over in as many FastCGI records as it takes, */
     next_elem = 0; /* starting with the first one */
@@ -308,13 +372,12 @@ enum {
  *
  * Returns 0 if it can't find the end of the headers, and 1 if it found the
  * end of the headers. */
-static int handle_headers(request_rec *r,
-                          int *state,
-                          char *readbuf)
+static int handle_headers(request_rec *r, int *state,
+                          const char *readbuf, apr_size_t readlen)
 {
     const char *itr = readbuf;
 
-    while (*itr) {
+    while (readlen--) {
         if (*itr == '\r') {
             switch (*state) {
                 case HDR_STATE_GOT_CRLF:
@@ -364,11 +427,11 @@ static int handle_headers(request_rec *r,
 
 static apr_status_t dispatch(proxy_conn_rec *conn, proxy_dir_conf *conf,
                              request_rec *r, apr_pool_t *setaside_pool,
-                             apr_uint16_t request_id,
-                             const char **err)
+                             apr_uint16_t request_id, const char **err,
+                             int *bad_request, int *has_responded)
 {
     apr_bucket_brigade *ib, *ob;
-    int seen_end_of_headers = 0, done = 0;
+    int seen_end_of_headers = 0, done = 0, ignore_body = 0;
     apr_status_t rv = APR_SUCCESS;
     int script_error_status = HTTP_OK;
     conn_rec *c = r->connection;
@@ -423,6 +486,7 @@ static apr_status_t dispatch(proxy_conn_rec *conn, proxy_dir_conf *conf,
                                 iobuf_size);
             if (rv != APR_SUCCESS) {
                 *err = "reading input brigade";
+                *bad_request = 1;
                 break;
             }
 
@@ -510,10 +574,8 @@ static apr_status_t dispatch(proxy_conn_rec *conn, proxy_dir_conf *conf,
                 break;
             }
 
-#ifdef FCGI_DUMP_HEADERS
-            ap_log_rdata(APLOG_MARK, APLOG_DEBUG, r, "FastCGI header",
+            ap_log_rdata(APLOG_MARK, APLOG_TRACE8, r, "FastCGI header",
                          farray, AP_FCGI_HEADER_LEN, 0);
-#endif
 
             ap_fcgi_header_fields_from_array(&version, &type, &rid,
                                              &clen, &plen, farray);
@@ -561,7 +623,8 @@ recv_again:
                     APR_BRIGADE_INSERT_TAIL(ob, b);
 
                     if (! seen_end_of_headers) {
-                        int st = handle_headers(r, &header_state, iobuf);
+                        int st = handle_headers(r, &header_state,
+                                                iobuf, readbuflen);
 
                         if (st == 1) {
                             int status;
@@ -575,11 +638,23 @@ recv_again:
                                 apr_brigade_cleanup(ob);
                                 tmp_b = apr_bucket_eos_create(c->bucket_alloc);
                                 APR_BRIGADE_INSERT_TAIL(ob, tmp_b);
+
+                                *has_responded = 1;
                                 r->status = status;
-                                ap_pass_brigade(r->output_filters, ob);
-                                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01070)
-                                              "Error parsing script headers");
-                                rv = APR_EINVAL;
+                                rv = ap_pass_brigade(r->output_filters, ob);
+                                if (rv != APR_SUCCESS) {
+                                    *err = "passing headers brigade to output filters";
+                                }
+                                else if (status == HTTP_NOT_MODIFIED) {
+                                    /* The 304 response MUST NOT contain
+                                     * a message-body, ignore it. */
+                                    ignore_body = 1;
+                                }
+                                else {
+                                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01070)
+                                                    "Error parsing script headers");
+                                    rv = APR_EINVAL;
+                                }
                                 break;
                             }
 
@@ -598,10 +673,11 @@ recv_again:
                             }
 
                             if (script_error_status == HTTP_OK
-                                && !APR_BRIGADE_EMPTY(ob)) {
+                                && !APR_BRIGADE_EMPTY(ob) && !ignore_body) {
                                 /* Send the part of the body that we read while
                                  * reading the headers.
                                  */
+                                *has_responded = 1;
                                 rv = ap_pass_brigade(r->output_filters, ob);
                                 if (rv != APR_SUCCESS) {
                                     *err = "passing brigade to output filters";
@@ -626,7 +702,8 @@ recv_again:
                          * but that could be a huge amount of data; so we pass
                          * along smaller chunks
                          */
-                        if (script_error_status == HTTP_OK) {
+                        if (script_error_status == HTTP_OK && !ignore_body) {
+                            *has_responded = 1;
                             rv = ap_pass_brigade(r->output_filters, ob);
                             if (rv != APR_SUCCESS) {
                                 *err = "passing brigade to output filters";
@@ -636,7 +713,7 @@ recv_again:
                         apr_brigade_cleanup(ob);
                     }
 
-                    /* If we didn't read all the data go back and get the
+                    /* If we didn't read all the data, go back and get the
                      * rest of it. */
                     if (clen > readbuflen) {
                         clen -= readbuflen;
@@ -648,6 +725,8 @@ recv_again:
                     if (script_error_status == HTTP_OK) {
                         b = apr_bucket_eos_create(c->bucket_alloc);
                         APR_BRIGADE_INSERT_TAIL(ob, b);
+
+                        *has_responded = 1;
                         rv = ap_pass_brigade(r->output_filters, ob);
                         if (rv != APR_SUCCESS) {
                             *err = "passing brigade to output filters";
@@ -663,7 +742,7 @@ recv_again:
                 /* TODO: Should probably clean up this logging a bit... */
                 if (clen) {
                     ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01071)
-                                  "Got error '%s'", iobuf);
+                                  "Got error '%.*s'", (int)readbuflen, iobuf);
                 }
 
                 if (clen > readbuflen) {
@@ -681,12 +760,16 @@ recv_again:
                               "Got bogus record %d", type);
                 break;
             }
+            /* Leave on above switch's inner error. */
+            if (rv != APR_SUCCESS) {
+                break;
+            }
 
             if (plen) {
                 rv = get_data_full(conn, iobuf, plen);
                 if (rv != APR_SUCCESS) {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-                                  APLOGNO(02537) "Error occurred reading padding");
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(02537)
+                                  "Error occurred reading padding");
                     break;
                 }
             }
@@ -698,6 +781,7 @@ recv_again:
 
     if (script_error_status != HTTP_OK) {
         ap_die(script_error_status, r); /* send ErrorDocument */
+        *has_responded = 1;
     }
 
     return rv;
@@ -714,7 +798,7 @@ static int fcgi_do_request(apr_pool_t *p, request_rec *r,
                            char *url, char *server_portstr)
 {
     /* Request IDs are arbitrary numbers that we assign to a
-     * single request. This would allow multiplex/pipelinig of
+     * single request. This would allow multiplex/pipelining of
      * multiple requests to the same FastCGI connection, but
      * we don't support that, and always use a value of '1' to
      * keep things simple. */
@@ -722,6 +806,8 @@ static int fcgi_do_request(apr_pool_t *p, request_rec *r,
     apr_status_t rv;
     apr_pool_t *temp_pool;
     const char *err;
+    int bad_request = 0,
+        has_responded = 0;
 
     /* Step 1: Send AP_FCGI_BEGIN_REQUEST */
     rv = send_begin_request(conn, request_id);
@@ -744,7 +830,8 @@ static int fcgi_do_request(apr_pool_t *p, request_rec *r,
     }
 
     /* Step 3: Read records from the back end server and handle them. */
-    rv = dispatch(conn, conf, r, temp_pool, request_id, &err);
+    rv = dispatch(conn, conf, r, temp_pool, request_id,
+                  &err, &bad_request, &has_responded);
     if (rv != APR_SUCCESS) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01075)
                       "Error dispatching request to %s: %s%s%s",
@@ -753,6 +840,12 @@ static int fcgi_do_request(apr_pool_t *p, request_rec *r,
                       err ? err : "",
                       err ? ")" : "");
         conn->close = 1;
+        if (has_responded) {
+            return AP_FILTER_ERROR;
+        }
+        if (bad_request) {
+            return ap_map_http_request_error(rv, HTTP_BAD_REQUEST);
+        }
         return HTTP_SERVICE_UNAVAILABLE;
     }
 
@@ -814,11 +907,15 @@ static int proxy_fcgi_handler(request_rec *r, proxy_worker *worker,
         goto cleanup;
     }
 
-    /* XXX Setting close to 0 is a great way to end up with
-     *     timeouts at this point, since we lack good ways to manage the
-     *     back end fastcgi processes.  This should be revisited when we
-     *     have a better story on that part of things. */
+    /* This scheme handler does not reuse connections by default, to
+     * avoid tying up a fastcgi that isn't expecting to work on 
+     * parallel requests.  But if the user went out of their way to
+     * type the default value of disablereuse=off, we'll allow it.
+     */  
     backend->close = 1;
+    if (worker->s->disablereuse_set && !worker->s->disablereuse) { 
+        backend->close = 0;
+    }
 
     /* Step Two: Make the Connection */
     if (ap_proxy_connect_backend(FCGI_SCHEME, backend, worker, r->server)) {

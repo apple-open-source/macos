@@ -37,8 +37,6 @@
 #  include <fcntl.h>
 #endif
 
-#include <curl/mprintf.h>
-
 #include "warnless.h"
 #include "memdebug.h"
 
@@ -197,9 +195,7 @@ int test(char *URL)
   }
 
 test_cleanup:
-
-  if(stream_uri)
-    free(stream_uri);
+  free(stream_uri);
 
   if(protofile)
     fclose(protofile);

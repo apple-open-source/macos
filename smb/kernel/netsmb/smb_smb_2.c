@@ -2888,9 +2888,20 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                             if (vcp->vc_model_info) {
                                 SMB_FREE(vcp->vc_model_info, M_SMBTEMP);
                             }
+							
+							/*
+							 * Set max string len of the model info at
+							 * (SMB_MAXFNAMELEN * 2) - 1 to keep it reasonable
+							 * sized
+							 */
+							if ((local_str != NULL) &&
+								(strlen(local_str) >= (SMB_MAXFNAMELEN * 2))) {
+								local_str[(SMB_MAXFNAMELEN * 2) - 1] = 0;
+							}
+							
                             vcp->vc_model_info = local_str;
                         }
-                        
+						
                         /*
                          * Its a OS X server or at least one pretending to be
                          * one.

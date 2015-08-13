@@ -212,13 +212,6 @@ pam_begin_session(pw)
     char **pam_envp;
 #endif
     int status = PAM_SUCCESS;
-    int eval;
-
-    /* If the user did not have to authenticate there is no pam handle yet. */
-    if (pamh == NULL) {
-        if (AUTH_SUCCESS != (eval = pam_init(pw, NULL)))
-		    return eval;
-	}
 
     /*
      * If there is no valid user we cannot open a PAM session.
@@ -226,11 +219,11 @@ pam_begin_session(pw)
      * uids, it just means we are done from a session management standpoint.
      */
     if (pw == NULL) {
-    	if (pamh != NULL) {
-    		(void) pam_end(pamh, PAM_SUCCESS | PAM_DATA_SILENT);
-    		pamh = NULL;
-    	}
-    	goto done;
+	if (pamh != NULL) {
+	    (void) pam_end(pamh, PAM_SUCCESS | PAM_DATA_SILENT);
+	    pamh = NULL;
+	}
+	goto done;
     }
 
     /*

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head><!--
+<html xmlns="http://www.w3.org/1999/xhtml" lang="tr" xml:lang="tr"><head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -210,13 +212,13 @@
     amaçlıyorsanız, şu yönergeleri kullanabilirsiniz. Bu yönergeleri
     <code>/usr/local/apache/htdocs/secret/.htaccess</code> dosyası içine
     veya <code>httpd.conf</code> içindeki &lt;Directory
-    /usr/local/apache/htdocs/secret&gt; bölümüne koyabilirsiniz.</p>
+    "/usr/local/apache/htdocs/secret"&gt; bölümüne koyabilirsiniz.</p>
 
     <pre class="prettyprint lang-config">AuthType Basic
 AuthName "Gizli Dosyalar"
 # (Aşağıdaki satırın kullanımı isteğe bağlıdır)
 AuthBasicProvider file
-AuthUserFile /usr/local/apache/passwd/passwords
+AuthUserFile "/usr/local/apache/passwd/passwords"
 Require user umut</pre>
 
 
@@ -321,8 +323,8 @@ Require user umut</pre>
 AuthName "Davete Binaen"
 # Satır isteğe bağlıdır:
 AuthBasicProvider file
-AuthUserFile /usr/local/apache/passwd/passwords
-AuthGroupFile /usr/local/apache/passwd/groups
+AuthUserFile "/usr/local/apache/passwd/passwords"
+AuthGroupFile "/usr/local/apache/passwd/groups"
 Require group Grupismi</pre>
 
 
@@ -376,11 +378,11 @@ Require group Grupismi</pre>
 
     <p>Bir metin dosyası yerine bir dbm dosyası kullanım örneği:</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /www/docs/private&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/www/docs/private"&gt;
     AuthName "Private"
     AuthType Basic
     AuthBasicProvider dbm
-    AuthDBMUserFile /www/passwords/passwd.dbm
+    AuthDBMUserFile "/www/passwords/passwd.dbm"
     Require valid-user
 &lt;/Directory&gt;</pre>
 
@@ -399,11 +401,11 @@ Require group Grupismi</pre>
     örnekte dosya ve LDAP tabanlı kimlik doğrulama tedarikçileri bir
     arada kullanılmıştır.</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /www/docs/private&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/www/docs/private"&gt;
     AuthName "Private"
     AuthType Basic
     AuthBasicProvider file ldap
-    AuthUserFile /usr/local/apache/passwd/passwords
+    AuthUserFile "/usr/local/apache/passwd/passwords"
     AuthLDAPURL ldap://ldaphost/o=yourorg
     Require valid-user
 &lt;/Directory&gt;</pre>
@@ -422,13 +424,13 @@ Require group Grupismi</pre>
     dosya için hem dosyalı hem de LDAP grup kimlik doğrulaması
     kullanılmıştır.</p>
 
-    <pre class="prettyprint lang-config">&lt;Directory /www/docs/private&gt;
+    <pre class="prettyprint lang-config">&lt;Directory "/www/docs/private"&gt;
     AuthName "Private"
     AuthType Basic
     AuthBasicProvider file
-    AuthUserFile /usr/local/apache/passwd/passwords
+    AuthUserFile "/usr/local/apache/passwd/passwords"
     AuthLDAPURL ldap://ldaphost/o=yourorg
-    AuthGroupFile /usr/local/apache/passwd/groups
+    AuthGroupFile "/usr/local/apache/passwd/groups"
     Require group GroupName
     Require ldap-group cn=mygroup,o=yourorg
 &lt;/Directory&gt;</pre>
@@ -613,7 +615,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/auth.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

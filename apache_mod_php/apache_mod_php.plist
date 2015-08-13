@@ -4,28 +4,28 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2015-5-3</string>
+		<string>2015-7-10</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>f5666659d9279f725f4351866bb73bed</string>
+		<string>e105f664450efd87513f5b4a2055e917</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
 			<string>Missing man pages</string>
 			<string>Bug fixes for phar</string>
 			<string>Removed GPLv3 bison-generated parsers</string>
-                </array>
+		</array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceModificationsMD5</key>
-		<string>e32fdde6d5145b360af54ce0fab1d195</string>
+		<string>259dd375b7a88c2637381f6ee102666e</string>
 		<key>OpenSourceURL</key>
 		<string>http://php.net/downloads.php</string>
 		<key>OpenSourceVersion</key>
-		<string>5.5.24</string>
+		<string>5.5.27</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>
@@ -68,6 +68,26 @@
 		<string>2.2.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.xdebug.org/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2015-02-24</string>
+		<key>OpenSourceLicense</key>
+		<string>libpng</string>
+		<key>OpenSourceMD5</key>
+		<string>1a4ad377919ab15b54f6cb6a3ae2622d</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key> 
+		<string>libpng</string> 
+		<key>OpenSourceSHA1</key> 
+		<string>50f3b31d013a31e2cac70db177094f6a7618b8be</string> 
+		<key>OpenSourceURL</key> 
+		<string>http://sourceforge.net/projects/libpng/files/libpng16/1.6.16/libpng-1.6.16.tar.gz</string> 
+		<key>OpenSourceVersion</key> 
+		<string>1.6.16</string> 
+		<key>OpenSourceWebsiteURL</key> 
+		<string>http://www.libpng.org/</string> 
 	</dict>
 </array>
 </plist>
